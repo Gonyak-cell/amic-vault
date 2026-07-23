@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { classifyComposeFailure } from '../helpers/compose-failure-diagnostic';
+
 interface CertificatePair {
   certificate: string;
   key: string;
@@ -286,7 +288,39 @@ function runCompose(args: readonly string[], timeout = 120_000): string {
     maxBuffer: 8 * 1024 * 1024,
   });
   if (result.status !== 0) {
-    throw new Error(`INGESTION_SANDBOX_COMPOSE_FAILED:${args[0] ?? 'unknown'}`);
+    const logs = spawnSync(
+      'docker',
+      composeArgs([
+        'logs',
+        '--no-color',
+        '--tail',
+        '80',
+        'storage-fixture',
+        'clamav-fixture',
+        'unapproved-fixture',
+        'ingestion',
+        'ingestion-gateway',
+        'api-probe',
+      ]),
+      {
+        cwd: repoRoot,
+        env: composeEnvironment,
+        encoding: 'utf8',
+        timeout: 15_000,
+        maxBuffer: 2 * 1024 * 1024,
+      },
+    );
+    const state = spawnSync('docker', composeArgs(['ps', '--all', '--format', 'json']), {
+      cwd: repoRoot,
+      env: composeEnvironment,
+      encoding: 'utf8',
+      timeout: 15_000,
+      maxBuffer: 512 * 1024,
+    });
+    const reason = classifyComposeFailure(
+      `${state.stdout}\n${state.stderr}\n${logs.stdout}\n${logs.stderr}\n${result.stderr}`,
+    );
+    throw new Error(`INGESTION_SANDBOX_COMPOSE_FAILED:${args[0] ?? 'unknown'}:${reason}`);
   }
   return result.stdout;
 }
