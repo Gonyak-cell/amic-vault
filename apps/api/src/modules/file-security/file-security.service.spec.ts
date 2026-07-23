@@ -48,7 +48,7 @@ describe('FileSecurityService', () => {
     expect(promotion.promote).toHaveBeenCalledWith({ tenantId, quarantineRef, expectedSha256 });
   });
 
-  it('uses the private gateway profile binding and leaves gateway identity injection to the gateway', async () => {
+  it('never falls back to global fetch when private gateway credentials are unavailable', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('INGESTION_WORKER_IDENTITY_PROFILE', 'private-gateway-mtls');
     vi.stubEnv('INGESTION_GATEWAY_MTLS_ENABLED', 'true');
@@ -57,6 +57,10 @@ describe('FileSecurityService', () => {
     vi.stubEnv('INGESTION_GATEWAY_WORKLOAD_SUBJECT', 'amic-vault-api');
     vi.stubEnv('INGESTION_GATEWAY_AUDIENCE', 'amic-vault-ingestion');
     vi.stubEnv('INGESTION_WORKER_URL', 'https://ingestion-gateway.internal');
+    vi.stubEnv('INGESTION_GATEWAY_CA_FILE', '/missing/private-gateway-ca.pem');
+    vi.stubEnv('INGESTION_GATEWAY_CLIENT_CERT_FILE', '/missing/private-gateway-client.pem');
+    vi.stubEnv('INGESTION_GATEWAY_CLIENT_KEY_FILE', '/missing/private-gateway-client.key');
+    vi.stubEnv('INGESTION_GATEWAY_SERVER_NAME', 'ingestion-gateway.internal');
     const query = vi.fn(async (sql: string) => {
       if (sql.includes('FROM file_security_scans')) return { rows: [{ scan_id: '33333333-3333-4333-8333-333333333333', matter_id: '44444444-4444-4444-8444-444444444444', quarantine_storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`, size_bytes: '4', state: 'quarantined' }] };
       if (sql.includes('COALESCE(MAX(attempt_no)')) return { rows: [{ attempt_no: 1 }] };
@@ -65,20 +69,20 @@ describe('FileSecurityService', () => {
     const tx = { query };
     const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
     const storage = { getByStorageUri: vi.fn().mockResolvedValue({ body: Readable.from([Buffer.from('safe')]) }) };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ outcome: 'clean', engine_version: '1.4.3', signature_age_seconds: 1 }), { status: 200 }));
+    const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
     await new FileSecurityService(audit as never, { promote: vi.fn().mockResolvedValue({}) } as never, storage as never).handle({ tenantId, quarantineRef, expectedSha256 });
 
-    const init = fetchMock.mock.calls[0]?.[1];
-    expect(init?.headers).toEqual(expect.objectContaining({
-      'x-amic-tenant-id': tenantId,
-      'x-amic-request-id': expect.stringMatching(/^[0-9a-f-]{36}$/),
-      'x-amic-ingestion-nonce': expect.stringMatching(/^[0-9a-f-]{36}$/),
-      'x-amic-ingestion-expires-at': expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/),
-    }));
-    expect(init?.headers).not.toHaveProperty('x-amic-dev-loopback-identity');
-    expect(init?.headers).not.toHaveProperty('x-amic-gateway-mtls-verified');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'FILE_SCAN_COMPLETED',
+        result: 'failure',
+        metadata: expect.objectContaining({ reason_code: 'scanner_error' }),
+      }),
+      tx,
+    );
   });
 
   it('holds a hash mismatch without calling the worker', async () => {

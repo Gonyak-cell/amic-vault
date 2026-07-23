@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 import re
 from typing import Mapping, MutableMapping, Protocol
+
+from .replay_store import SqliteNonceReplayStore
 
 INGESTION_WORKER_AUDIENCE = "amic-vault-ingestion"
 INGESTION_GATEWAY_WORKLOAD_SUBJECT = "amic-vault-api"
@@ -159,6 +162,20 @@ def assert_service_identity_profile(env: Mapping[str, str]) -> None:
         }.items()
     ):
         raise ServiceIdentityDenied()
+    nonce_store_path = env.get("INGESTION_NONCE_STORE_PATH", "")
+    if "\x00" in nonce_store_path or not Path(nonce_store_path).is_absolute():
+        raise ServiceIdentityDenied()
+
+
+def create_nonce_replay_store(env: Mapping[str, str]) -> NonceReplayStore:
+    """Use memory only for development; private production must open durable SQLite."""
+    assert_service_identity_profile(env)
+    if env.get("INGESTION_WORKER_IDENTITY_PROFILE", "loopback-dev") == "private-gateway-mtls":
+        try:
+            return SqliteNonceReplayStore(env["INGESTION_NONCE_STORE_PATH"])
+        except (KeyError, RuntimeError) as exc:
+            raise ServiceIdentityDenied() from exc
+    return InMemoryNonceReplayStore()
 
 
 def verify_ingestion_request_identity(

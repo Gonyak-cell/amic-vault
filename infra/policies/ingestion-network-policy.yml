@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "amic-vault.ingestion-network-policy.v1",
+  "profile": "small-firm-20-single-worker",
+  "services": {
+    "api": {
+      "networks": ["application", "ingestion-client"]
+    },
+    "api-worker": {
+      "networks": ["application", "ingestion-client"]
+    },
+    "ingestion-gateway": {
+      "networks": ["ingestion-client", "ingestion-worker"]
+    },
+    "ingestion": {
+      "networks": ["ingestion-worker"]
+    }
+  },
+  "internalNetworks": ["application", "ingestion-client", "ingestion-worker"],
+  "prohibitedServiceKeys": ["network_mode", "extra_hosts", "links"],
+  "unpublishedServices": ["ingestion-gateway", "ingestion"],
+  "gateway": {
+    "approvedClientSubject": "CN=amic-vault-api",
+    "workloadSubject": "amic-vault-api",
+    "audience": "amic-vault-ingestion",
+    "tlsProtocols": ["TLSv1.2", "TLSv1.3"],
+    "upstream": "ingestion:8000"
+  },
+  "durableReplay": {
+    "volume": "ingestion-replay",
+    "containerPath": "/var/lib/amic-vault/replay",
+    "databasePath": "/var/lib/amic-vault/replay/nonces.sqlite3"
+  }
+}

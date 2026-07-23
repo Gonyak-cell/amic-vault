@@ -95,8 +95,8 @@ def test_every_worker_operation_denies_direct_requests() -> None:
     assert all(response.json() == {"detail": {"code": "PERMISSION_DENIED"}} for response in responses)
 
 
-def test_private_gateway_profile_denies_loopback_identity_on_every_worker_operation(monkeypatch) -> None:
-    for name, value in GATEWAY_ENV.items():
+def test_private_gateway_profile_denies_loopback_identity_on_every_worker_operation(monkeypatch, tmp_path) -> None:
+    for name, value in {**GATEWAY_ENV, "INGESTION_NONCE_STORE_PATH": str(tmp_path / "nonces.sqlite3")}.items():
         monkeypatch.setenv(name, value)
 
     responses = _route_requests(_loopback_headers())
@@ -106,8 +106,8 @@ def test_private_gateway_profile_denies_loopback_identity_on_every_worker_operat
     assert all(response.json() == {"detail": {"code": "PERMISSION_DENIED"}} for response in responses)
 
 
-def test_private_gateway_identity_is_accepted_and_health_stays_public(monkeypatch) -> None:
-    for name, value in GATEWAY_ENV.items():
+def test_private_gateway_identity_is_accepted_and_health_stays_public(monkeypatch, tmp_path) -> None:
+    for name, value in {**GATEWAY_ENV, "INGESTION_NONCE_STORE_PATH": str(tmp_path / "nonces.sqlite3")}.items():
         monkeypatch.setenv(name, value)
     monkeypatch.setattr(
         ClamAvClient,

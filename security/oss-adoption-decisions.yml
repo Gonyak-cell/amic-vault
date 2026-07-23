@@ -133,7 +133,12 @@
     "workers/ingestion/tests/test_service_identity.py",
     "workers/ingestion/tests/test_gateway_enforcement.py",
     "apps/api/src/modules/document/extraction/ingestion-request.factory.ts",
-    "apps/api/src/modules/document/extraction/ingestion-request.factory.spec.ts"
+    "apps/api/src/modules/document/extraction/ingestion-request.factory.spec.ts",
+    "apps/api/src/modules/document/extraction/private-gateway.transport.ts",
+    "apps/api/src/modules/document/extraction/private-gateway.transport.spec.ts",
+    "infra/policies/ingestion-network-policy.yml",
+    "workers/ingestion/app/replay_store.py",
+    "workers/ingestion/tests/test_replay_store.py"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },

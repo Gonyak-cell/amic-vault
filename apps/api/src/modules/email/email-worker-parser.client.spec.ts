@@ -51,7 +51,15 @@ describe('EmailWorkerParserClient', () => {
       'http://127.0.0.1:8000/email/parse',
       expect.objectContaining({
         method: 'POST',
-        headers: { 'x-amic-tenant-id': tenantId },
+        headers: expect.objectContaining({
+          'x-amic-tenant-id': tenantId,
+          'x-amic-request-id': expect.stringMatching(/^[0-9a-f-]{36}$/),
+          'x-amic-ingestion-nonce': expect.stringMatching(/^[0-9a-f-]{36}$/),
+          'x-amic-ingestion-expires-at': expect.stringMatching(
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/,
+          ),
+          'x-amic-dev-loopback-identity': 'true',
+        }),
         body: expect.any(FormData),
       }),
     );

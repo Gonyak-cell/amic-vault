@@ -277,6 +277,13 @@ production compose config, image build, runtime security inspect를 수행한다
 
 ## `PROPOSED-PACK-SF20-01` — 실제 private gateway mTLS 경계
 
+**Canonical execution status (2026-07-23):** `PACK-SF20-01` and
+`DEVOPS-SF20-GW-TUW-001~005` are registered in the live PACK registry and
+backlogs on the merged `PACK-SF20-00` main baseline
+`bf3c7cb72c715d0246f3b0b4c305d5499827c4ae`. The detailed executable contract
+is `docs/execution/TUW_SF20_PRIVATE_GATEWAY.md`; the `PROPOSED-*` labels below
+remain as the immutable planning-origin vocabulary for traceability.
+
 목적: 현재 코드에 선언된 `private-gateway-mtls` profile을 실제 transport,
 gateway, network, replay-store로 완성한다.
 

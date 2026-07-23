@@ -14,6 +14,7 @@ import {
 } from '@amic-vault/shared';
 import { emailWorkerParserVersion } from './email-parser-version';
 import { normalizeDomainRef } from './participant-classifier';
+import { fetchIngestionWorker } from '../document/extraction/private-gateway.transport';
 
 export type EmailWorkerParticipantRole = 'from' | 'to' | 'cc';
 
@@ -53,10 +54,6 @@ export interface EmailWorkerParseInput {
   filename: string;
   mimeType: string;
   body: Buffer;
-}
-
-function workerBaseUrl(): string {
-  return (process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '');
 }
 
 function emailParserWorkerTimeoutMs(): number {
@@ -297,7 +294,7 @@ export class EmailWorkerParserClient {
     const timeout = setTimeout(() => controller.abort(), emailParserWorkerTimeoutMs());
     let response: Response;
     try {
-      response = await fetch(`${workerBaseUrl()}/email/parse`, {
+      response = await fetchIngestionWorker('/email/parse', {
         method: 'POST',
         headers: { 'x-amic-tenant-id': input.tenantId },
         body: form,
