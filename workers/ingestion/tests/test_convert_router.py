@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
 from app import convert_router
@@ -7,6 +10,16 @@ from app.main import app
 TENANT_ID = "11111111-1111-4111-8111-111111111111"
 
 client = TestClient(app)
+
+
+def _loopback_identity_headers() -> dict[str, str]:
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=3)).replace(microsecond=0)
+    return {
+        "x-amic-dev-loopback-identity": "true",
+        "x-amic-request-id": str(uuid4()),
+        "x-amic-ingestion-nonce": str(uuid4()),
+        "x-amic-ingestion-expires-at": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
 
 
 def test_office_to_pdf_accepts_supported_office_extensions(monkeypatch) -> None:
@@ -23,7 +36,7 @@ def test_office_to_pdf_accepts_supported_office_extensions(monkeypatch) -> None:
             "/convert/office-to-pdf",
             data={"tenant_id": TENANT_ID},
             files={"file": (filename, b"office-payload", "application/octet-stream")},
-            headers={"x-amic-tenant-id": TENANT_ID},
+            headers={**_loopback_identity_headers(), "x-amic-tenant-id": TENANT_ID},
         )
         assert response.status_code == 200, response.text
         assert response.headers["content-type"].startswith("application/pdf")
@@ -44,7 +57,10 @@ def test_office_to_pdf_fails_closed_for_tenant_mismatch_and_bad_outputs(monkeypa
         "/convert/office-to-pdf",
         data={"tenant_id": TENANT_ID},
         files={"file": ("sheet.xlsx", b"office-payload", "application/octet-stream")},
-        headers={"x-amic-tenant-id": "22222222-2222-4222-8222-222222222222"},
+        headers={
+            **_loopback_identity_headers(),
+            "x-amic-tenant-id": "22222222-2222-4222-8222-222222222222",
+        },
     )
     assert denied.status_code == 403
     assert "TENANT_ISOLATION_VIOLATION" in denied.text
@@ -53,7 +69,7 @@ def test_office_to_pdf_fails_closed_for_tenant_mismatch_and_bad_outputs(monkeypa
         "/convert/office-to-pdf",
         data={"tenant_id": TENANT_ID},
         files={"file": ("payload.txt", b"office-payload", "application/octet-stream")},
-        headers={"x-amic-tenant-id": TENANT_ID},
+        headers={**_loopback_identity_headers(), "x-amic-tenant-id": TENANT_ID},
     )
     assert unsupported.status_code == 415
     assert "UNSUPPORTED_FILE_TYPE" in unsupported.text
@@ -66,7 +82,7 @@ def test_office_to_pdf_fails_closed_for_tenant_mismatch_and_bad_outputs(monkeypa
         "/convert/office-to-pdf",
         data={"tenant_id": TENANT_ID},
         files={"file": ("sheet.xlsx", b"office-payload", "application/octet-stream")},
-        headers={"x-amic-tenant-id": TENANT_ID},
+        headers={**_loopback_identity_headers(), "x-amic-tenant-id": TENANT_ID},
     )
     assert failed.status_code == 503
     assert "PREVIEW_CONVERSION_UNAVAILABLE" in failed.text

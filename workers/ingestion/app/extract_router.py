@@ -150,14 +150,16 @@ async def _read_validated_stored_object(request: Request, parser_profile: str) -
     job, code = validate_ingestion_job(payload)
     if job is None or code is not None or job.parserProfile != parser_profile:
         raise HTTPException(status_code=400, detail={"code": "VALIDATION_FAILED"})
-    try:
-        identity = verify_ingestion_request_identity(
-            request.headers,
-            env=os.environ,
-            nonce_store=_nonce_store,
-        )
-    except ServiceIdentityDenied as exc:
-        raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"}) from exc
+    identity = getattr(request.state, "ingestion_identity", None)
+    if identity is None:
+        try:
+            identity = verify_ingestion_request_identity(
+                request.headers,
+                env=os.environ,
+                nonce_store=_nonce_store,
+            )
+        except ServiceIdentityDenied as exc:
+            raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"}) from exc
     if (
         identity.request_id != job.requestId
         or identity.expires_at.strftime("%Y-%m-%dT%H:%M:%SZ") != job.expiresAt

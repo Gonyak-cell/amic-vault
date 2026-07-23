@@ -1,4 +1,6 @@
 from io import BytesIO
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from fastapi.testclient import TestClient
@@ -10,6 +12,16 @@ TENANT_ID = "11111111-1111-4111-8111-111111111111"
 BATCH_ID = "11111111-1111-4111-8111-111111111177"
 
 client = TestClient(app)
+
+
+def _loopback_identity_headers() -> dict[str, str]:
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=3)).replace(microsecond=0)
+    return {
+        "x-amic-dev-loopback-identity": "true",
+        "x-amic-request-id": str(uuid4()),
+        "x-amic-ingestion-nonce": str(uuid4()),
+        "x-amic-ingestion-expires-at": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
 
 
 def _zip(files: dict[str, bytes], compression: int = ZIP_DEFLATED) -> bytes:
@@ -25,7 +37,7 @@ def _post_zip(payload: bytes, tenant_id: str = TENANT_ID):
         "/zip/inspect",
         data={"tenant_id": tenant_id, "batch_id": BATCH_ID},
         files={"file": ("batch.zip", payload, "application/zip")},
-        headers={"x-amic-tenant-id": tenant_id},
+        headers={**_loopback_identity_headers(), "x-amic-tenant-id": tenant_id},
     )
 
 

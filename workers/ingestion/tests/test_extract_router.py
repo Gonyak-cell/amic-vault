@@ -36,6 +36,18 @@ def _fake_read_ingestion_object(job):
     return _stored_objects[job.objectKey]
 
 
+def _loopback_identity_headers() -> dict[str, str]:
+    request_id = str(uuid4())
+    nonce = str(uuid4())
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=3)).replace(microsecond=0)
+    return {
+        "x-amic-dev-loopback-identity": "true",
+        "x-amic-request-id": request_id,
+        "x-amic-ingestion-nonce": nonce,
+        "x-amic-ingestion-expires-at": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 def _content_type(filename: str) -> str:
     extension = filename.rsplit(".", 1)[-1].lower()
     return {
@@ -217,9 +229,11 @@ def test_pdf_text_layer_extraction_preserves_content() -> None:
 
 
 def test_storage_url_input_is_rejected_without_network_access() -> None:
+    headers = _loopback_identity_headers()
     response = client.post(
         "/extract",
         json={"storage_url": "https://storage.local/presigned-fixture.pdf"},
+        headers=headers,
     )
     assert response.status_code == 400
     assert "VALIDATION_FAILED" in response.text
@@ -425,10 +439,11 @@ def test_hwp5_binary_failure_returns_explicit_reason(monkeypatch) -> None:
 
 
 def test_tenant_header_mismatch_fails_closed() -> None:
+    headers = _loopback_identity_headers()
     response = client.post(
         "/extract",
         json={},
-        headers={"x-amic-tenant-id": "22222222-2222-4222-8222-222222222222"},
+        headers={**headers, "x-amic-tenant-id": "22222222-2222-4222-8222-222222222222"},
     )
     assert response.status_code == 400
     assert "VALIDATION_FAILED" in response.text

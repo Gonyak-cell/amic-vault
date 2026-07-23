@@ -131,6 +131,7 @@
     "apps/api/src/modules/document/extraction/worker-identity.adapters.spec.ts",
     "workers/ingestion/app/service_identity.py",
     "workers/ingestion/tests/test_service_identity.py",
+    "workers/ingestion/tests/test_gateway_enforcement.py",
     "apps/api/src/modules/document/extraction/ingestion-request.factory.ts",
     "apps/api/src/modules/document/extraction/ingestion-request.factory.spec.ts"
   ],

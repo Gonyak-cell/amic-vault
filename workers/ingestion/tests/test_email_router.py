@@ -1,3 +1,6 @@
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -7,12 +10,22 @@ TENANT_ID = "11111111-1111-4111-8111-111111111111"
 client = TestClient(app)
 
 
+def _loopback_identity_headers() -> dict[str, str]:
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=3)).replace(microsecond=0)
+    return {
+        "x-amic-dev-loopback-identity": "true",
+        "x-amic-request-id": str(uuid4()),
+        "x-amic-ingestion-nonce": str(uuid4()),
+        "x-amic-ingestion-expires-at": expires_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
 def _post_email_parse(filename: str, payload: bytes, tenant_id: str = TENANT_ID):
     return client.post(
         "/email/parse",
         data={"tenant_id": tenant_id},
         files={"file": (filename, payload, "message/rfc822")},
-        headers={"x-amic-tenant-id": tenant_id},
+        headers={**_loopback_identity_headers(), "x-amic-tenant-id": tenant_id},
     )
 
 
