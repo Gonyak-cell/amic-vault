@@ -121,7 +121,18 @@
     "apps/api/src/modules/search/index/search-index.repository.ts",
     "apps/api/src/modules/search/index/search-index.repository.spec.ts",
     "apps/api/src/modules/search/query/search-filter.builder.ts",
-    "apps/api/src/modules/search/query/search-filter.builder.spec.ts"
+    "apps/api/src/modules/search/query/search-filter.builder.spec.ts",
+    "packages/shared/src/ingestion/ingestion-job.ts",
+    "packages/shared/src/ingestion/ingestion-job.spec.ts",
+    "workers/ingestion/app/contracts.py",
+    "workers/ingestion/tests/test_contracts.py",
+    "apps/api/src/modules/document/extraction/worker-identity.interface.ts",
+    "apps/api/src/modules/document/extraction/worker-identity.adapters.ts",
+    "apps/api/src/modules/document/extraction/worker-identity.adapters.spec.ts",
+    "workers/ingestion/app/service_identity.py",
+    "workers/ingestion/tests/test_service_identity.py",
+    "apps/api/src/modules/document/extraction/ingestion-request.factory.ts",
+    "apps/api/src/modules/document/extraction/ingestion-request.factory.spec.ts"
   ],
   "decisions": [
     { "id": "paperless-ngx", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 3, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["would replace Matter permission/audit authority", "full-DMS source reuse is outside component boundary"], "reason": "reference-only lifecycle observation; no source or fixture copy" },
@@ -130,6 +141,7 @@
     { "id": "docspell", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 2, "architecture": 5, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["AGPL task source is not copied", "would replace processing authority"], "reason": "processing/idempotency remains behavioral reference only" },
     { "id": "teedy", "kind": "source-test", "decision": "REJECTED", "status": "FINAL_FOR_CURRENT_SCOPE", "tco": { "function": 2, "architecture": 4, "authority": 5, "security": 4, "license": 5, "maintenance": 4, "codeDeletion": 0 }, "hardVeto": ["preview storage/audit authority remains Vault-owned"], "reason": "file-size behavior is reference-only" },
     { "id": "clamav", "kind": "official-image-and-protocol", "decision": "L1", "status": "APPROVED_FOR_PRODUCT_CHANGE", "approvedPaths": ["infra/clamav.Dockerfile", "infra/docker-compose.dev.yml", "workers/ingestion/pyproject.toml", "workers/ingestion/app/security/__init__.py", "workers/ingestion/app/security/clamav_client.py", "workers/ingestion/tests/test_clamav_client.py"], "tco": { "function": 4, "architecture": 2, "authority": 4, "security": 4, "license": 3, "maintenance": 3, "codeDeletion": 2 }, "hardVeto": ["scanner verdict cannot promote without Vault quarantine/audit authority", "no ClamAV source, fixture, malware label or scanner credential may enter Vault"], "reason": "QRT-002 consumes only the exact official 1.4.3 image; the bounded Vault adapter is independently written from no-copy source/test behavior and cannot promote a document" },
+    { "id": "boto3", "kind": "official-s3-sdk", "decision": "L1", "status": "APPROVED_FOR_PRODUCT_CHANGE", "approvedPaths": ["workers/ingestion/app/storage_client.py", "workers/ingestion/tests/test_storage_client.py", "workers/ingestion/pyproject.toml", "workers/ingestion/uv.lock"], "approvedDependencyPaths": ["workers/ingestion/pyproject.toml", "workers/ingestion/uv.lock"], "tco": { "function": 4, "architecture": 2, "authority": 4, "security": 4, "license": 2, "maintenance": 3, "codeDeletion": 2 }, "hardVeto": ["worker may only use fixed boot-time endpoint, bucket and read-only credential profile", "envelope key/version/hash/size mismatch and arbitrary URL or endpoint input must fail closed", "no boto3 source or test fixture may be copied into the product"], "reason": "Official AWS SDK for Python 1.43.54 is the narrow S3 protocol client required for exact-version GetObject verification; Vault retains gateway identity, envelope, tenant authority, audit, parser and storage-policy ownership." },
     { "id": "gotenberg", "kind": "source-test", "decision": "L1", "status": "BLOCKED_PENDING_OSS05_SCOPE", "tco": { "function": 4, "architecture": 2, "authority": 4, "security": 4, "license": 2, "maintenance": 3, "codeDeletion": 2 }, "hardVeto": ["conversion service cannot bypass storage, network trust or audit"], "reason": "component boundary may be evaluated only by a future OSS-05 ingestion TUW" },
     { "id": "tusd", "kind": "source-test", "decision": "L1", "status": "BLOCKED_PENDING_OSS06_SCOPE", "tco": { "function": 5, "architecture": 2, "authority": 5, "security": 4, "license": 2, "maintenance": 3, "codeDeletion": 2 }, "hardVeto": ["upload intent/finalize must remain permission and audit gated"], "reason": "component boundary may be evaluated only by a future OSS-06 upload TUW" },
     { "id": "openid-client", "kind": "source-test", "decision": "REJECTED", "status": "BLOCKED_IDENTITY_TOPOLOGY_REQUIRED", "tco": { "function": 4, "architecture": 3, "authority": 5, "security": 4, "license": 2, "maintenance": 2, "codeDeletion": 2 }, "hardVeto": ["customer protocol and hosting choice absent", "actual staging IdP owner absent", "local session/deprovision authority remains primary"], "reason": "v6.8.4 source and MIT license are pinned and its upstream test run passes, but direct OIDC cannot be selected or added before a customer topology decision" },

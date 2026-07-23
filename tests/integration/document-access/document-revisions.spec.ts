@@ -420,11 +420,20 @@ describe('document revisions integration', () => {
     expect(metadataText).not.toContain('Inserted indemnity qualifier');
     expect(metadataText).not.toContain('Deleted unilateral termination sentence');
 
-    expect(revisionWorker.calls.some((call) => call.path === '/extract-revisions')).toBe(true);
+    const revisionCalls = revisionWorker.calls.filter((call) => call.path === '/extract-revisions');
+    expect(revisionCalls).not.toHaveLength(0);
     expect(
-      revisionWorker.calls
-        .filter((call) => call.path === '/extract-revisions')
-        .every((call) => call.tenantHeader === tenantBetaId && call.body.includes('TrackedChanges')),
+      revisionCalls.every((call) => {
+        const job = JSON.parse(call.body) as Record<string, unknown>;
+        return (
+          call.tenantHeader === undefined &&
+          job.tenantId === tenantBetaId &&
+          job.documentId === uploaded.documentId &&
+          job.versionId === baseVersion?.versionId &&
+          job.parserProfile === 'extract' &&
+          !call.body.includes('TrackedChanges')
+        );
+      }),
     ).toBe(true);
   });
 });

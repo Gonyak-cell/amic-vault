@@ -7,6 +7,7 @@ import { GraphSyncOutboxWorker } from '../../graph/graph-sync-outbox.worker';
 import { promotedDocumentExistsSql } from '../../file-security/promoted-file.guard';
 import { SearchIndexSyncHook } from '../../search/index/index-sync.hook';
 import { StorageService } from '../../storage/storage.service';
+import { StoragePathResolver } from '../../storage/storage-path.resolver';
 import type {
   DocumentAnnotationExtractionInput,
   DocumentRevisionExtractionInput,
@@ -20,6 +21,7 @@ import {
   isExtractionStatus,
   normalizeFailureReasonCode,
 } from './extraction.types';
+import { createIngestionWorkerRequest } from './ingestion-request.factory';
 
 interface WorkerResponse {
   status?: unknown;
@@ -56,29 +58,27 @@ const annotationTypes = new Set([
   'unknown',
 ]);
 
-interface ReadUrlStorageService {
-  createReadUrlByStorageUri(
-    tenantId: string,
-    storageUri: string,
-    expiresInSeconds?: number,
-  ): Promise<{ url: string }>;
-}
-
 function workerBaseUrl(): string {
-  return (process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '');
+  const configured = process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000';
+  if (process.env.INGESTION_WORKER_IDENTITY_PROFILE === 'private-gateway-mtls') {
+    try {
+      const gateway = new URL(configured);
+      if (
+        gateway.protocol !== 'https:' ||
+        ['127.0.0.1', '::1', 'localhost'].includes(gateway.hostname)
+      ) {
+        throw new Error('invalid private gateway');
+      }
+    } catch {
+      throw new Error('WORKER_IDENTITY_CONFIGURATION_INVALID');
+    }
+  }
+  return configured.replace(/\/+$/, '');
 }
 
 function extractionWorkerTimeoutMs(): number {
   const parsed = Number(process.env.EXTRACTION_WORKER_TIMEOUT_MS ?? '60000');
-  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 60_000;
-}
-
-async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-  }
-  return Buffer.concat(chunks);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.min(Math.round(parsed), 60_000) : 60_000;
 }
 
 function sanitizeBodyText(value: string): string {
@@ -178,11 +178,12 @@ function parseAnnotationResponse(payload: unknown): DocumentAnnotationExtraction
 }
 
 function parseWorkerResponse(payload: WorkerResponse, fallback: ExtractionJobPayload) {
-  const status = typeof payload.status === 'string' ? payload.status : 'failed';
-  const method =
-    typeof payload.extraction_method === 'string' ? payload.extraction_method : 'failed';
+  const status = payload.status;
+  const method = payload.extraction_method;
   const confidence = typeof payload.confidence === 'number' ? payload.confidence : 0;
   if (
+    typeof status !== 'string' ||
+    typeof method !== 'string' ||
     !isExtractionStatus(status) ||
     !isExtractionMethod(method) ||
     confidence < 0 ||
@@ -241,6 +242,9 @@ export class ExtractionDispatcher {
     @Optional()
     @Inject(DdService)
     private readonly ddService?: DdService,
+    @Optional()
+    @Inject(StoragePathResolver)
+    private readonly storagePathResolver: StoragePathResolver = new StoragePathResolver(),
   ) {}
 
   async handle(payload: ExtractionJobPayload): Promise<void> {
@@ -300,7 +304,7 @@ export class ExtractionDispatcher {
     workerPath: 'extract' | 'ocr',
   ): Promise<ExtractionResultInput> {
     const workerLabel = workerPath === 'extract' ? 'extraction' : 'ocr';
-    const response = await this.postWorkerForm(target, workerPath, workerLabel);
+    const response = await this.postWorkerRequest(target, workerPath, workerLabel);
 
     if (response.status >= 500 || response.status === 408 || response.status === 429) {
       this.metrics.recordExtractionResult('failed');
@@ -358,7 +362,7 @@ export class ExtractionDispatcher {
     target: ExtractionTarget,
     workerPath: 'extract-revisions' | 'extract-annotations',
   ): Promise<unknown | null> {
-    const response = await this.postWorkerForm(target, workerPath, 'extraction');
+    const response = await this.postWorkerRequest(target, workerPath, 'extraction');
     if (response.status >= 500 || response.status === 408 || response.status === 429) {
       this.metrics.recordExtractionResult('failed');
       throw new Error(`transient extraction worker failure: ${response.status}`);
@@ -367,20 +371,25 @@ export class ExtractionDispatcher {
     return this.readWorkerJson(response);
   }
 
-  private async postWorkerForm(
+  private async postWorkerRequest(
     target: ExtractionTarget,
     workerPath: 'extract' | 'ocr' | 'extract-revisions' | 'extract-annotations',
     workerLabel: string,
   ): Promise<Response> {
-    const form = await this.createWorkerForm(target);
+    const request = await createIngestionWorkerRequest({
+      target,
+      parserProfile: workerPath === 'ocr' ? 'ocr' : 'extract',
+      storageService: this.storageService,
+      storagePathResolver: this.storagePathResolver,
+    });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), extractionWorkerTimeoutMs());
     try {
       return await fetch(`${workerBaseUrl()}/${workerPath}`, {
         method: 'POST',
-        headers: { 'x-amic-tenant-id': target.tenantId },
+        headers: request.headers,
         signal: controller.signal,
-        body: form,
+        body: JSON.stringify(request.job),
       });
     } catch (error) {
       if (controller.signal.aborted) {
@@ -393,45 +402,26 @@ export class ExtractionDispatcher {
     }
   }
 
-  private async createWorkerForm(target: ExtractionTarget): Promise<FormData> {
-    const form = new FormData();
-    form.append('tenant_id', target.tenantId);
-    form.append('version_id', target.versionId);
-    const readUrl = await this.createWorkerReadUrl(target);
-    if (readUrl) {
-      form.append('storage_url', readUrl);
-      form.append('source_filename', target.normalizedFilename);
-      form.append('source_mime_type', target.mimeType);
-      return form;
-    }
-    const stored = await this.storageService.getByStorageUri(target.tenantId, target.storageUri);
-    const fileBuffer = await streamToBuffer(stored.body);
-    form.append(
-      'file',
-      new Blob([new Uint8Array(fileBuffer)], { type: target.mimeType }),
-      target.normalizedFilename,
-    );
-    return form;
-  }
-
   private async readWorkerJson(response: Response): Promise<unknown | null> {
-    if (response.bodyUsed) return null;
+    if (response.bodyUsed || !response.body) return null;
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
     try {
-      return (await response.json()) as unknown;
+      while (true) {
+        const next = await reader.read();
+        if (next.done) break;
+        size += next.value.byteLength;
+        if (size > 256 * 1024) return null;
+        chunks.push(next.value);
+      }
+      const payload = new TextDecoder().decode(Buffer.concat(chunks));
+      return JSON.parse(payload) as unknown;
     } catch {
       return null;
+    } finally {
+      reader.releaseLock();
     }
-  }
-
-  private async createWorkerReadUrl(target: ExtractionTarget): Promise<string | null> {
-    const storageService = this.storageService as unknown as Partial<ReadUrlStorageService>;
-    if (typeof storageService.createReadUrlByStorageUri !== 'function') return null;
-    const result = await storageService.createReadUrlByStorageUri(
-      target.tenantId,
-      target.storageUri,
-      300,
-    );
-    return result.url;
   }
 
   private async findTarget(payload: ExtractionJobPayload): Promise<ExtractionTarget | null> {
@@ -439,7 +429,8 @@ export class ExtractionDispatcher {
       const result = await tx.query(
         `
           SELECT dv.tenant_id, dv.document_id, d.matter_id, dv.version_id,
-            dv.file_object_id, f.storage_uri, f.normalized_filename, f.mime_type
+            dv.file_object_id, f.storage_uri, f.normalized_filename, f.mime_type,
+            f.sha256, f.size_bytes::text
           FROM document_versions dv
           JOIN documents d
             ON d.tenant_id = dv.tenant_id
@@ -466,6 +457,8 @@ export class ExtractionDispatcher {
             storage_uri: string;
             normalized_filename: string;
             mime_type: string;
+            sha256: string;
+            size_bytes: string;
           }
         | undefined;
       return row
@@ -478,6 +471,8 @@ export class ExtractionDispatcher {
             storageUri: row.storage_uri,
             normalizedFilename: row.normalized_filename,
             mimeType: row.mime_type,
+            sha256: row.sha256,
+            sizeBytes: Number(row.size_bytes),
           }
         : null;
     });

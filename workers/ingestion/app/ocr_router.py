@@ -1,8 +1,7 @@
-from typing import Annotated
-
-from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from .extract_router import _extension_from_stored_object, _read_validated_stored_object
 from .parsers.ocr import extract_ocr
 
 router = APIRouter()
@@ -24,18 +23,12 @@ class OcrResponse(BaseModel):
 
 
 @router.post("/ocr", response_model=OcrResponse)
-async def ocr(
-    tenant_id: Annotated[str, Form()],
-    version_id: Annotated[str, Form()],
-    file: Annotated[UploadFile, File()],
-    x_amic_tenant_id: Annotated[str | None, Header(alias="x-amic-tenant-id")] = None,
-) -> OcrResponse:
-    if not x_amic_tenant_id or x_amic_tenant_id != tenant_id:
-        raise HTTPException(status_code=403, detail={"code": "TENANT_ISOLATION_VIOLATION"})
-    if not version_id:
-        raise HTTPException(status_code=400, detail={"code": "VALIDATION_FAILED"})
-
-    result = extract_ocr(await file.read(), file.filename or "")
+async def ocr(request: Request) -> OcrResponse:
+    _, stored = await _read_validated_stored_object(request, "ocr")
+    extension = _extension_from_stored_object(stored)
+    if extension not in {"pdf", "png", "jpg", "jpeg"}:
+        raise HTTPException(status_code=415, detail={"code": "UNSUPPORTED_FILE_TYPE"})
+    result = extract_ocr(stored.body, f"object.{extension}")
     return OcrResponse(
         status=result.status,
         extraction_method=result.extraction_method,

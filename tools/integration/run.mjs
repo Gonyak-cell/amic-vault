@@ -96,6 +96,9 @@ if (specs.length === 0) {
 
 const integrationEnv = {
   ...process.env,
+  // Integration specs use loopback mock workers, never a production gateway.
+  NODE_ENV: 'test',
+  INGESTION_WORKER_IDENTITY_PROFILE: 'loopback-dev',
   DATABASE_URL: migrationDatabaseUrl,
   DATABASE_MIGRATION_URL: migrationDatabaseUrl,
   DATABASE_RUNTIME_URL: runtimeDatabaseUrl,

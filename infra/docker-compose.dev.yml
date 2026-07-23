@@ -90,11 +90,18 @@ services:
       CLAMAV_TIMEOUT_SECONDS: '5'
       CLAMAV_MAX_BYTES: '26214400'
       CLAMAV_MAX_SIGNATURE_AGE_SECONDS: '604800'
+      NODE_ENV: development
+      INGESTION_WORKER_IDENTITY_PROFILE: loopback-dev
+      INGESTION_GATEWAY_MTLS_ENABLED: 'false'
+      INGESTION_GATEWAY_SANITIZES_IDENTITY_HEADERS: 'false'
+      INGESTION_GATEWAY_DIRECT_WORKER_ACCESS: loopback-only
+      INGESTION_GATEWAY_WORKLOAD_SUBJECT: amic-vault-api
+      INGESTION_GATEWAY_AUDIENCE: amic-vault-ingestion
     depends_on:
       clamav:
         condition: service_healthy
     ports:
-      - '${INGESTION_WORKER_PORT:-8000}:8000'
+      - '127.0.0.1:${INGESTION_WORKER_PORT:-8000}:8000'
     healthcheck:
       test:
         [
@@ -131,6 +138,7 @@ services:
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-amic-vault-minio}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-amic-vault-minio-dev-password}
       INGESTION_WORKER_URL: http://ingestion:8000
+      INGESTION_WORKER_IDENTITY_PROFILE: loopback-dev
       WORKER_BASE_URL: http://ingestion:8000
       AI_PREP_ENABLED: ${AI_PREP_ENABLED:-false}
       LOCAL_GEMMA_ENABLED: ${LOCAL_GEMMA_ENABLED:-false}
@@ -161,6 +169,7 @@ services:
       S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-amic-vault-minio}
       S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-amic-vault-minio-dev-password}
       INGESTION_WORKER_URL: http://ingestion:8000
+      INGESTION_WORKER_IDENTITY_PROFILE: loopback-dev
       WORKER_BASE_URL: http://ingestion:8000
       AI_PREP_ENABLED: ${AI_PREP_ENABLED:-false}
       LOCAL_GEMMA_ENABLED: ${LOCAL_GEMMA_ENABLED:-false}

@@ -94,6 +94,18 @@ export {
 } from './file-security/file-security.types';
 
 export {
+  ingestionJobSchema,
+  ingestionJobValidationErrorCode,
+  ingestionParserProfiles,
+  ingestionStorageAliases,
+  MAX_INGESTION_EXPIRY_MS,
+  MAX_INGESTION_OBJECT_BYTES,
+  validateIngestionJob,
+  type IngestionJob,
+  type IngestionJobValidationResult,
+} from './ingestion/ingestion-job';
+
+export {
   createScaleAiGateReviewRequestSchema,
   createScaleCostSnapshotRequestSchema,
   createScaleEvalRunRequestSchema,

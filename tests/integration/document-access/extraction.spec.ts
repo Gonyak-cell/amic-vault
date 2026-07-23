@@ -70,6 +70,45 @@ const legacyXlsBytes = Buffer.from('\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1legacy-xls',
 const legacyPptBytes = Buffer.from('\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1legacy-ppt', 'latin1');
 const hwp5Bytes = Buffer.from('\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1legacy-hwp', 'latin1');
 
+const workerResponsesByDocumentId = new Map<
+  string,
+  { extractionMethod: string; bodyText: string }
+>();
+
+function workerResponseForFilename(filename: string): {
+  extractionMethod: string;
+  bodyText: string;
+} {
+  if (filename === 'Plaintext.txt') {
+    return { extractionMethod: 'text', bodyText: 'Plain worker extracted text' };
+  }
+  if (filename === 'TrackedChanges.docx') {
+    return { extractionMethod: 'docx', bodyText: 'DOCX worker extracted text' };
+  }
+  if (filename === 'LegacyDoc.doc') {
+    return { extractionMethod: 'doc', bodyText: 'Legacy doc worker extracted text' };
+  }
+  if (filename === 'LegacySheet.xls') {
+    return { extractionMethod: 'xls', bodyText: 'Legacy xls worker extracted text' };
+  }
+  if (filename === 'LegacyDeck.ppt') {
+    return { extractionMethod: 'ppt', bodyText: 'Legacy ppt worker extracted text' };
+  }
+  if (filename === 'CourtFiling.hwp') {
+    return {
+      extractionMethod: 'hwp5',
+      bodyText: '법원 제출 서면 HWP worker extracted text',
+    };
+  }
+  if (filename === 'Workbook.xlsx') {
+    return { extractionMethod: 'xlsx', bodyText: 'Spreadsheet worker extracted text' };
+  }
+  if (filename === 'Deck.pptx') {
+    return { extractionMethod: 'pptx', bodyText: 'Presentation worker extracted text' };
+  }
+  return { extractionMethod: 'pdf_text', bodyText: 'Mock worker extracted text' };
+}
+
 async function login(baseUrl: string): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/auth/login`, {
     method: 'POST',
@@ -195,6 +234,7 @@ async function uploadDocument(
   const body = await response.text();
   expect(response.status, body).toBe(201);
   const uploaded = JSON.parse(body) as UploadResponse;
+  workerResponsesByDocumentId.set(uploaded.documentId, workerResponseForFilename(input.filename));
   await markPromotedFixture({ documentId: uploaded.documentId });
   return uploaded;
 }
@@ -468,9 +508,14 @@ function startMockWorker(): Promise<{ server: Server; url: string; bodies: strin
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
     });
     request.on('end', () => {
-      const multipart = Buffer.concat(chunks).toString('utf8');
-      bodies.push(multipart);
-      expect(request.headers['x-amic-tenant-id']).toBe(tenantBetaId);
+      const body = Buffer.concat(chunks).toString('utf8');
+      bodies.push(body);
+      const job = JSON.parse(body) as { documentId?: unknown; tenantId?: unknown };
+      if (request.headers['x-amic-tenant-id'] !== undefined || job.tenantId !== tenantBetaId) {
+        response.writeHead(400);
+        response.end();
+        return;
+      }
       if (request.url === '/extract-revisions') {
         response.writeHead(200, { 'content-type': 'application/json' });
         response.end(
@@ -507,54 +552,21 @@ function startMockWorker(): Promise<{ server: Server; url: string; bodies: strin
         );
         return;
       }
-      const isTextUpload = multipart.includes('Plaintext.txt');
-      const isDocxUpload = multipart.includes('TrackedChanges.docx');
-      const isDocUpload = multipart.includes('LegacyDoc.doc');
-      const isXlsUpload = multipart.includes('LegacySheet.xls');
-      const isPptUpload = multipart.includes('LegacyDeck.ppt');
-      const isHwpUpload = multipart.includes('CourtFiling.hwp');
-      const isXlsxUpload = multipart.includes('Workbook.xlsx');
-      const isPptxUpload = multipart.includes('Deck.pptx');
-      const extractionMethod = isTextUpload
-        ? 'text'
-        : isDocxUpload
-          ? 'docx'
-          : isDocUpload
-            ? 'doc'
-            : isXlsUpload
-              ? 'xls'
-              : isPptUpload
-                ? 'ppt'
-                : isHwpUpload
-                  ? 'hwp5'
-                  : isXlsxUpload
-                    ? 'xlsx'
-                    : isPptxUpload
-                      ? 'pptx'
-                      : 'pdf_text';
-      const bodyText = isTextUpload
-        ? 'Plain worker extracted text'
-        : isDocxUpload
-          ? 'DOCX worker extracted text'
-          : isDocUpload
-            ? 'Legacy doc worker extracted text'
-            : isXlsUpload
-              ? 'Legacy xls worker extracted text'
-              : isPptUpload
-                ? 'Legacy ppt worker extracted text'
-                : isHwpUpload
-                  ? '법원 제출 서면 HWP worker extracted text'
-                  : isXlsxUpload
-                    ? 'Spreadsheet worker extracted text'
-                    : isPptxUpload
-                      ? 'Presentation worker extracted text'
-                      : 'Mock worker extracted text';
+      const workerResponse =
+        typeof job.documentId === 'string'
+          ? workerResponsesByDocumentId.get(job.documentId)
+          : undefined;
+      if (!workerResponse) {
+        response.writeHead(400);
+        response.end();
+        return;
+      }
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(
         JSON.stringify({
           status: 'ready',
-          extraction_method: extractionMethod,
-          body_text: bodyText,
+          extraction_method: workerResponse.extractionMethod,
+          body_text: workerResponse.bodyText,
           confidence: 1,
           failure_reason_code: null,
         }),

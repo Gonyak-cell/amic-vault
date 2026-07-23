@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PreviewConversionUnavailableError,
   PreviewConvertJob,
@@ -6,6 +6,10 @@ import {
 } from './preview-convert.job';
 
 describe('PreviewConvertJob', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('uses the preview conversion queue contract and accepts only pdf responses', async () => {
     const originalFetch = global.fetch;
     const fetchMock = vi.fn(async () => new Response('%PDF-1.7\npreview', {
@@ -49,5 +53,18 @@ describe('PreviewConvertJob', () => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+
+  it('rejects direct or plaintext worker URLs when the private gateway profile is selected', async () => {
+    vi.stubEnv('INGESTION_WORKER_IDENTITY_PROFILE', 'private-gateway-mtls');
+    vi.stubEnv('INGESTION_WORKER_URL', 'http://127.0.0.1:8000');
+    await expect(
+      new PreviewConvertJob().convertOfficeToPdf({
+        tenantId: '11111111-1111-4111-8111-111111111111',
+        filename: 'source.docx',
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        body: Buffer.from('docx'),
+      }),
+    ).rejects.toBeInstanceOf(PreviewConversionUnavailableError);
   });
 });

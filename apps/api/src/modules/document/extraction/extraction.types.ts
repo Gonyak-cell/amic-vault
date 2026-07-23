@@ -47,6 +47,8 @@ export interface ExtractionTarget {
   storageUri: string;
   normalizedFilename: string;
   mimeType: string;
+  sha256: string;
+  sizeBytes: number;
 }
 
 const extractionStatuses = new Set<string>(['pending', 'ready', 'ocr_pending', 'failed']);

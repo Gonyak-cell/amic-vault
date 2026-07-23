@@ -10,7 +10,21 @@ export class PreviewConversionUnavailableError extends Error {
 }
 
 function workerBaseUrl(): string {
-  return (process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000').replace(/\/+$/, '');
+  const configured = process.env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000';
+  if (process.env.INGESTION_WORKER_IDENTITY_PROFILE === 'private-gateway-mtls') {
+    try {
+      const gateway = new URL(configured);
+      if (
+        gateway.protocol !== 'https:' ||
+        ['127.0.0.1', '::1', 'localhost'].includes(gateway.hostname)
+      ) {
+        throw new Error('invalid private gateway');
+      }
+    } catch {
+      throw new PreviewConversionUnavailableError('private gateway configuration invalid');
+    }
+  }
+  return configured.replace(/\/+$/, '');
 }
 
 @Injectable()

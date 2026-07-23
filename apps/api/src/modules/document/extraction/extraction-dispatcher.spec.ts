@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MetricsRegistry } from '../../../common/metrics/metrics.middleware';
 import { ExtractionDispatcher } from './extraction-dispatcher';
 import type { ExtractionJobPayload } from './extraction.types';
@@ -27,14 +27,29 @@ function targetRow(overrides: Record<string, unknown> = {}) {
     storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`,
     normalized_filename: 'Fixture.pdf',
     mime_type: 'application/pdf',
+    sha256: 'a'.repeat(64),
+    size_bytes: '7',
+    ...overrides,
+  };
+}
+
+function workerStorage(overrides: Record<string, unknown> = {}) {
+  return {
+    latestVersionFingerprintByStorageUri: vi.fn(async () => 'b'.repeat(64)),
     ...overrides,
   };
 }
 
 describe('ExtractionDispatcher', () => {
+  beforeEach(() => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('INGESTION_WORKER_IDENTITY_PROFILE', 'loopback-dev');
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+    vi.unstubAllEnvs();
     delete process.env.EXTRACTION_WORKER_TIMEOUT_MS;
   });
 
@@ -61,7 +76,7 @@ describe('ExtractionDispatcher', () => {
     const enqueueVersion = vi.fn(async () => undefined);
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: auditLog } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -69,7 +84,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('%PDF')),
         })),
-      } as never,
+      }) as never,
       metrics,
       { enqueueVersion } as never,
     );
@@ -148,7 +163,7 @@ describe('ExtractionDispatcher', () => {
       );
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: auditLog } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -156,7 +171,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('docx')),
         })),
-      } as never,
+      }) as never,
       new MetricsRegistry(),
       { enqueueVersion: vi.fn(async () => undefined) } as never,
     );
@@ -254,7 +269,7 @@ describe('ExtractionDispatcher', () => {
       );
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: auditLog } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -262,7 +277,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('%PDF')),
         })),
-      } as never,
+      }) as never,
       new MetricsRegistry(),
       { enqueueVersion: vi.fn(async () => undefined) } as never,
     );
@@ -336,7 +351,7 @@ describe('ExtractionDispatcher', () => {
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('Review this payment obligation');
   });
 
-  it('passes a presigned storage URL to the worker without downloading the object in API memory', async () => {
+  it('passes the server-derived envelope and identity metadata without a storage URL or source bytes', async () => {
     const firstTx = {
       query: vi.fn(async () => ({ rowCount: 1, rows: [targetRow()] })),
     };
@@ -355,13 +370,10 @@ describe('ExtractionDispatcher', () => {
         async (_tenant: string, run: (tx: typeof secondTx) => Promise<unknown>) => run(secondTx),
       );
     const getByStorageUri = vi.fn();
-    const createReadUrlByStorageUri = vi.fn(async () => ({
-      url: 'https://storage.local/presigned-source.pdf',
-      expiresAt: new Date(),
-    }));
+    const latestVersionFingerprintByStorageUri = vi.fn(async () => 'b'.repeat(64));
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: vi.fn() } as never,
-      { createReadUrlByStorageUri, getByStorageUri } as never,
+      { latestVersionFingerprintByStorageUri, getByStorageUri } as never,
       new MetricsRegistry(),
       { enqueueVersion: vi.fn(async () => undefined) } as never,
     );
@@ -380,12 +392,32 @@ describe('ExtractionDispatcher', () => {
 
     await dispatcher.handle(payload);
 
-    expect(createReadUrlByStorageUri).toHaveBeenCalledWith(tenantId, targetRow().storage_uri, 300);
+    expect(latestVersionFingerprintByStorageUri).toHaveBeenCalledWith(tenantId, targetRow().storage_uri);
     expect(getByStorageUri).not.toHaveBeenCalled();
-    const form = fetchMock.mock.calls[0]?.[1]?.body as FormData;
-    expect(form.get('storage_url')).toBe('https://storage.local/presigned-source.pdf');
-    expect(form.get('source_filename')).toBe('Fixture.pdf');
-    expect(form.get('file')).toBeNull();
+    const init = fetchMock.mock.calls[0]?.[1];
+    const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      tenantId,
+      documentId,
+      versionId,
+      fileObjectId,
+      storageAlias: 'primary',
+      objectKey: `tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`,
+      objectVersion: 'b'.repeat(64),
+      sha256: 'a'.repeat(64),
+      sizeBytes: 7,
+      parserProfile: 'extract',
+    });
+    expect(body).not.toHaveProperty('storage_url');
+    expect(JSON.stringify(body)).not.toContain('credential');
+    expect(init?.headers).toEqual(
+      expect.objectContaining({
+        'content-type': 'application/json',
+        'x-amic-request-id': body.requestId,
+        'x-amic-ingestion-nonce': expect.stringMatching(/^[0-9a-f-]{36}$/),
+        'x-amic-ingestion-expires-at': body.expiresAt,
+      }),
+    );
   });
 
   it('enqueues OCR when extraction stores an ocr_pending result', async () => {
@@ -412,7 +444,7 @@ describe('ExtractionDispatcher', () => {
     const metrics = new MetricsRegistry();
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: auditLog } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -420,7 +452,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('%PDF')),
         })),
-      } as never,
+      }) as never,
       metrics,
       { enqueueVersion } as never,
       { enqueueOcrRequired } as never,
@@ -486,7 +518,7 @@ describe('ExtractionDispatcher', () => {
     const enqueueOcrRequired = vi.fn(async () => 'ocr-job-id');
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: vi.fn() } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -494,7 +526,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('%PDF')),
         })),
-      } as never,
+      }) as never,
       new MetricsRegistry(),
       { enqueueVersion } as never,
       { enqueueOcrRequired } as never,
@@ -548,7 +580,7 @@ describe('ExtractionDispatcher', () => {
     const enqueueVersion = vi.fn(async () => undefined);
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: vi.fn() } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -556,7 +588,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('\xd0\xcf\x11\xe0')),
         })),
-      } as never,
+      }) as never,
       new MetricsRegistry(),
       { enqueueVersion } as never,
     );
@@ -609,7 +641,7 @@ describe('ExtractionDispatcher', () => {
     const enqueueOcrRequired = vi.fn(async () => 'ocr-job-id');
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: vi.fn() } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -617,7 +649,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('%PDF')),
         })),
-      } as never,
+      }) as never,
       new MetricsRegistry(),
       { enqueueVersion } as never,
       { enqueueOcrRequired } as never,
@@ -711,7 +743,7 @@ describe('ExtractionDispatcher', () => {
       );
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: vi.fn() } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -719,7 +751,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('%PDF')),
         })),
-      } as never,
+      }) as never,
       new MetricsRegistry(),
       { enqueueVersion: vi.fn(async () => undefined) } as never,
     );
@@ -741,6 +773,71 @@ describe('ExtractionDispatcher', () => {
     expect(secondTx.query.mock.calls[1]?.[1]?.[2]).toBe('AlphaBeta');
   });
 
+  it('fails closed when the promoted target lookup returns no row before calling the worker', async () => {
+    const firstTx = { query: vi.fn(async () => ({ rowCount: 0, rows: [] })) };
+    const secondTx = { query: vi.fn(async () => ({ rowCount: 0, rows: [] })) };
+    const transaction = vi
+      .fn()
+      .mockImplementationOnce(
+        async (_tenant: string, run: (tx: typeof firstTx) => Promise<unknown>) => run(firstTx),
+      )
+      .mockImplementationOnce(
+        async (_tenant: string, run: (tx: typeof secondTx) => Promise<unknown>) => run(secondTx),
+      );
+    const dispatcher = new ExtractionDispatcher(
+      { transaction, log: vi.fn() } as never,
+      workerStorage() as never,
+      new MetricsRegistry(),
+    );
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+
+    await dispatcher.handle(payload);
+
+    expect(firstTx.query).toHaveBeenCalledOnce();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('treats malformed and oversized worker bodies as bounded invalid responses', async () => {
+    for (const body of ['not-json', JSON.stringify({ body_text: 'x'.repeat(256 * 1024 + 1) })]) {
+      const firstTx = {
+        query: vi.fn(async () => ({ rowCount: 1, rows: [targetRow()] })),
+      };
+      const secondTx = {
+        query: vi
+          .fn()
+          .mockResolvedValueOnce({ rowCount: 1, rows: [{ matter_id: matterId }] })
+          .mockResolvedValueOnce({ rowCount: 1, rows: [] }),
+      };
+      const transaction = vi
+        .fn()
+        .mockImplementationOnce(
+          async (_tenant: string, run: (tx: typeof firstTx) => Promise<unknown>) => run(firstTx),
+        )
+        .mockImplementationOnce(
+          async (_tenant: string, run: (tx: typeof secondTx) => Promise<unknown>) => run(secondTx),
+        );
+      const dispatcher = new ExtractionDispatcher(
+        { transaction, log: vi.fn() } as never,
+        workerStorage() as never,
+        new MetricsRegistry(),
+      );
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(body, { status: 200 }));
+
+      await dispatcher.handle(payload);
+
+      expect(secondTx.query.mock.calls[1]?.[1]).toEqual([
+        tenantId,
+        versionId,
+        '',
+        'failed',
+        'failed',
+        0,
+        'WORKER_INVALID_RESPONSE',
+      ]);
+      vi.restoreAllMocks();
+    }
+  });
+
   it('throws transient worker failures so pg-boss can retry', async () => {
     const tx = { query: vi.fn(async () => ({ rowCount: 1, rows: [targetRow()] })) };
     const transaction = vi.fn(
@@ -748,7 +845,7 @@ describe('ExtractionDispatcher', () => {
     );
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: vi.fn() } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -756,7 +853,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('%PDF')),
         })),
-      } as never,
+      }) as never,
       new MetricsRegistry(),
     );
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 503 }));
@@ -774,7 +871,7 @@ describe('ExtractionDispatcher', () => {
     );
     const dispatcher = new ExtractionDispatcher(
       { transaction, log: vi.fn() } as never,
-      {
+      workerStorage({
         getByStorageUri: vi.fn(async () => ({
           key: 'key',
           contentLength: 7,
@@ -782,7 +879,7 @@ describe('ExtractionDispatcher', () => {
           etag: null,
           body: Readable.from(Buffer.from('%PDF')),
         })),
-      } as never,
+      }) as never,
       new MetricsRegistry(),
     );
     vi.spyOn(globalThis, 'fetch').mockImplementation(
