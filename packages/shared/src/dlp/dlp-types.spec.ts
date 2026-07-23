@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { dlpBehaviorAlertListResponseSchema } from './dlp-types';
+import {
+  createDlpReviewRequestSchema,
+  dlpBehaviorAlertListResponseSchema,
+} from './dlp-types';
 
 describe('DLP behavior alert DTOs', () => {
   it('accepts safe bulk-download alert summaries without document content', () => {
@@ -30,5 +33,37 @@ describe('DLP behavior alert DTOs', () => {
       thresholdCount: 50,
     });
     expect(JSON.stringify(parsed)).not.toMatch(/documentBody|rawText|content/i);
+  });
+
+  it('accepts only bounded decision and reason combinations for manual review', () => {
+    expect(
+      createDlpReviewRequestSchema.parse({
+        decision: 'allow',
+        reasonCode: 'verified_safe',
+        expiresAt: '2026-07-24T00:00:00.000Z',
+      }),
+    ).toMatchObject({ decision: 'allow', reasonCode: 'verified_safe' });
+    expect(() =>
+      createDlpReviewRequestSchema.parse({
+        decision: 'allow',
+        reasonCode: 'sensitive_content_denied',
+        expiresAt: '2026-07-24T00:00:00.000Z',
+      }),
+    ).toThrow();
+    expect(() =>
+      createDlpReviewRequestSchema.parse({
+        decision: 'deny',
+        reasonCode: 'business_justified',
+        expiresAt: '2026-07-24T00:00:00.000Z',
+      }),
+    ).toThrow();
+    expect(() =>
+      createDlpReviewRequestSchema.parse({
+        decision: 'deny',
+        reasonCode: 'sensitive_content_denied',
+        expiresAt: '2026-07-24T00:00:00.000Z',
+        note: 'raw free-form content is forbidden',
+      }),
+    ).toThrow();
   });
 });

@@ -13,6 +13,7 @@ import type {
 } from '@amic-vault/shared';
 import { buildStoredZip, type StoredZipFile } from '../../common/zip-store';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { DlpService } from '../dlp/dlp.service';
 import { isDocumentPromoted } from '../file-security/promoted-file.guard';
 import { PermissionService } from '../permission/permission.service';
 import { RecordsService } from '../records/records.service';
@@ -173,6 +174,7 @@ function itemTypeForDocument(row: BinderDocumentRow): MatterClosingBinderItemTyp
 export class ClosingBinderService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(DlpService) private readonly dlpService: DlpService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(RecordsService) private readonly recordsService: RecordsService,
     @Inject(StorageService) private readonly storageService: StorageService,
@@ -260,6 +262,38 @@ export class ClosingBinderService {
         await this.assertCanDownloadDocument(context.tenantId, actorUserId, source.item.documentId);
       }
     }
+
+    const dlpDecision = await this.auditService.transaction(context.tenantId, async (tx) => {
+      for (const source of archive.sources) {
+        const decision = source.item.documentId
+          ? await this.dlpService.evaluateDocumentEgress(tx, {
+              tenantId: context.tenantId,
+              matterId,
+              documentId: source.item.documentId,
+              versionId: source.item.versionId,
+              purpose: 'document_download',
+              authorization: {
+                kind: 'internal',
+                userId: actorUserId,
+              },
+            })
+          : source.item.emailId
+            ? await this.dlpService.evaluateEmailEgress(tx, {
+                tenantId: context.tenantId,
+                matterId,
+                emailId: source.item.emailId,
+                purpose: 'raw_email_download',
+                authorization: {
+                  kind: 'internal',
+                  userId: actorUserId,
+                },
+              })
+            : null;
+        if (decision && !decision.allowed) return { kind: 'denied' as const };
+      }
+      return { kind: 'allowed' as const };
+    });
+    if (dlpDecision.kind === 'denied') throw validationFailed('DLP_REVIEW_REQUIRED');
 
     const files: StoredZipFile[] = [
       {

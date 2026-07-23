@@ -15,6 +15,7 @@ import type {
 } from '@amic-vault/shared';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
+import { markCanonicalReadyFixture } from './document-access/document-api-helpers';
 import {
   createOwnerClient,
   setTenant,
@@ -56,6 +57,11 @@ describe('External core integration', () => {
       title: `External ${marker} primary file`,
       text: 'External sharing body must not appear in manifest.',
       index: 1501,
+    });
+    await markCanonicalReadyFixture({
+      documentId,
+      versionId,
+      bodyText: 'Synthetic integration fixture with no restricted data.',
     });
     await insertDocument({
       documentId: deniedDocumentId,

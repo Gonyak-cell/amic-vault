@@ -59,6 +59,28 @@ export const dlpRestrictedFindingTypes = [
 export const sf20DlpPolicyVersion = 'sf20-dlp-v1';
 export const sf20DlpTotalFindingReviewThreshold = 20;
 export const sf20DlpDefaultMaxFindings = 200;
+export const sf20DlpMaxScanCharacters = 2_000_000;
+export const sf20DlpMaxReviewDays = 30;
+
+export const dlpReviewDecisions = ['allow', 'deny'] as const;
+export type DlpReviewDecision = (typeof dlpReviewDecisions)[number];
+
+export const dlpReviewReasonCodes = [
+  'verified_safe',
+  'known_encrypted_source',
+  'business_justified',
+  'sensitive_content_denied',
+] as const;
+export type DlpReviewReasonCode = (typeof dlpReviewReasonCodes)[number];
+
+export const dlpEgressPurposes = [
+  'document_download',
+  'external_link',
+  'external_ticket',
+  'raw_email_download',
+  'outlook_document_insertion',
+] as const;
+export type DlpEgressPurpose = (typeof dlpEgressPurposes)[number];
 
 export interface DlpDetection {
   ruleId: DlpRuleId;
@@ -93,6 +115,42 @@ export interface DlpAssessmentSummary {
 }
 
 const uuidSchema = z.string().uuid();
+
+export const createDlpReviewRequestSchema = z
+  .object({
+    decision: z.enum(dlpReviewDecisions),
+    reasonCode: z.enum(dlpReviewReasonCodes),
+    expiresAt: z.string().datetime({ offset: true }),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.decision === 'allow' && value.reasonCode === 'sensitive_content_denied') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reasonCode'],
+        message: 'allow decision requires an allow reason',
+      });
+    }
+    if (value.decision === 'deny' && value.reasonCode !== 'sensitive_content_denied') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['reasonCode'],
+        message: 'deny decision requires sensitive_content_denied',
+      });
+    }
+  });
+
+export const dlpReviewResponseSchema = z.object({
+  assessmentId: uuidSchema,
+  reviewId: uuidSchema,
+  decision: z.enum(dlpReviewDecisions),
+  reasonCode: z.enum(dlpReviewReasonCodes),
+  expiresAt: z.string().datetime({ offset: true }),
+  reviewedAt: z.string().datetime({ offset: true }),
+});
+
+export type CreateDlpReviewRequestDto = z.infer<typeof createDlpReviewRequestSchema>;
+export type DlpReviewResponseDto = z.infer<typeof dlpReviewResponseSchema>;
 
 export const dlpBehaviorAlertStatuses = ['open', 'acknowledged', 'dismissed'] as const;
 export const dlpBehaviorAlertStatusSchema = z.enum(dlpBehaviorAlertStatuses);

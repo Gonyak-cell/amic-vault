@@ -15,6 +15,7 @@ import type {
 } from '@amic-vault/shared';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
+import { markCanonicalReadyFixture } from './document-access/document-api-helpers';
 import {
   createOwnerClient,
   setTenant,
@@ -63,6 +64,11 @@ describe('External portal Gate integration', () => {
       },
       1601,
     );
+    await markCanonicalReadyFixture({
+      documentId,
+      versionId,
+      bodyText: `Fictitious DLP fixture address ${dlpMarker} for controlled warning tests.`,
+    });
     await addMatterMember({
       tenantId: tenantAlphaId,
       matterId,
@@ -354,6 +360,41 @@ describe('External portal Gate integration', () => {
     expect(auditText).not.toContain(dlpMarker);
     expect(auditText).not.toContain('Please clarify clause five.');
     expect(auditText).not.toContain('Clause five remains bounded to the room.');
+  });
+
+  it('rechecks the exact assessment before issuing a ticket for an existing link', async () => {
+    const created = await postJson<ExternalLinkCreatedResponseDto>('/v1/external/links', {
+      ...baseLinkRequest(),
+      dlpWarningAccepted: true,
+      dlpOverrideReasonCode: 'CLIENT_APPROVED',
+    });
+    await postPublicJson<ExternalNdaAcceptanceDto>(
+      `/v1/external/access/${created.linkToken}/nda`,
+      {
+        accepted: true,
+        ndaVersion: 'NDA-R11-V1',
+      },
+    );
+    await markCanonicalReadyFixture({
+      documentId,
+      versionId,
+      bodyText: 'Synthetic reserved passport fixture M12345678.',
+    });
+
+    const staleTicket = await fetch(
+      `${baseUrl}/v1/external/access/${created.linkToken}/download-ticket`,
+      { headers: { 'x-amic-external-actor-ref': marker } },
+    );
+    const staleTicketBody = await staleTicket.text();
+    expect(staleTicket.status, staleTicketBody).toBe(400);
+    expect(JSON.parse(staleTicketBody)).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      reason: 'DLP_REVIEW_REQUIRED',
+    });
+    await expect(
+      latestExternalAudit('EXTERNAL_DOWNLOAD_REQUESTED', created.link.linkId),
+    ).resolves.toBeUndefined();
+    expect(staleTicketBody).not.toContain('M12345678');
   });
 
   it('keeps new portal tables tenant-RLS protected and external audit reference-only', async () => {

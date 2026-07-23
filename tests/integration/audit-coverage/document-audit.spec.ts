@@ -15,6 +15,7 @@ import {
   loginAlphaOwner,
   loginBetaMember,
   loginBetaOwner,
+  markCanonicalReadyFixture,
   storageUrisForDocument,
   uploadPdf,
 } from '../document-access/document-api-helpers';
@@ -61,6 +62,7 @@ describe('document-audit integration', () => {
     const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, 'VAUD');
     await addBetaMember(baseUrl, betaOwnerCookie, matterId, 'read');
     const uploaded = await uploadPdf(baseUrl, betaOwnerCookie, matterId, 'view-audit');
+    await markCanonicalReadyFixture({ documentId: uploaded.documentId });
     storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
 
     expect(await auditCount(uploaded.documentId, 'DOCUMENT_UPLOADED')).toBe(1);

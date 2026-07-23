@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AiModule } from '../ai/ai.module';
 import { AuditModule } from '../audit/audit.module';
+import { DlpModule } from '../dlp/dlp.module';
 import { PermissionModule } from '../permission/permission.module';
 import { RecordsModule } from '../records/records.module';
 import { StorageModule } from '../storage/storage.module';
@@ -24,6 +25,7 @@ import { MatterWikiService } from './matter-wiki.service';
   imports: [
     AiModule,
     AuditModule,
+    DlpModule,
     PermissionModule,
     RecordsModule,
     StorageModule,

@@ -13,6 +13,7 @@ import {
   latestAuditMetadata,
   loginAlphaOwner,
   loginBetaOwner,
+  markCanonicalReadyFixture,
   storageUrisForDocument,
   uploadPdf,
 } from './document-api-helpers';
@@ -45,6 +46,7 @@ describe('document-download integration', () => {
     const clientId = await createClient(baseUrl, betaOwnerCookie, 'DOWN');
     const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, 'DOWN');
     const uploaded = await uploadPdf(baseUrl, betaOwnerCookie, matterId, 'download');
+    await markCanonicalReadyFixture({ documentId: uploaded.documentId });
     storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
 
     const denied = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}/download`, {

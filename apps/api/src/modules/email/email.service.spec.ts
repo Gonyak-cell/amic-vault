@@ -33,6 +33,7 @@ function createService(
   selectRows: unknown[][] = [[], []],
   permissionEffect: 'ALLOW' | 'DENY' = 'ALLOW',
   options: {
+    dlpAllowed?: boolean;
     emailBodySearch?: 'enabled' | 'disabled' | 'linked';
     workerParser?: EmailWorkerParserClient;
   } = {},
@@ -92,6 +93,39 @@ function createService(
             ]
           : [];
       return { rows, rowCount: rows.length };
+    }
+    if (
+      sql.includes('SELECT e.email_id, e.raw_file_object_id') &&
+      sql.includes('fo.storage_uri')
+    ) {
+      return {
+        rows: [
+          {
+            email_id: existingEmailId,
+            raw_file_object_id: '11111111-1111-4111-8111-1111111111ff',
+            raw_sha256: 'a'.repeat(64),
+            raw_size_bytes: '128',
+            storage_uri: `s3://vault-dev/tenants/${tenantId}/emails/${existingEmailId}/raw/11111111-1111-4111-8111-1111111111ff`,
+            normalized_filename: 'fixture.eml',
+            mime_type: 'message/rfc822',
+          },
+        ],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('SELECT edl.document_id, d.matter_id')) {
+      return {
+        rows: [
+          {
+            document_id: '11111111-1111-4111-8111-1111111111d0',
+            matter_id: '11111111-1111-4111-8111-1111111111a0',
+          },
+        ],
+        rowCount: 1,
+      };
+    }
+    if (sql.includes('FROM file_security_promotions promotion')) {
+      return { rows: [{ '?column?': 1 }], rowCount: 1 };
     }
     if (sql.includes('SELECT participant_id, domain_ref')) {
       return {
@@ -432,8 +466,16 @@ function createService(
     })),
   };
   const canReadDocument = vi.fn(async () => ({ effect: permissionEffect, appliedRules: [] }));
+  const canDownloadDocument = vi.fn(async () => ({
+    effect: permissionEffect,
+    appliedRules: [],
+  }));
   const canUploadToMatter = vi.fn(async () => ({ effect: permissionEffect, appliedRules: [] }));
-  const permissionService = { canReadDocument, canUploadToMatter } as unknown as PermissionService;
+  const permissionService = {
+    canDownloadDocument,
+    canReadDocument,
+    canUploadToMatter,
+  } as unknown as PermissionService;
   const permissionQueryBuilder = {
     buildMatterFilter: vi.fn(() => ({ sql: 'TRUE', params: [], appliedRules: [] })),
   } as unknown as PermissionQueryBuilder;
@@ -441,7 +483,26 @@ function createService(
     findByTenantAndId: vi.fn(async () => ({ role: 'matter_owner', status: 'active' })),
   } as unknown as UserService;
   const scanAndRecord = vi.fn(async () => ({ findings: [] }));
-  const dlpService = { scanAndRecord } as unknown as DlpService;
+  const assessAndRecord = vi.fn(async () => ({
+    assessmentId: '11111111-1111-4111-8111-1111111111d1',
+    scanState: 'clean',
+    reasonCode: null,
+    findingCount: 0,
+    restrictedFindingCount: 0,
+    requiresReview: false,
+    completed: true,
+    limitReached: false,
+    policyVersion: 'sf20-dlp-v1',
+    resultHash: 'd'.repeat(64),
+    findings: [],
+    createdAt: new Date(),
+  }));
+  const evaluateEmailEgress = vi.fn(async () => ({ allowed: options.dlpAllowed !== false }));
+  const dlpService = {
+    scanAndRecord,
+    assessAndRecord,
+    evaluateEmailEgress,
+  } as unknown as DlpService;
   const createDraft = vi.fn(async () => undefined);
   const createInitialVersion = vi.fn(async () => ({
     documentId: '11111111-1111-4111-8111-1111111111bd',
@@ -462,6 +523,7 @@ function createService(
 
   return {
     auditLog,
+    canDownloadDocument,
     canUploadToMatter,
     canReadDocument,
     client,
@@ -472,6 +534,8 @@ function createService(
     query,
     quarantineIntake,
     scanAndRecord,
+    assessAndRecord,
+    evaluateEmailEgress,
     upsertVersion,
     service: new EmailService(
       auditService,
@@ -497,7 +561,8 @@ function createService(
 
 describe('EmailService', () => {
   it('imports a parsed EML using raw storage and reference-only audit metadata', async () => {
-    const { auditLog, fileObjectCreate, query, service, storageService } = createService();
+    const { assessAndRecord, auditLog, fileObjectCreate, query, service, storageService } =
+      createService();
     const result = await service.importRawEmail({
       tenantId,
       actorUserId,
@@ -548,6 +613,15 @@ describe('EmailService', () => {
         }),
       }),
       expect.anything(),
+    );
+    expect(assessAndRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        tenantId,
+        sourceType: 'email',
+        sourceId: result.emailId,
+        text: 'raw body must not appear in audit',
+      }),
     );
     expect(auditLog).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -699,9 +773,13 @@ describe('EmailService', () => {
       ],
     }));
     const workerParser = { parseRawEmail } as unknown as EmailWorkerParserClient;
-    const { scanAndRecord, service, uploadBuffer } = createService([[], []], 'ALLOW', {
-      workerParser,
-    });
+    const { assessAndRecord, scanAndRecord, service, uploadBuffer } = createService(
+      [[], []],
+      'ALLOW',
+      {
+        workerParser,
+      },
+    );
 
     const result = await service.importRawEmail({
       tenantId,
@@ -731,6 +809,14 @@ describe('EmailService', () => {
         text: '%PDF-1.7\nmsg attachment\n%%EOF\n',
       }),
     );
+    expect(assessAndRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        sourceType: 'email',
+        sourceId: result.emailId,
+        unscannableReasonCode: 'no_text',
+      }),
+    );
     expect(uploadBuffer).toHaveBeenCalledWith(
       expect.objectContaining({
         originalFilename: 'attachment.pdf',
@@ -741,7 +827,7 @@ describe('EmailService', () => {
   });
 
   it('preserves raw EML when parsing fails without claiming parsed status', async () => {
-    const { service } = createService();
+    const { assessAndRecord, service } = createService();
     const result = await service.importRawEmail({
       tenantId,
       actorUserId,
@@ -755,6 +841,14 @@ describe('EmailService', () => {
       failureReasonCode: 'MISSING_MESSAGE_ID',
       rawSha256: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
+    expect(assessAndRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        sourceType: 'email',
+        sourceId: result.emailId,
+        unscannableReasonCode: 'parser_failed',
+      }),
+    );
   });
 
   it('decodes RFC2047 Korean subjects and charset text attachments during import', async () => {
@@ -1228,5 +1322,36 @@ describe('EmailService', () => {
       expect.anything(),
     );
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('dupe@example.test');
+  });
+
+  it('commits the DLP denial before returning a safe raw-download error and never reads storage', async () => {
+    const { auditLog, evaluateEmailEgress, service, storageService } = createService(
+      undefined,
+      'ALLOW',
+      { dlpAllowed: false },
+    );
+
+    await expect(
+      service.downloadRawEmail(actorUserId, existingEmailId, 'casework'),
+    ).rejects.toMatchObject({
+      response: {
+        code: 'VALIDATION_FAILED',
+        reason: 'DLP_REVIEW_REQUIRED',
+      },
+    });
+    expect(evaluateEmailEgress).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        tenantId,
+        emailId: existingEmailId,
+        purpose: 'raw_email_download',
+      }),
+    );
+    expect(storageService.getByStorageUri).not.toHaveBeenCalled();
+    expect(
+      auditLog.mock.calls.some(
+        ([event]) => (event as { action?: string }).action === 'EMAIL_RAW_DOWNLOADED',
+      ),
+    ).toBe(false);
   });
 });

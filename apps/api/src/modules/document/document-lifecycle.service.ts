@@ -35,6 +35,7 @@ import {
   documentRestoredAudit,
   documentStatusChangedAudit,
 } from '../audit/events/document-events';
+import { DlpService } from '../dlp/dlp.service';
 import { GraphSyncOutboxWorker } from '../graph/graph-sync-outbox.worker';
 import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
 import { PermissionService } from '../permission/permission.service';
@@ -166,6 +167,7 @@ export class DocumentLifecycleService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PermissionService) private readonly permissionService: PermissionService,
+    @Inject(DlpService) private readonly dlpService: DlpService,
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(UserService) private readonly userService: UserService,
@@ -362,11 +364,23 @@ export class DocumentLifecycleService {
     reasonCode?: string,
   ): Promise<DocumentDownloadResult> {
     const context = this.tenantContext.require();
-    const target = await this.auditService.transaction(context.tenantId, async (tx) => {
+    const decision = await this.auditService.transaction(context.tenantId, async (tx) => {
       const row = await this.findDownloadTarget(tx, context.tenantId, documentId);
       if (!row) throw notFoundDenied();
       if (row.status === 'deleted') throw documentLocked();
       await this.assertCanDownloadDocument(context.tenantId, actorUserId, documentId, reasonCode);
+      const dlp = await this.dlpService.evaluateDocumentEgress(tx, {
+        tenantId: context.tenantId,
+        matterId: row.matter_id,
+        documentId,
+        versionId: row.version_id,
+        purpose: 'document_download',
+        authorization: {
+          kind: 'internal',
+          userId: actorUserId,
+        },
+      });
+      if (!dlp.allowed) return { kind: 'denied' as const };
       const auditInput = {
         tenantId: context.tenantId,
         actorId: actorUserId,
@@ -379,8 +393,10 @@ export class DocumentLifecycleService {
         documentDownloadedAudit(reasonCode ? { ...auditInput, reasonCode } : auditInput),
         tx,
       );
-      return row;
+      return { kind: 'allowed' as const, target: row };
     });
+    if (decision.kind === 'denied') throw validationFailed('DLP_REVIEW_REQUIRED');
+    const target = decision.target;
 
     const object = await this.storageService.getByStorageUri(context.tenantId, target.storage_uri);
     return {

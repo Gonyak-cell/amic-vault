@@ -7,7 +7,13 @@ import { NoopEncryptionHook } from '../../../apps/api/src/modules/storage/noop-e
 import { S3StorageAdapter } from '../../../apps/api/src/modules/storage/s3-storage.adapter';
 import { StoragePathResolver } from '../../../apps/api/src/modules/storage/storage-path.resolver';
 import { StorageService } from '../../../apps/api/src/modules/storage/storage.service';
-import { createOwnerClient, tenantAlphaId, tenantBetaId, withClient } from '../helpers/db';
+import {
+  createOwnerClient,
+  setTenant,
+  tenantAlphaId,
+  tenantBetaId,
+  withClient,
+} from '../helpers/db';
 
 export const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 export const betaOwnerUserId = '22222222-2222-4222-8222-222222222201';
@@ -108,6 +114,58 @@ export async function markPromotedFixture(input: {
   });
 }
 
+export async function markCanonicalReadyFixture(input: {
+  documentId: string;
+  versionId?: string;
+  bodyText?: string;
+  extractionMethod?: 'pdf_text' | 'docx' | 'hwpx';
+}): Promise<string> {
+  return withClient(createOwnerClient(), async (client) => {
+    const target = await client.query<{ tenant_id: string; version_id: string }>(
+      `
+        SELECT d.tenant_id, dv.version_id
+        FROM documents d
+        JOIN document_versions dv
+          ON dv.tenant_id = d.tenant_id
+         AND dv.document_id = d.document_id
+        WHERE d.document_id = $1
+          AND ($2::uuid IS NULL OR dv.version_id = $2)
+        ORDER BY dv.version_no DESC
+        LIMIT 1
+      `,
+      [input.documentId, input.versionId ?? null],
+    );
+    const row = target.rows[0];
+    if (!row) throw new Error('canonical fixture target missing');
+    await setTenant(client, row.tenant_id);
+    await client.query(
+      `
+        INSERT INTO canonical_documents (
+          tenant_id, version_id, body_text, extraction_status, extraction_method,
+          confidence, failure_reason_code, extracted_at
+        )
+        VALUES ($1, $2, $3, 'ready', $4, 1, NULL, now())
+        ON CONFLICT (tenant_id, version_id)
+        DO UPDATE SET
+          body_text = EXCLUDED.body_text,
+          extraction_status = EXCLUDED.extraction_status,
+          extraction_method = EXCLUDED.extraction_method,
+          confidence = EXCLUDED.confidence,
+          failure_reason_code = NULL,
+          extracted_at = EXCLUDED.extracted_at,
+          updated_at = now()
+      `,
+      [
+        row.tenant_id,
+        row.version_id,
+        input.bodyText ?? 'Synthetic integration fixture with no restricted data.',
+        input.extractionMethod ?? 'pdf_text',
+      ],
+    );
+    return row.version_id;
+  });
+}
+
 export async function login(
   baseUrl: string,
   input: { tenantId: string; email: string; password: string },
@@ -168,6 +226,7 @@ export async function createMatter(
   cookie: string,
   clientId: string,
   marker: string,
+  options?: { leadLawyerId?: string },
 ) {
   const response = await fetch(`${baseUrl}/v1/matters`, {
     method: 'POST',
@@ -177,7 +236,7 @@ export async function createMatter(
       matterCode: `${marker}-${randomUUID()}`,
       matterName: `${marker} Matter ${randomUUID()}`,
       matterType: 'contract',
-      leadLawyerId: betaOwnerUserId,
+      leadLawyerId: options?.leadLawyerId ?? betaOwnerUserId,
     }),
   });
   const body = await response.text();

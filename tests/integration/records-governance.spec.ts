@@ -24,7 +24,10 @@ import { NoopEncryptionHook } from '../../apps/api/src/modules/storage/noop-encr
 import { S3StorageAdapter } from '../../apps/api/src/modules/storage/s3-storage.adapter';
 import { StoragePathResolver } from '../../apps/api/src/modules/storage/storage-path.resolver';
 import { StorageService } from '../../apps/api/src/modules/storage/storage.service';
-import { markPromotedFixture } from './document-access/document-api-helpers';
+import {
+  markCanonicalReadyFixture,
+  markPromotedFixture,
+} from './document-access/document-api-helpers';
 import { createOwnerClient, setTenant, tenantAlphaId, withClient } from './helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
@@ -397,6 +400,10 @@ describe('records governance integration', () => {
     holdDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-HOLD`);
     disposalDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-DISPOSE`);
     referencedDocument = await upload(baseUrl, ownerCookie, matterId, `${marker}-REF`);
+    await markCanonicalReadyFixture({
+      documentId: referencedDocument.documentId,
+      bodyText: 'Synthetic integration fixture with no restricted data.',
+    });
   });
 
   afterAll(async () => {

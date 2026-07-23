@@ -27,6 +27,10 @@ import {
   withClient,
 } from './helpers/db';
 import {
+  grantDocumentPermission,
+  markPromotedFixture,
+} from './document-access/document-api-helpers';
+import {
   addExplicitPermission,
   addMatterMember,
   alphaOwnerUserId,
@@ -228,6 +232,32 @@ describe('DD Vault integration', () => {
     });
     expect(generated?.normalized_filename).toMatch(/^dd-report-.*\.docx$/u);
     expect(generated?.sha256).toMatch(/^[a-f0-9]{64}$/u);
+
+    await markPromotedFixture({ documentId: exported.documentId });
+    await grantDocumentPermission({
+      tenantId: tenantAlphaId,
+      documentId: exported.documentId,
+      subjectUserId: alphaOwnerUserId,
+      action: 'read',
+      createdBy: alphaOwnerUserId,
+    });
+    await grantDocumentPermission({
+      tenantId: tenantAlphaId,
+      documentId: exported.documentId,
+      subjectUserId: alphaOwnerUserId,
+      action: 'download',
+      createdBy: alphaOwnerUserId,
+    });
+    const generatedDownload = await fetch(
+      `${baseUrl}/v1/documents/${exported.documentId}/download?reasonCode=casework`,
+      { headers: { cookie: ownerCookie } },
+    );
+    const generatedDownloadBody = await generatedDownload.text();
+    expect(generatedDownload.status, generatedDownloadBody).toBe(400);
+    expect(JSON.parse(generatedDownloadBody)).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      reason: 'DLP_REVIEW_REQUIRED',
+    });
 
     const exportAudit = await latestDdAudit('DD_REPORT_EXPORTED', exported.documentId);
     expect(exportAudit?.metadata_json).toMatchObject({

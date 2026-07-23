@@ -26,7 +26,6 @@ import {
   type CreateExternalQuestionRequestDto,
   type CreateExternalUserRequestDto,
   type CreateExternalWorkspaceRequestDto,
-  type DlpDetection,
   type ExternalAccessManifestDto,
   type ExternalAccessStatusResponseDto,
   type ExternalDownloadTicketDto,
@@ -136,13 +135,10 @@ interface QaMessageRow {
   expires_at: Date;
 }
 
-interface DlpTextRow {
-  scan_text: string;
-}
-
 interface ExternalDlpEvaluation {
+  allowed: boolean;
   findingCount: number;
-  resultHash: string | null;
+  resultHash: string;
 }
 
 interface ExternalQaAuditScope {
@@ -285,10 +281,6 @@ function mapQaMessage(row: QaMessageRow): ExternalQaMessageDto {
     reviewedAt: row.reviewed_at ? iso(row.reviewed_at) : null,
     createdAt: iso(row.created_at),
   });
-}
-
-function dlpScanHash(detections: readonly DlpDetection[]): string {
-  return sha256Hex(detections.map((item) => `${item.ruleId}:${item.valueHash}`).join('|'));
 }
 
 function unappliedWatermark(): { watermarkApplied: false; watermarkRef: null } {
@@ -524,7 +516,10 @@ export class ExternalService {
     if (target.document_status === 'deleted' || target.document_legal_hold || target.matter_legal_hold) {
       throw validationFailed('EXTERNAL_LINK_DOCUMENT_LOCKED');
     }
-    const dlpEvaluation = await this.evaluateExternalDlp(ctx.tenantId, target);
+    const dlpEvaluation = await this.evaluateExternalDlp(ctx, target);
+    if (!dlpEvaluation.allowed) {
+      throw validationFailed('DLP_REVIEW_REQUIRED');
+    }
     if (dlpEvaluation.findingCount > 0 && !input.dlpWarningAccepted) {
       await this.auditDlpWarningBlocked(ctx, workspace, input, target, dlpEvaluation);
       throw validationFailed('EXTERNAL_DLP_WARNING_REQUIRED');
@@ -796,8 +791,20 @@ export class ExternalService {
   ): Promise<ExternalDownloadTicketDto> {
     const link = await this.resolveReadyToken(token);
     const watermark = unappliedWatermark();
-    const downloadRef = downloadRefFor(link);
-    return this.auditService.transaction(link.tenant_id, async (client) => {
+    const decision = await this.auditService.transaction(link.tenant_id, async (client) => {
+      const dlp = await this.dlpService.evaluateDocumentEgress(client, {
+        tenantId: link.tenant_id,
+        matterId: link.matter_id,
+        documentId: link.document_id,
+        versionId: link.version_id,
+        purpose: 'external_ticket',
+        authorization: {
+          kind: 'external_link',
+          externalLinkId: link.link_id,
+        },
+      });
+      if (!dlp.allowed) return { kind: 'denied' as const };
+      const downloadRef = downloadRefFor(link);
       await client.query(
         `
           UPDATE external_secure_links
@@ -833,17 +840,22 @@ export class ExternalService {
         },
         client,
       );
-      return externalDownloadTicketSchema.parse({
-        status: 'ready',
-        workspaceId: link.workspace_id,
-        externalUserId: link.external_user_id,
-        documentId: link.document_id,
-        versionId: link.version_id,
-        expiresAt: iso(link.expires_at),
-        ...watermark,
-        downloadRef,
-      });
+      return {
+        kind: 'allowed' as const,
+        ticket: externalDownloadTicketSchema.parse({
+          status: 'ready',
+          workspaceId: link.workspace_id,
+          externalUserId: link.external_user_id,
+          documentId: link.document_id,
+          versionId: link.version_id,
+          expiresAt: iso(link.expires_at),
+          ...watermark,
+          downloadRef,
+        }),
+      };
     });
+    if (decision.kind === 'denied') throw validationFailed('DLP_REVIEW_REQUIRED');
+    return decision.ticket;
   }
 
   async listQa(token: string): Promise<ExternalQaListResponseDto> {
@@ -1185,18 +1197,28 @@ export class ExternalService {
   }
 
   private async evaluateExternalDlp(
-    tenantId: string,
+    ctx: PermissionContext,
     target: DocumentTargetRow,
   ): Promise<ExternalDlpEvaluation> {
-    const text = await this.findDocumentTextForDlp(
-      tenantId,
-      target.document_id,
-      target.version_id,
+    const decision = await this.auditService.transaction(ctx.tenantId, (client) =>
+      this.dlpService.evaluateDocumentEgress(client, {
+        tenantId: ctx.tenantId,
+        matterId: target.matter_id,
+        documentId: target.document_id,
+        versionId: target.version_id,
+        purpose: 'external_link',
+        authorization: {
+          kind: 'internal',
+          userId: ctx.userId,
+          sessionId: ctx.sessionId ?? null,
+        },
+      }),
     );
-    if (!text) return { findingCount: 0, resultHash: null };
-    const detections = this.dlpService.scanText(text);
-    if (detections.length === 0) return { findingCount: 0, resultHash: null };
-    return { findingCount: detections.length, resultHash: dlpScanHash(detections) };
+    return {
+      allowed: decision.allowed,
+      findingCount: decision.findingCount,
+      resultHash: decision.resultHash,
+    };
   }
 
   private async auditDlpWarningBlocked(
@@ -1233,55 +1255,6 @@ export class ExternalService {
         client,
       );
     });
-  }
-
-  private async findDocumentTextForDlp(
-    tenantId: string,
-    documentId: string,
-    versionId: string | null,
-  ): Promise<string | null> {
-    const canonical = await tenantQuery<DlpTextRow>(
-      this.databaseService,
-      tenantId,
-      `
-        SELECT cd.body_text AS scan_text
-        FROM canonical_documents cd
-        JOIN document_versions v
-          ON v.tenant_id = cd.tenant_id
-         AND v.version_id = cd.version_id
-        WHERE cd.tenant_id = $1
-          AND v.document_id = $2
-          AND ($3::uuid IS NULL OR v.version_id = $3::uuid)
-          AND cd.extraction_status = 'ready'
-          AND char_length(cd.body_text) > 0
-        ORDER BY
-          CASE WHEN v.version_status = 'current' THEN 0 ELSE 1 END,
-          cd.updated_at DESC
-        LIMIT 1
-      `,
-      [tenantId, documentId, versionId],
-    );
-    const canonicalText = canonical.rows[0]?.scan_text;
-    if (canonicalText) return canonicalText;
-
-    const indexed = await tenantQuery<DlpTextRow>(
-      this.databaseService,
-      tenantId,
-      `
-        SELECT content_text AS scan_text
-        FROM document_search_index
-        WHERE tenant_id = $1
-          AND document_id = $2
-          AND ($3::uuid IS NULL OR version_id = $3::uuid)
-          AND document_status <> 'deleted'
-          AND version_status = 'current'
-          AND char_length(content_text) > 0
-        ORDER BY updated_at DESC
-        LIMIT 1
-      `,
-      [tenantId, documentId, versionId],
-    );
-    return indexed.rows[0]?.scan_text ?? null;
   }
 
   private async assertActiveWorkspace(tenantId: string, workspaceId: string): Promise<void> {
@@ -1400,7 +1373,19 @@ export class ExternalService {
       this.databaseService,
       tenantId,
       `
-        SELECT d.matter_id, d.document_id, $3::uuid AS version_id,
+        SELECT d.matter_id, d.document_id,
+          COALESCE(
+            $3::uuid,
+            (
+              SELECT current_version.version_id
+              FROM document_versions current_version
+              WHERE current_version.tenant_id = d.tenant_id
+                AND current_version.document_id = d.document_id
+                AND current_version.version_status = 'current'
+              ORDER BY current_version.version_no DESC
+              LIMIT 1
+            )
+          ) AS version_id,
           d.status AS document_status,
           d.legal_hold AS document_legal_hold,
           m.legal_hold AS matter_legal_hold
