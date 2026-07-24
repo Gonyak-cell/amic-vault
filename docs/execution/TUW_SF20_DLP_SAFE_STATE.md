@@ -159,9 +159,9 @@ inventory check.
 
 ## `DEVOPS-SF20-DLP-TUW-001`
 
-**Title:** Explicit unscannable assessment  
-**Release/module:** R14 / DEVOPS-SF20-DLP  
-**Risk/size:** C / L  
+**Title:** Explicit unscannable assessment
+**Release/module:** R14 / DEVOPS-SF20-DLP
+**Risk/size:** C / L
 **Objective:** Make scan completeness part of the result so missing or
 uninspectable text cannot silently become a clean result.
 
@@ -216,9 +216,9 @@ dependency change, or migration without rollback.
 
 ## `DEVOPS-SF20-DLP-TUW-002`
 
-**Title:** Korean synthetic PII corpus and regression gate  
-**Release/module:** R14 / DEVOPS-SF20-DLP  
-**Risk/size:** H / L  
+**Title:** Korean synthetic PII corpus and regression gate
+**Release/module:** R14 / DEVOPS-SF20-DLP
+**Risk/size:** H / L
 **Objective:** Measure all seven shipped detectors on deterministic positive,
 negative, and hard-negative Korean legal-work examples without real PII.
 
@@ -271,9 +271,9 @@ are weakened to pass.
 
 ## `DEVOPS-SF20-DLP-TUW-003`
 
-**Title:** Exact-assessment manual review and zero-silent-bypass gate  
-**Release/module:** R14 / DEVOPS-SF20-DLP  
-**Risk/size:** C / M  
+**Title:** Exact-assessment manual review and zero-silent-bypass gate
+**Release/module:** R14 / DEVOPS-SF20-DLP
+**Risk/size:** C / M
 **Objective:** Require a bounded, attributable, unexpired reviewer decision
 before covered high-risk or unscannable content can leave its ordinary
 internal boundary.
@@ -342,9 +342,9 @@ allow, audit-after-stream, or a newly discovered unclassified route.
 
 ## `DEVOPS-SF20-DLP-TUW-004`
 
-**Title:** Presidio measured activation decision  
-**Release/module:** R14 / DEVOPS-SF20-DLP  
-**Risk/size:** H / M  
+**Title:** Presidio measured activation decision
+**Release/module:** R14 / DEVOPS-SF20-DLP
+**Risk/size:** H / M
 **Objective:** Convert Presidio from an unpinned idea into an exact local
 source reference and activate nothing unless the measured Vault corpus proves
 a named gap worth another service/dependency.
