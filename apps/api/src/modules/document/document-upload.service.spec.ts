@@ -49,6 +49,7 @@ function createService(
     }>;
     matterSourcePolicy?: 'allow' | 'block';
     permission?: 'allow' | 'deny' | 'wall';
+    activeActor?: boolean;
     versionDuplicateCandidates?: Array<{
       documentId: string;
       fileObjectId: string;
@@ -62,8 +63,16 @@ function createService(
       : options.permission === 'wall'
         ? denyPermission('ETHICAL_WALL_BLOCKED')
         : allowPermission();
+  const transactionQuery = vi.fn(async (sql: string) => {
+    if (sql.includes('FROM users')) {
+      return options.activeActor === false
+        ? { rowCount: 0, rows: [] }
+        : { rowCount: 1, rows: [{ user_id: actorUserId }] };
+    }
+    return { rowCount: 1, rows: [] };
+  });
   const transaction = vi.fn(async (_tenantId: string, run: (tx: never) => Promise<void>) =>
-    run({} as never),
+    run({ query: transactionQuery } as never),
   );
   const auditLog = vi.fn(async () => undefined);
   const createDraft = vi.fn(async () => ({
@@ -142,6 +151,7 @@ function createService(
       };
     },
   );
+  const deleteByStorageUri = vi.fn(async () => undefined);
   const matterSourcePolicy =
     options.matterSourcePolicy === undefined
       ? undefined
@@ -177,7 +187,7 @@ function createService(
     { findCandidates, findSafeUploadCandidates } as never,
     { create: createFileObject } as never,
     { canUploadToMatter: vi.fn(async () => permission) } as never,
-    { putTenantObject, deleteByStorageUri: vi.fn(async () => undefined) } as never,
+    { putTenantObject, deleteByStorageUri } as never,
     {
       require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
     } as never,
@@ -192,8 +202,10 @@ function createService(
     findDuplicateVersionCandidates,
     findSafeUploadCandidates,
     findVersionTarget,
+    deleteByStorageUri,
     matterSourcePolicy,
     putTenantObject,
+    transactionQuery,
     service,
   };
 }
@@ -553,6 +565,24 @@ describe('DocumentUploadService', () => {
       },
     );
     expect(putTenantObject).not.toHaveBeenCalled();
+  });
+
+  it('compensates stored bytes and creates no document when the lifecycle fence sees an inactive actor', async () => {
+    const file = await tempUploadFile('Contract.pdf');
+    const { createDraft, deleteByStorageUri, putTenantObject, service, transactionQuery } = createService({
+      activeActor: false,
+    });
+
+    await expect(service.upload({ actorUserId, matterId, fields: {}, file })).rejects.toMatchObject({
+      response: { code: 'PERMISSION_DENIED' },
+    });
+    expect(putTenantObject).toHaveBeenCalledOnce();
+    expect(createDraft).not.toHaveBeenCalled();
+    expect(deleteByStorageUri).toHaveBeenCalledOnce();
+    expect(transactionQuery).toHaveBeenCalledWith(
+      expect.stringContaining("status = 'active'\n      FOR UPDATE"),
+      [tenantId, actorUserId],
+    );
   });
 
   it('preserves ethical wall error codes without disclosing document details', async () => {

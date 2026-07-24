@@ -145,4 +145,17 @@ describe('PreviewSessionService', () => {
     ).rejects.toMatchObject({ status: 404 });
     expect(auditService.log).not.toHaveBeenCalled();
   });
+
+  it('revokes only unrevoked preview sessions on the caller transaction', async () => {
+    const query = vi.fn<QueryClient['query']>().mockResolvedValue({ rowCount: 2, rows: [] });
+    const { service } = createService(query);
+    const client = { query } satisfies QueryClient;
+
+    await service.revokeAllForUser(tenantId, actorUserId, client);
+
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('AND revoked_at IS NULL'),
+      [tenantId, actorUserId],
+    );
+  });
 });

@@ -126,6 +126,19 @@ export class PreviewSessionService {
     });
   }
 
+  async revokeAllForUser(tenantId: TenantId, userId: string, client: QueryClient): Promise<void> {
+    await client.query(
+      `
+        UPDATE preview_access_sessions
+        SET revoked_at = now()
+        WHERE tenant_id = $1
+          AND user_id = $2
+          AND revoked_at IS NULL
+      `,
+      [tenantId, userId],
+    );
+  }
+
   private async assertCanPreview(
     tenantId: TenantId,
     actorUserId: string,

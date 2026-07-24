@@ -19,18 +19,28 @@ async function tempUploadFile(): Promise<UploadedDiskFile> {
   return { path, originalname: 'contract.pdf', mimetype: 'application/pdf', size: content.length };
 }
 
-function createService(options: { permission?: 'allow' | 'deny' | 'wall'; queueFails?: boolean; auditFails?: boolean } = {}) {
+function createService(options: {
+  permission?: 'allow' | 'deny' | 'wall';
+  queueFails?: boolean;
+  auditFails?: boolean;
+  activeActor?: boolean;
+} = {}) {
   const permission =
     options.permission === 'deny'
       ? denyPermission('PERMISSION_DENIED')
       : options.permission === 'wall'
         ? denyPermission('ETHICAL_WALL_BLOCKED')
         : allowPermission();
-  const query = vi.fn(async (sql: string) =>
-    sql.includes('INSERT INTO file_security_scans')
-      ? { rows: [{ scan_id: '11111111-1111-4111-8111-111111111199' }] }
-      : { rows: [] },
-  );
+  const query = vi.fn(async (sql: string) => {
+    if (sql.includes('FROM users')) {
+      return options.activeActor === false
+        ? { rowCount: 0, rows: [] }
+        : { rowCount: 1, rows: [{ user_id: actorUserId }] };
+    }
+    return sql.includes('INSERT INTO file_security_scans')
+      ? { rowCount: 1, rows: [{ scan_id: '11111111-1111-4111-8111-111111111199' }] }
+      : { rowCount: 1, rows: [] };
+  });
   const tx = { query };
   const audit = {
     transaction: vi.fn(async (_tenant: string, run: (client: typeof tx) => Promise<unknown>) => run(tx)),
@@ -119,4 +129,22 @@ describe('QuarantineIntakeService', () => {
       );
     },
   );
+
+  it('compensates quarantine bytes and creates no authority when the lifecycle fence sees an inactive actor', async () => {
+    const file = await tempUploadFile();
+    const { deleteByStorageUri, enqueue, putQuarantineObject, query, service } = createService({
+      activeActor: false,
+    });
+
+    await expect(service.intake({ actorUserId, matterId, fields: {}, file })).rejects.toMatchObject({
+      response: { code: 'PERMISSION_DENIED' },
+    });
+    expect(putQuarantineObject).toHaveBeenCalledOnce();
+    expect(enqueue).not.toHaveBeenCalled();
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("status = 'active'\n      FOR UPDATE"),
+      [tenantId, actorUserId],
+    );
+    expect(deleteByStorageUri).toHaveBeenCalledOnce();
+  });
 });
