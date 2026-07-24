@@ -26,6 +26,7 @@
     "launch:execution": "node tools/release/check-launch-execution.mjs",
     "release:uat": "node tools/release/synthetic-uat-evidence.mjs",
     "release:prod-preflight": "node tools/release/production-release-preflight.mjs",
+    "release:small-firm-access-review": "node tools/release/small-firm-access-review.mjs",
     "release:smoke": "node tools/release/staging-smoke.mjs",
     "release:dms-smoke": "node tools/release/dms-main-loop-smoke.mjs",
     "release:local-preflight": "node tools/release/local-staging-preflight.mjs",

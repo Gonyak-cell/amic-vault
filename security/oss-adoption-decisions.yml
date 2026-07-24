@@ -170,6 +170,8 @@
     "tools/release/check-sf20-residency.spec.mjs",
     "tools/release/small-firm-rollback-drill.mjs",
     "tools/release/small-firm-rollback-drill.spec.mjs",
+    "tools/release/small-firm-access-review.mjs",
+    "tools/release/small-firm-access-review.spec.mjs",
     "infra/production/profile.yml",
     "infra/production/compose.images.yml",
     "infra/production/secret-manifest.yml",
