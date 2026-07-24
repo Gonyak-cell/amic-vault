@@ -5,7 +5,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
 import { AuditService } from '../../apps/api/src/modules/audit/audit.service';
-import { createOwnerClient, tenantAlphaId, withClient } from './helpers/db';
+import {
+  advanceAuthThrottleWindows,
+  createOwnerClient,
+  tenantAlphaId,
+  withClient,
+} from './helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 
@@ -66,6 +71,7 @@ describe('audit logger integration', () => {
   it('records login success and failure audit events without credentials', async () => {
     const failed = await login(baseUrl, 'wrong-password');
     expect(failed.status).toBe(401);
+    await advanceAuthThrottleWindows();
     const failureAudit = await latestAudit('LOGIN_FAILURE', alphaOwnerUserId);
     expect(failureAudit).toMatchObject({
       action: 'LOGIN_FAILURE',

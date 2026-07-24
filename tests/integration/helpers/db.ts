@@ -31,6 +31,16 @@ export async function setTenant(client: Client, tenantId: string): Promise<void>
   await client.query('SELECT set_config($1, $2, false)', ['app.current_tenant_id', tenantId]);
 }
 
+export async function advanceAuthThrottleWindows(): Promise<void> {
+  await withClient(createOwnerClient(), (client) =>
+    client.query(`
+      UPDATE auth_throttle_states
+      SET next_allowed_at = clock_timestamp() - interval '1 second'
+      WHERE locked_until IS NULL
+    `),
+  );
+}
+
 export interface RuntimeDatabaseExecutor {
   tenantTransaction<T>(tenantId: string, work: (client: PoolClient) => Promise<T>): Promise<T>;
   auditTransaction<T>(tenantId: string, work: (client: PoolClient) => Promise<T>): Promise<T>;

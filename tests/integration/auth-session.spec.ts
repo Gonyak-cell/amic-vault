@@ -11,6 +11,7 @@ import {
 } from '../../apps/api/src/modules/auth/session.repository';
 import { totpCodeForSecret } from '../../apps/api/src/modules/auth/totp.service';
 import {
+  advanceAuthThrottleWindows,
   createAppClient,
   createOwnerClient,
   setTenant,
@@ -212,6 +213,7 @@ describe('auth session integration', () => {
       expect(body).toContain('AUTH_REQUIRED');
       expect(body).not.toContain('missing@test.local');
       expect(body).not.toContain('alpha-matter-owner@test.local');
+      await advanceAuthThrottleWindows();
     }
   });
 
@@ -420,6 +422,7 @@ describe('auth session integration', () => {
       }),
     });
     expect(oldPassword.status).toBe(401);
+    await advanceAuthThrottleWindows();
 
     const oldCookieAccess = await fetch(`${baseUrl}/v1/tenant/settings`, {
       headers: { cookie: oldSession.cookie },
