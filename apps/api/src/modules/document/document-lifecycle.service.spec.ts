@@ -47,8 +47,16 @@ function statusTransitionRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
+function serviceWith(tx: { query: ReturnType<typeof vi.fn> }, dlpAllowed = true) {
   const auditLog = vi.fn(async () => undefined);
+  const evaluateDocumentEgress = vi.fn(async () => ({ allowed: dlpAllowed }));
+  const getByStorageUri = vi.fn(async () => ({
+    key: 'k',
+    contentLength: 5,
+    contentType: 'application/pdf',
+    etag: null,
+    body: Readable.from(Buffer.from('hello')),
+  }));
   const service = new DocumentLifecycleService(
     {
       transaction: vi.fn(
@@ -61,13 +69,10 @@ function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
       canDownloadDocument: vi.fn(async () => allowPermission()),
     } as never,
     {
-      getByStorageUri: vi.fn(async () => ({
-        key: 'k',
-        contentLength: 5,
-        contentType: 'application/pdf',
-        etag: null,
-        body: Readable.from(Buffer.from('hello')),
-      })),
+      evaluateDocumentEgress,
+    } as never,
+    {
+      getByStorageUri,
     } as never,
     {
       require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }),
@@ -76,7 +81,7 @@ function serviceWith(tx: { query: ReturnType<typeof vi.fn> }) {
       findByTenantAndId: vi.fn(async () => ({ status: 'active', role: 'firm_admin' })),
     } as never,
   );
-  return { service, auditLog };
+  return { service, auditLog, evaluateDocumentEgress, getByStorageUri };
 }
 
 describe('DocumentLifecycleService', () => {
@@ -278,5 +283,47 @@ describe('DocumentLifecycleService', () => {
       tx,
     );
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('hello');
+  });
+
+  it('commits a DLP denial before returning a safe error and never reads storage', async () => {
+    const tx = {
+      query: vi.fn().mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          lifecycleRow({
+            version_id: versionId,
+            file_object_id: '11111111-1111-4111-8111-111111111155',
+            storage_uri: 's3://amic-vault-dev/tenants/t/matters/m/documents/d/f',
+            normalized_filename: 'blocked.pdf',
+            mime_type: 'application/pdf',
+            size_bytes: '5',
+            sha256: 'abc123',
+          }),
+        ],
+      }),
+    };
+    const { service, auditLog, evaluateDocumentEgress, getByStorageUri } = serviceWith(tx, false);
+
+    await expect(service.download(actorUserId, documentId)).rejects.toMatchObject({
+      response: {
+        code: 'VALIDATION_FAILED',
+        reason: 'DLP_REVIEW_REQUIRED',
+      },
+    });
+    expect(evaluateDocumentEgress).toHaveBeenCalledWith(
+      tx,
+      expect.objectContaining({
+        tenantId,
+        matterId,
+        documentId,
+        versionId,
+        purpose: 'document_download',
+      }),
+    );
+    expect(auditLog).not.toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'DOCUMENT_DOWNLOADED' }),
+      expect.anything(),
+    );
+    expect(getByStorageUri).not.toHaveBeenCalled();
   });
 });

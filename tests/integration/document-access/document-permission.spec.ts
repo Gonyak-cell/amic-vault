@@ -21,6 +21,7 @@ import {
   loginAlphaOwner,
   loginBetaMember,
   loginBetaOwner,
+  markCanonicalReadyFixture,
   setDocumentConfidentiality,
   storageUrisForDocument,
   uploadPdf,
@@ -57,6 +58,7 @@ describe('document-permission integration', () => {
     const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, 'DPERM');
     await addBetaMember(baseUrl, betaOwnerCookie, matterId, 'read');
     const uploaded = await uploadPdf(baseUrl, betaOwnerCookie, matterId, 'permission');
+    await markCanonicalReadyFixture({ documentId: uploaded.documentId });
     storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
 
     const standardRead = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}`, {

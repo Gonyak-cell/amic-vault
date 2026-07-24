@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "amic-vault.dlp-korean-pii-baseline.v1",
+  "policyVersion": "sf20-dlp-v1",
+  "corpusHash": "0159a3beff0aab7165a523137bd0708482ca162af996435872fc5f1a8ab31f48",
+  "caseCount": 35,
+  "classes": {
+    "korean_resident_id": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 32,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "korean_alien_registration_number": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 32,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "bank_account": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 32,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "passport_number": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 32,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "payment_card_number": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 32,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "email_address": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 32,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    },
+    "phone_number": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "tn": 31,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1
+    }
+  },
+  "aggregate": {
+    "tp": 22,
+    "fp": 0,
+    "fn": 0,
+    "tn": 223,
+    "microPrecision": 1,
+    "microRecall": 1,
+    "microF1": 1,
+    "macroPrecision": 1,
+    "macroRecall": 1,
+    "macroF1": 1
+  }
+}

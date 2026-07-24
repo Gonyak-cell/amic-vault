@@ -5,9 +5,21 @@ import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
+import { DlpService } from '../../apps/api/src/modules/dlp/dlp.service';
 import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
-import { createOwnerClient, setTenant, tenantAlphaId, tenantBetaId, withClient } from './helpers/db';
-import { createStorageService, markPromotedFixture } from './document-access/document-api-helpers';
+import {
+  createOwnerClient,
+  createRuntimeDatabaseExecutor,
+  setTenant,
+  tenantAlphaId,
+  tenantBetaId,
+  withClient,
+} from './helpers/db';
+import {
+  createStorageService,
+  markCanonicalReadyFixture,
+  markPromotedFixture,
+} from './document-access/document-api-helpers';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 
@@ -224,11 +236,17 @@ async function insertBinderDocument(
     );
   });
   await markPromotedFixture({ documentId, versionId });
+  await markCanonicalReadyFixture({
+    documentId,
+    versionId,
+    bodyText: body.toString('utf8'),
+  });
   return { documentId, hash, title, versionId, body: body.toString('utf8') };
 }
 
 async function insertFiledEmail(
   matterId: string,
+  dlpService: DlpService,
 ): Promise<{ emailId: string; hash: string; body: string }> {
   const emailId = randomUUID();
   const fileObjectId = randomUUID();
@@ -286,6 +304,15 @@ async function insertFiledEmail(
       `,
       [tenantAlphaId, emailId, matterId, alphaOwnerUserId],
     );
+  });
+  await createRuntimeDatabaseExecutor().auditTransaction(tenantAlphaId, async (client) => {
+    await dlpService.assessAndRecord(client, {
+      tenantId: tenantAlphaId,
+      sourceType: 'email',
+      sourceId: emailId,
+      matterId,
+      text: body.toString('utf8'),
+    });
   });
   return { emailId, hash, body: body.toString('utf8') };
 }
@@ -355,12 +382,14 @@ describe('closing binder integration', () => {
   let ownerCookie: string;
   let betaCookie: string;
   let clientId: string;
+  let dlpService: DlpService;
 
   beforeAll(async () => {
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
     await app.listen(0);
     baseUrl = await app.getUrl();
+    dlpService = app.get(DlpService);
     ownerCookie = await login(baseUrl, {
       tenantId: tenantAlphaId,
       email: 'alpha-matter-owner@test.local',
@@ -395,7 +424,7 @@ describe('closing binder integration', () => {
       status: 'final',
       significance: 'final',
     });
-    const filedEmail = await insertFiledEmail(matterId);
+    const filedEmail = await insertFiledEmail(matterId, dlpService);
 
     await expectJson(await updateStatus(baseUrl, ownerCookie, matterId, 'closing'), 200);
     const closed = await expectJson<{ status: string; closedAt: string | null }>(

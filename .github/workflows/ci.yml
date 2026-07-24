@@ -62,6 +62,8 @@ jobs:
       - run: pnpm check:ui-pr-checklist
       - run: pnpm build
       - run: pnpm backlog:validate
+      - run: pnpm dlp:corpus:check
+      - run: pnpm dlp:egress-inventory:check
       - run: pnpm launch:readiness
       - run: pnpm launch:execution
       - run: pnpm release:uat

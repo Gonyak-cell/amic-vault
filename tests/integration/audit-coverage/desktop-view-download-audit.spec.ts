@@ -14,6 +14,7 @@ import {
   ensureFreshMatterAppSyncState,
   latestAuditMetadata,
   loginBetaOwner,
+  markCanonicalReadyFixture,
   storageUrisForDocument,
   uploadPdf,
 } from '../document-access/document-api-helpers';
@@ -45,6 +46,7 @@ describe('desktop view and download audit integration', () => {
     const clientId = await createClient(baseUrl, betaOwnerCookie, 'DPWA');
     const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, 'DPWA');
     const uploaded = await uploadPdf(baseUrl, betaOwnerCookie, matterId, 'desktop-pwa');
+    await markCanonicalReadyFixture({ documentId: uploaded.documentId });
     storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
 
     const detail = await fetch(`${baseUrl}/v1/documents/${uploaded.documentId}`, {

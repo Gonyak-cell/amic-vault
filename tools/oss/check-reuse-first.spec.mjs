@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { evaluateReuseFirst } from './check-reuse-first.mjs';
+import { evaluateReuseFirst, packageDependencyManifestChanged } from './check-reuse-first.mjs';
 
 const decisions = { decisions: [], l0IneligiblePaths: [] };
 
@@ -34,4 +34,14 @@ test('allows only an explicitly approved L1 dependency path', () => {
     evaluateReuseFirst({ changedFiles: ['workers/ingestion/uv.lock'], decisions: scoped }).status,
     'FAIL',
   );
+});
+
+test('allows package script changes but keeps package dependency changes fail closed', () => {
+  const before = JSON.stringify({ scripts: { check: 'node check.mjs' }, dependencies: { zod: '3.0.0' }, pnpm: { overrides: { zod: '3.0.0' } } });
+  const scriptsOnly = JSON.stringify({ scripts: { check: 'node check.mjs', dlp: 'node dlp.mjs' }, dependencies: { zod: '3.0.0' }, pnpm: { overrides: { zod: '3.0.0' } } });
+  const dependencyChange = JSON.stringify({ scripts: { check: 'node check.mjs' }, dependencies: { zod: '3.1.0' }, pnpm: { overrides: { zod: '3.0.0' } } });
+  assert.equal(packageDependencyManifestChanged(before, scriptsOnly), false);
+  assert.equal(packageDependencyManifestChanged(before, dependencyChange), true);
+  assert.equal(evaluateReuseFirst({ changedFiles: ['package.json'], dependencyChangedFiles: [], decisions }).status, 'PASS');
+  assert.equal(evaluateReuseFirst({ changedFiles: ['package.json'], dependencyChangedFiles: ['package.json'], decisions }).status, 'FAIL');
 });

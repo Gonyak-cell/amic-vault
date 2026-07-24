@@ -27,6 +27,7 @@ import {
   type EmailThreadSummaryDto,
   extractEmlTextBody,
   normalizeEmailMetadata,
+  sf20DlpMaxScanCharacters,
   type TenantId,
   type EmailMetadataWarningCode,
   type EmailFailureReasonCode,
@@ -298,8 +299,11 @@ function unsupportedFileType(): UnsupportedMediaTypeException {
   return new UnsupportedMediaTypeException({ code: 'UNSUPPORTED_FILE_TYPE' });
 }
 
-function validationFailed(): BadRequestException {
-  return new BadRequestException({ code: 'VALIDATION_FAILED' });
+function validationFailed(reason?: string): BadRequestException {
+  return new BadRequestException({
+    code: 'VALIDATION_FAILED',
+    ...(reason ? { reason } : {}),
+  });
 }
 
 function sha256Hex(value: Buffer | string): string {
@@ -373,6 +377,30 @@ function isUploadedDiskFile(file: UploadedDiskFile | undefined): file is Uploade
 
 function emailUploadMaxBytes(): number {
   return 25 * 1024 * 1024;
+}
+
+function emailDlpAssessmentInput(
+  prepared: PreparedEmailEnvelope,
+  body: Buffer,
+): { text?: string; unscannableReasonCode?: 'no_text' | 'parser_failed' | 'input_oversize' } {
+  if (prepared.parseStatus !== 'parsed') {
+    return { unscannableReasonCode: 'parser_failed' };
+  }
+  if (prepared.parser !== 'eml') {
+    return { unscannableReasonCode: 'no_text' };
+  }
+  if (body.length > sf20DlpMaxScanCharacters) {
+    return { unscannableReasonCode: 'input_oversize' };
+  }
+  try {
+    const text = extractEmlTextBody(decodeEmlRawContent(body));
+    if (text.length > sf20DlpMaxScanCharacters) {
+      return { unscannableReasonCode: 'input_oversize' };
+    }
+    return text.trim() ? { text } : { unscannableReasonCode: 'no_text' };
+  } catch {
+    return { unscannableReasonCode: 'parser_failed' };
+  }
 }
 
 function asStringArray(value: readonly string[] | null | undefined): string[] {
@@ -771,6 +799,15 @@ export class EmailService {
           );
           await this.assignThreadForEmail(tx, tenantId, emailId, prepared);
           await this.insertEmailParticipants(tx, tenantId, emailId, prepared.metadata);
+          const dlpService = this.dlpService;
+          if (!dlpService) throw validationFailed('DLP_SERVICE_REQUIRED');
+          await dlpService.assessAndRecord(tx, {
+            tenantId,
+            sourceType: 'email',
+            sourceId: emailId,
+            matterId: input.matterId ?? null,
+            ...emailDlpAssessmentInput(prepared, body),
+          });
           await this.auditService.log(
             emailImportedAudit({
               tenantId,
@@ -1917,7 +1954,7 @@ export class EmailService {
     reasonCode?: string,
   ): Promise<RawEmailDownloadResult> {
     const tenantId = this.tenantContext.require().tenantId;
-    const target = await this.auditService.transaction(tenantId, async (tx) => {
+    const decision = await this.auditService.transaction(tenantId, async (tx) => {
       const row = await this.findRawEmailDownloadTarget(tx, tenantId, emailId);
       if (!row) throw new NotFoundException({ code: 'PERMISSION_DENIED' });
       const linkedDocuments = await this.findRawEmailLinkedDocuments(tx, tenantId, emailId);
@@ -1933,6 +1970,19 @@ export class EmailService {
         linkedDocuments,
         reasonCode,
       );
+      const dlpService = this.dlpService;
+      if (!dlpService) throw validationFailed('DLP_SERVICE_REQUIRED');
+      const dlp = await dlpService.evaluateEmailEgress(tx, {
+        tenantId,
+        matterId,
+        emailId,
+        purpose: 'raw_email_download',
+        authorization: {
+          kind: 'internal',
+          userId: actorUserId,
+        },
+      });
+      if (!dlp.allowed) return { kind: 'denied' as const };
       await this.auditService.log(
         emailRawDownloadedAudit({
           tenantId,
@@ -1945,8 +1995,10 @@ export class EmailService {
         }),
         tx,
       );
-      return row;
+      return { kind: 'allowed' as const, target: row };
     });
+    if (decision.kind === 'denied') throw validationFailed('DLP_REVIEW_REQUIRED');
+    const target = decision.target;
 
     const object = await this.storageService.getByStorageUri(tenantId, target.storage_uri);
     return {

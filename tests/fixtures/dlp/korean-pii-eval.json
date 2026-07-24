@@ -1,0 +1,57 @@
+{
+  "schemaVersion": "amic-vault.dlp-korean-pii-corpus.v1",
+  "policyVersion": "sf20-dlp-v1",
+  "syntheticOnly": true,
+  "classes": [
+    "korean_resident_id",
+    "korean_alien_registration_number",
+    "bank_account",
+    "passport_number",
+    "payment_card_number",
+    "email_address",
+    "phone_number"
+  ],
+  "cases": [
+    { "id": "rrn-positive-hyphen", "targetType": "korean_resident_id", "family": "positive", "synthetic": true, "template": "SYNTHETIC resident {{rrn_hyphen}}", "expected": ["korean_resident_id"] },
+    { "id": "rrn-positive-plain", "targetType": "korean_resident_id", "family": "positive", "synthetic": true, "template": "SYNTHETIC resident {{rrn_plain}}", "expected": ["korean_resident_id"] },
+    { "id": "rrn-positive-space", "targetType": "korean_resident_id", "family": "positive", "synthetic": true, "template": "SYNTHETIC 주민 식별 {{rrn_space}}", "expected": ["korean_resident_id"] },
+    { "id": "rrn-negative-gender", "targetType": "korean_resident_id", "family": "negative", "synthetic": true, "template": "SYNTHETIC invalid resident {{rrn_invalid_gender}}", "expected": [] },
+    { "id": "rrn-hard-case-number", "targetType": "korean_resident_id", "family": "hard_negative", "synthetic": true, "template": "SYNTHETIC 사건번호 {{case_number}}", "expected": [] },
+
+    { "id": "alien-positive-hyphen", "targetType": "korean_alien_registration_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC alien {{alien_hyphen}}", "expected": ["korean_alien_registration_number"] },
+    { "id": "alien-positive-plain", "targetType": "korean_alien_registration_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC alien {{alien_plain}}", "expected": ["korean_alien_registration_number"] },
+    { "id": "alien-positive-space", "targetType": "korean_alien_registration_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC 외국인 식별 {{alien_space}}", "expected": ["korean_alien_registration_number"] },
+    { "id": "alien-negative-gender", "targetType": "korean_alien_registration_number", "family": "negative", "synthetic": true, "template": "SYNTHETIC invalid alien {{alien_invalid_gender}}", "expected": [] },
+    { "id": "alien-hard-date", "targetType": "korean_alien_registration_number", "family": "hard_negative", "synthetic": true, "template": "SYNTHETIC 기일 {{legal_date}}", "expected": [] },
+
+    { "id": "bank-positive-four-groups", "targetType": "bank_account", "family": "positive", "synthetic": true, "template": "SYNTHETIC account {{bank_four_groups}}", "expected": ["bank_account"] },
+    { "id": "bank-positive-three-groups", "targetType": "bank_account", "family": "positive", "synthetic": true, "template": "SYNTHETIC account {{bank_three_groups}}", "expected": ["bank_account"] },
+    { "id": "bank-positive-spaces", "targetType": "bank_account", "family": "positive", "synthetic": true, "template": "SYNTHETIC 계좌 {{bank_spaces}}", "expected": ["bank_account"] },
+    { "id": "bank-negative-long-prefix", "targetType": "bank_account", "family": "negative", "synthetic": true, "template": "SYNTHETIC invalid account {{bank_invalid_prefix}}", "expected": [] },
+    { "id": "bank-hard-phone", "targetType": "bank_account", "family": "hard_negative", "synthetic": true, "template": "SYNTHETIC 연락처 {{phone_mobile}}", "expected": ["phone_number"] },
+
+    { "id": "passport-positive-legacy", "targetType": "passport_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC passport {{passport_legacy}}", "expected": ["passport_number"] },
+    { "id": "passport-positive-current", "targetType": "passport_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC passport {{passport_current}}", "expected": ["passport_number"] },
+    { "id": "passport-positive-lowercase", "targetType": "passport_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC 여권 {{passport_lowercase}}", "expected": ["passport_number"] },
+    { "id": "passport-negative-prefix", "targetType": "passport_number", "family": "negative", "synthetic": true, "template": "SYNTHETIC invalid passport {{passport_invalid_prefix}}", "expected": [] },
+    { "id": "passport-hard-document-code", "targetType": "passport_number", "family": "hard_negative", "synthetic": true, "template": "SYNTHETIC 문서코드 {{document_code}}", "expected": [] },
+
+    { "id": "card-positive-visa", "targetType": "payment_card_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC test card {{card_visa}}", "expected": ["payment_card_number"] },
+    { "id": "card-positive-mastercard", "targetType": "payment_card_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC test card {{card_mastercard}}", "expected": ["payment_card_number"] },
+    { "id": "card-positive-spaced", "targetType": "payment_card_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC test card {{card_spaced}}", "expected": ["payment_card_number"] },
+    { "id": "card-negative-luhn", "targetType": "payment_card_number", "family": "negative", "synthetic": true, "template": "SYNTHETIC invalid card {{card_invalid_luhn}}", "expected": [] },
+    { "id": "card-hard-statute", "targetType": "payment_card_number", "family": "hard_negative", "synthetic": true, "template": "SYNTHETIC 법령번호 {{statute_number}}", "expected": [] },
+
+    { "id": "email-positive-basic", "targetType": "email_address", "family": "positive", "synthetic": true, "template": "SYNTHETIC email {{email_basic}}", "expected": ["email_address"] },
+    { "id": "email-positive-plus", "targetType": "email_address", "family": "positive", "synthetic": true, "template": "SYNTHETIC email {{email_plus}}", "expected": ["email_address"] },
+    { "id": "email-positive-subdomain", "targetType": "email_address", "family": "positive", "synthetic": true, "template": "SYNTHETIC 이메일 {{email_subdomain}}", "expected": ["email_address"] },
+    { "id": "email-negative-domain", "targetType": "email_address", "family": "negative", "synthetic": true, "template": "SYNTHETIC invalid email {{email_invalid_domain}}", "expected": [] },
+    { "id": "email-hard-at-reference", "targetType": "email_address", "family": "hard_negative", "synthetic": true, "template": "SYNTHETIC 조항 참조 {{at_reference}}", "expected": [] },
+
+    { "id": "phone-positive-mobile", "targetType": "phone_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC phone {{phone_mobile}}", "expected": ["phone_number"] },
+    { "id": "phone-positive-legacy", "targetType": "phone_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC phone {{phone_legacy}}", "expected": ["phone_number"] },
+    { "id": "phone-positive-international", "targetType": "phone_number", "family": "positive", "synthetic": true, "template": "SYNTHETIC 전화 {{phone_international}}", "expected": ["phone_number"] },
+    { "id": "phone-negative-landline", "targetType": "phone_number", "family": "negative", "synthetic": true, "template": "SYNTHETIC landline {{phone_landline}}", "expected": [] },
+    { "id": "phone-hard-docket", "targetType": "phone_number", "family": "hard_negative", "synthetic": true, "template": "SYNTHETIC docket {{docket_number}}", "expected": [] }
+  ]
+}

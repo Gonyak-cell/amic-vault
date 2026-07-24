@@ -88,10 +88,14 @@ describe('OutlookDocumentInsertionService', () => {
   const tenantContext = {
     require: vi.fn(() => ({ tenantId })),
   };
+  const dlpService = {
+    evaluateDocumentEgress: vi.fn(async () => ({ allowed: true })),
+  };
   const service = new OutlookDocumentInsertionService(
     auditService as never,
     documentPermissionService as never,
     tenantContext as never,
+    dlpService as never,
   );
 
   beforeEach(() => {
@@ -234,6 +238,41 @@ describe('OutlookDocumentInsertionService', () => {
         metadata: expect.objectContaining({
           reason_code: 'document_locked',
         }),
+      }),
+    );
+  });
+
+  it('does not create or return an internal reference when DLP review is required', async () => {
+    process.env.OUTLOOK_DOCUMENT_INSERTION_ENABLED = 'true';
+    query.mockResolvedValueOnce({ rows: [targetRow()], rowCount: 1 });
+    documentPermissionService.canReadDocument.mockResolvedValue({ effect: 'ALLOW' });
+    dlpService.evaluateDocumentEgress.mockResolvedValueOnce({ allowed: false });
+
+    await expect(service.createDocumentInsertion(userId, insertionInput())).rejects.toMatchObject({
+      response: {
+        code: 'VALIDATION_FAILED',
+        reason: 'DLP_REVIEW_REQUIRED',
+      },
+    });
+    expect(dlpService.evaluateDocumentEgress).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        tenantId,
+        matterId,
+        documentId,
+        versionId,
+        purpose: 'outlook_document_insertion',
+      }),
+    );
+    expect(
+      query.mock.calls.some(([sql]) =>
+        String(sql).includes('INSERT INTO outlook_document_insertions'),
+      ),
+    ).toBe(false);
+    expect(auditService.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'OUTLOOK_DOCUMENT_INSERT_DENIED',
+        metadata: expect.objectContaining({ reason_code: 'policy_denied' }),
       }),
     );
   });

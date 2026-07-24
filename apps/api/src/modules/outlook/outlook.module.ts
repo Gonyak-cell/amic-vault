@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PgRoleLookup, RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import { AuditModule } from '../audit/audit.module';
+import { DlpModule } from '../dlp/dlp.module';
 import { PermissionModule } from '../permission/permission.module';
 import { SearchModule } from '../search/search.module';
 import { TenantModule } from '../tenant/tenant.module';
@@ -27,7 +28,7 @@ import { OutlookSendFileService } from './outlook-send-file.service';
 import { OutlookService } from './outlook.service';
 
 @Module({
-  imports: [AuditModule, PermissionModule, SearchModule, TenantModule],
+  imports: [AuditModule, DlpModule, PermissionModule, SearchModule, TenantModule],
   controllers: [OutlookController],
   providers: [
     OutlookService,

@@ -16,6 +16,7 @@ import type {
   PermissionDecision,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
+import { DlpService } from '../dlp/dlp.service';
 import { DocumentPermissionService } from '../permission/document-permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import {
@@ -70,6 +71,13 @@ function permissionDenied(): ForbiddenException {
 
 function documentLocked(): BadRequestException {
   return new BadRequestException({ code: 'DOCUMENT_LOCKED' });
+}
+
+function dlpReviewRequired(): BadRequestException {
+  return new BadRequestException({
+    code: 'VALIDATION_FAILED',
+    reason: 'DLP_REVIEW_REQUIRED',
+  });
 }
 
 function namespacedHash(namespace: string, value: string): string {
@@ -129,6 +137,7 @@ export class OutlookDocumentInsertionService {
     @Inject(DocumentPermissionService)
     private readonly documentPermissionService: Pick<DocumentPermissionService, 'canReadDocument'>,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
+    @Inject(DlpService) private readonly dlpService: DlpService,
     @Optional()
     @Inject(OutlookOperationalGateService)
     private readonly operationalGate?: OutlookOperationalGateService,
@@ -174,7 +183,19 @@ export class OutlookDocumentInsertionService {
       throw permissionDenied();
     }
 
-    const row = await this.auditService.transaction(tenantId, async (tx) => {
+    const decision = await this.auditService.transaction(tenantId, async (tx) => {
+      const dlp = await this.dlpService.evaluateDocumentEgress(tx, {
+        tenantId,
+        matterId: target.matter_id,
+        documentId: target.document_id,
+        versionId: target.version_id,
+        purpose: 'outlook_document_insertion',
+        authorization: {
+          kind: 'internal',
+          userId: actorUserId,
+        },
+      });
+      if (!dlp.allowed) return { kind: 'denied' as const };
       const inserted = await this.insertOrFindInsertion(
         tx,
         tenantId,
@@ -201,10 +222,14 @@ export class OutlookDocumentInsertionService {
         }),
         tx,
       );
-      return inserted;
+      return { kind: 'allowed' as const, row: inserted };
     });
+    if (decision.kind === 'denied') {
+      await this.recordDenied(tenantId, actorUserId, input, normalized, 'policy_denied', target);
+      throw dlpReviewRequired();
+    }
 
-    return toDto(row);
+    return toDto(decision.row);
   }
 
   private isOutlookFeatureAllowed(): boolean {

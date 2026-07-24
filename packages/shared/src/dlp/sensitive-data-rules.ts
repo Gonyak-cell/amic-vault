@@ -1,4 +1,11 @@
-import type { DlpDetection, DlpFindingType, DlpRuleId, DlpScanOptions } from './dlp-types';
+import {
+  sf20DlpDefaultMaxFindings,
+  type DlpDetection,
+  type DlpFindingType,
+  type DlpRuleId,
+  type DlpScanOptions,
+  type DlpSensitiveDataScanResult,
+} from './dlp-types';
 
 export interface SensitiveDataRule {
   ruleId: DlpRuleId;
@@ -6,14 +13,13 @@ export interface SensitiveDataRule {
   pattern: RegExp;
   confidence: number;
   normalize(match: string): string;
-  validate?(normalized: string): boolean;
+  validate?(normalized: string, raw: string): boolean;
 }
 
 export interface SensitiveDataScanOptions extends DlpScanOptions {
   hash(input: string): string;
 }
 
-const defaultMaxFindings = 200;
 const contextRadius = 24;
 
 function digitsOnly(input: string): string {
@@ -39,11 +45,27 @@ function luhnValid(digits: string): boolean {
   return sum > 0 && sum % 10 === 0;
 }
 
+function bankAccountCandidateValid(_normalized: string, raw: string): boolean {
+  const dateLike =
+    /^(?:19|20)\d{2}[- ](?:0[1-9]|1[0-2])[- ](?:0[1-9]|[12]\d|3[01])$/u;
+  const mobileLike = /^(?:(?:\+?82)[- ]?)?0?1[016789][- ]\d{3,4}[- ]\d{4}$/u;
+  const internationalMobileFragment = /^(?:82[- ]?)?1[016789][- ]\d{3,4}[- ]\d{4}$/u;
+  const landlineLike = /^0(?:2|[3-6]\d)[- ]\d{3,4}[- ]\d{4}$/u;
+  const groupedCardLike = /^(?:\d{4}[- ]){3}\d{4}$/u;
+  return ![
+    dateLike,
+    mobileLike,
+    internationalMobileFragment,
+    landlineLike,
+    groupedCardLike,
+  ].some((pattern) => pattern.test(raw));
+}
+
 export const sensitiveDataRules: readonly SensitiveDataRule[] = [
   {
     ruleId: 'kr-rrn-format-v1',
     findingType: 'korean_resident_id',
-    pattern: /\b\d{6}[- ]?[0-4]\d{6}\b/gu,
+    pattern: /\b\d{6}[- ]?[1-4]\d{6}\b/gu,
     confidence: 0.95,
     normalize: digitsOnly,
   },
@@ -57,14 +79,16 @@ export const sensitiveDataRules: readonly SensitiveDataRule[] = [
   {
     ruleId: 'bank-account-format-v1',
     findingType: 'bank_account',
-    pattern: /\b(?!01[016789][- ])\d{2,6}[- ]\d{2,8}[- ]\d{1,6}(?:[- ]\d{1,4})?\b/gu,
+    pattern:
+      /\b(?!(?:01[016789]|82[- ]?1[016789])[- ])\d{2,6}[- ]\d{2,8}[- ]\d{1,6}(?:[- ]\d{1,4})?\b/gu,
     confidence: 0.8,
     normalize: digitsOnly,
+    validate: bankAccountCandidateValid,
   },
   {
     ruleId: 'passport-format-v1',
     findingType: 'passport_number',
-    pattern: /\b[A-Z][0-9]{8}\b/gu,
+    pattern: /\b(?:[MSROD]\d{3}[A-Z]\d{4}|[MSROD]\d{8})\b/giu,
     confidence: 0.8,
     normalize: lower,
   },
@@ -103,8 +127,19 @@ function contextHash(
   return hash(text.slice(start, end));
 }
 
-export function scanSensitiveData(text: string, options: SensitiveDataScanOptions): DlpDetection[] {
-  const maxFindings = options.maxFindings ?? defaultMaxFindings;
+function normalizedMaxFindings(options: DlpScanOptions): number {
+  const value = options.maxFindings ?? sf20DlpDefaultMaxFindings;
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new RangeError('maxFindings must be a positive safe integer');
+  }
+  return value;
+}
+
+export function scanSensitiveDataWithStatus(
+  text: string,
+  options: SensitiveDataScanOptions,
+): DlpSensitiveDataScanResult {
+  const maxFindings = normalizedMaxFindings(options);
   const detections: DlpDetection[] = [];
   const seen = new Set<string>();
 
@@ -114,7 +149,7 @@ export function scanSensitiveData(text: string, options: SensitiveDataScanOption
       const raw = match[0];
       const normalized = rule.normalize(raw);
       if (!normalized) continue;
-      if (rule.validate && !rule.validate(normalized)) continue;
+      if (rule.validate && !rule.validate(normalized, raw)) continue;
       const startOffset = match.index;
       const endOffset = startOffset + raw.length;
       const valueHash = options.hash(`${rule.ruleId}:${normalized}`);
@@ -130,11 +165,25 @@ export function scanSensitiveData(text: string, options: SensitiveDataScanOption
         endOffset,
         confidence: rule.confidence,
       });
-      if (detections.length >= maxFindings) {
-        return detections.sort((left, right) => left.startOffset - right.startOffset);
+      if (detections.length > maxFindings) {
+        return {
+          detections: detections
+            .slice(0, maxFindings)
+            .sort((left, right) => left.startOffset - right.startOffset),
+          completed: false,
+          limitReached: true,
+        };
       }
     }
   }
 
-  return detections.sort((left, right) => left.startOffset - right.startOffset);
+  return {
+    detections: detections.sort((left, right) => left.startOffset - right.startOffset),
+    completed: true,
+    limitReached: false,
+  };
+}
+
+export function scanSensitiveData(text: string, options: SensitiveDataScanOptions): DlpDetection[] {
+  return scanSensitiveDataWithStatus(text, options).detections;
 }

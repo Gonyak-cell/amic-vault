@@ -5,7 +5,7 @@ describe('SensitiveDataDetector', () => {
   it('detects core and R5 identity/card patterns without raw values', () => {
     const detector = new SensitiveDataDetector();
     const rawValues = [
-      '000000-0000000',
+      '000101-1000000',
       '900101-5000000',
       '000-000000-00-000',
       'M12345678',
@@ -45,11 +45,28 @@ describe('SensitiveDataDetector', () => {
 
   it('deduplicates matches and honors the maxFindings cap', () => {
     const detector = new SensitiveDataDetector();
-    const result = detector.scan('000000-0000000\n000000-0000000\n010-0000-0000', {
+    const result = detector.scan('000101-1000000\n000101-1000000\n010-0000-0000', {
       maxFindings: 2,
     });
 
     expect(result).toHaveLength(2);
     expect(result[0]?.startOffset).toBeLessThan(result[1]?.startOffset ?? Number.MAX_SAFE_INTEGER);
+  });
+
+  it('reports scan completeness separately from the bounded findings', () => {
+    const detector = new SensitiveDataDetector();
+
+    expect(
+      detector.scanWithStatus('000101-1000000\n900101-5000000\n010-0000-0000', {
+        maxFindings: 2,
+      }),
+    ).toMatchObject({
+      completed: false,
+      limitReached: true,
+      detections: expect.arrayContaining([
+        expect.objectContaining({ findingType: 'korean_resident_id' }),
+        expect.objectContaining({ findingType: 'korean_alien_registration_number' }),
+      ]),
+    });
   });
 });
