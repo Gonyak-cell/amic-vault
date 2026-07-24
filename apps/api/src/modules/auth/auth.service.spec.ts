@@ -8,6 +8,7 @@ import { UserEntity } from '../user/user.entity';
 import type { UserService } from '../user/user.service';
 import type { AuditService } from '../audit/audit.service';
 import { AuthService, type LoginResult } from './auth.service';
+import type { AuthThrottleService } from './auth-throttle.service';
 import { MfaPolicy } from './mfa.policy';
 import type { MfaService } from './mfa.service';
 import type { SessionRecord, SessionRepository } from './session.repository';
@@ -151,6 +152,22 @@ function fakeMfaService(input: { hasActiveSecret?: boolean } = {}): MfaService {
   } as unknown as MfaService;
 }
 
+function fakeAuthThrottleService(input: { allowed?: boolean } = {}): AuthThrottleService {
+  return {
+    loginKeys() {
+      return [];
+    },
+    mfaKeys() {
+      return [];
+    },
+    async isAllowed() {
+      return input.allowed ?? true;
+    },
+    async recordFailure() {},
+    async clear() {},
+  } as unknown as AuthThrottleService;
+}
+
 function expectLoginComplete(
   result: LoginResult,
 ): asserts result is Extract<LoginResult, { mfaRequired?: false }> {
@@ -161,6 +178,7 @@ function createService(
   entity: UserEntity | null,
   tenantEntity: TenantEntity | null = tenant(),
   mfaService: MfaService = fakeMfaService(),
+  authThrottle: AuthThrottleService = fakeAuthThrottleService(),
 ) {
   const auditService = new MemoryAuditService();
   return new AuthService(
@@ -169,6 +187,7 @@ function createService(
     new MemorySessionRepository() as unknown as SessionRepository,
     new MfaPolicy(),
     mfaService,
+    authThrottle,
     auditService as unknown as AuditService,
   );
 }
@@ -211,6 +230,7 @@ describe('AuthService', () => {
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
       fakeMfaService(),
+      fakeAuthThrottleService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -232,6 +252,7 @@ describe('AuthService', () => {
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
       fakeMfaService(),
+      fakeAuthThrottleService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -281,6 +302,7 @@ describe('AuthService', () => {
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
       fakeMfaService(),
+      fakeAuthThrottleService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -308,6 +330,78 @@ describe('AuthService', () => {
         response: { code: 'AUTH_REQUIRED' },
       });
     }
+  });
+
+  it('keeps a throttled login outwardly indistinguishable from invalid credentials', async () => {
+    const service = createService(
+      await user('secret-password'),
+      tenant(),
+      fakeMfaService(),
+      fakeAuthThrottleService({ allowed: false }),
+    );
+
+    await expect(
+      service.login(
+        { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'AUTH_REQUIRED' } });
+  });
+
+  it('fails closed without issuing a session when the audit transaction is unavailable', async () => {
+    const sessions = new MemorySessionRepository();
+    const unavailableAudit = {
+      async transaction() {
+        throw new Error('AUDIT_UNAVAILABLE');
+      },
+      async log() {
+        throw new Error('AUDIT_UNAVAILABLE');
+      },
+    } as unknown as AuditService;
+    const service = new AuthService(
+      fakeTenantService(tenant()),
+      fakeUserService(await user('secret-password')),
+      sessions as unknown as SessionRepository,
+      new MfaPolicy(),
+      fakeMfaService(),
+      fakeAuthThrottleService(),
+      unavailableAudit,
+    );
+
+    await expect(
+      service.login(
+        { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'AUTH_REQUIRED' } });
+    expect(sessions.sessions).toEqual([]);
+  });
+
+  it('keeps an audit-write failure on invalid credentials outwardly safe', async () => {
+    const unavailableAudit = {
+      async transaction<T>(_tenantId: string, run: (client: never) => Promise<T>) {
+        return run(undefined as never);
+      },
+      async log() {
+        throw new Error('AUDIT_UNAVAILABLE');
+      },
+    } as unknown as AuditService;
+    const service = new AuthService(
+      fakeTenantService(tenant()),
+      fakeUserService(await user('secret-password')),
+      new MemorySessionRepository() as unknown as SessionRepository,
+      new MfaPolicy(),
+      fakeMfaService(),
+      fakeAuthThrottleService(),
+      unavailableAudit,
+    );
+
+    await expect(
+      service.login(
+        { tenantId, email: 'alpha@test.local', password: 'wrong-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'AUTH_REQUIRED' } });
   });
 
   it('fails closed for mfa_enabled users without an active TOTP secret', async () => {

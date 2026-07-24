@@ -18,6 +18,7 @@ import type { UserEntity } from '../user/user.entity';
 import { UserService } from '../user/user.service';
 import { MfaPolicy } from './mfa.policy';
 import { MfaService } from './mfa.service';
+import { AuthThrottleService } from './auth-throttle.service';
 import {
   createOpaqueToken,
   hashOpaqueToken,
@@ -59,6 +60,7 @@ export class AuthService {
     @Inject(SessionRepository) private readonly sessions: SessionRepository,
     @Inject(MfaPolicy) private readonly mfaPolicy: MfaPolicy,
     @Inject(MfaService) private readonly mfaService: MfaService,
+    @Inject(AuthThrottleService) private readonly authThrottle: AuthThrottleService,
     @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
@@ -70,6 +72,21 @@ export class AuthService {
     const candidate = await this.resolveLoginCandidate(input, normalizedEmail);
     const tenant = candidate?.tenant ?? null;
     const user = candidate?.user ?? null;
+    let throttleKeys: ReturnType<AuthThrottleService['loginKeys']>;
+    try {
+      throttleKeys = this.authThrottle.loginKeys({
+        ...(tenant && user
+          ? { knownAccount: { tenantId: tenant.tenantId, userId: user.userId } }
+          : {}),
+        suppliedIdentifier: input.accountLedgerId ?? normalizedEmail,
+        tenantHint: input.tenantId ?? input.tenantSlug ?? null,
+        networkAddress: metadata.ipAddress,
+      });
+      if (!(await this.authThrottle.isAllowed(throttleKeys))) throw authRequired();
+    } catch {
+      this.recordEvent('LOGIN_FAILURE', tenant?.tenantId ?? null, user?.userId ?? null, 'throttled');
+      throw authRequired();
+    }
 
     const passwordOk =
       user?.status === 'active'
@@ -77,36 +94,54 @@ export class AuthService {
         : await verifyPasswordOrDummy(undefined, input.password);
 
     if (!tenant || tenant.status !== 'active' || !user || user.status !== 'active' || !passwordOk) {
+      try {
+        await this.authThrottle.recordFailure(throttleKeys);
+      } catch {
+        throw authRequired();
+      }
       this.recordEvent('LOGIN_FAILURE', tenant?.tenantId ?? null, user?.userId ?? null, 'invalid');
       if (tenant?.status === 'active') {
-        await this.auditService.log({
-          tenantId: tenant.tenantId,
-          actorType: user ? 'user' : 'system',
-          actorId: user?.userId ?? null,
-          action: 'LOGIN_FAILURE',
-          targetType: 'auth',
-          targetId: user?.userId ?? null,
-          result: 'failure',
-          metadata: { reason_code: 'invalid_credentials', ip_address: metadata.ipAddress },
-        });
+        try {
+          await this.auditService.log({
+            tenantId: tenant.tenantId,
+            actorType: user ? 'user' : 'system',
+            actorId: user?.userId ?? null,
+            action: 'LOGIN_FAILURE',
+            targetType: 'auth',
+            targetId: user?.userId ?? null,
+            result: 'failure',
+            metadata: { reason_code: 'invalid_credentials' },
+          });
+        } catch {
+          throw authRequired();
+        }
       }
+      throw authRequired();
+    }
+
+    try {
+      await this.authThrottle.clear(throttleKeys);
+    } catch {
       throw authRequired();
     }
 
     if (!canIssueSessionForRole(user.role)) {
       this.recordEvent('LOGIN_FAILURE', tenant.tenantId, user.userId, 'external_user_disabled');
-      await this.auditService.log({
-        tenantId: tenant.tenantId,
-        actorId: user.userId,
-        action: 'LOGIN_FAILURE',
-        targetType: 'auth',
-        targetId: user.userId,
-        result: 'denied',
-        metadata: {
-          reason_code: 'external_user_disabled',
-          ip_address: metadata.ipAddress,
-        },
-      });
+      try {
+        await this.auditService.log({
+          tenantId: tenant.tenantId,
+          actorId: user.userId,
+          action: 'LOGIN_FAILURE',
+          targetType: 'auth',
+          targetId: user.userId,
+          result: 'denied',
+          metadata: {
+            reason_code: 'external_user_disabled',
+          },
+        });
+      } catch {
+        throw authRequired();
+      }
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
 
@@ -121,25 +156,33 @@ export class AuthService {
         user.userId,
         mfaDecision.reason ?? 'mfa_blocked',
       );
-      await this.auditService.log({
-        tenantId: tenant.tenantId,
-        actorId: user.userId,
-        action: 'LOGIN_FAILURE',
-        targetType: 'auth',
-        targetId: user.userId,
-        result: 'denied',
-        metadata: {
-          reason_code: mfaDecision.reason ?? 'mfa_blocked',
-          ip_address: metadata.ipAddress,
-        },
-      });
+      try {
+        await this.auditService.log({
+          tenantId: tenant.tenantId,
+          actorId: user.userId,
+          action: 'LOGIN_FAILURE',
+          targetType: 'auth',
+          targetId: user.userId,
+          result: 'denied',
+          metadata: {
+            reason_code: mfaDecision.reason ?? 'mfa_blocked',
+          },
+        });
+      } catch {
+        throw authRequired();
+      }
       throw authRequired(mfaDecision.reason);
     }
     if (mfaDecision.outcome === 'challenge') {
       return this.mfaService.startChallenge(tenant.tenantId, user.userId);
     }
 
-    const issued = await this.issueSession(user, tenant, metadata, false);
+    let issued: Awaited<ReturnType<AuthService['issueSession']>>;
+    try {
+      issued = await this.issueSession(user, tenant, metadata, false);
+    } catch {
+      throw authRequired();
+    }
     return {
       user: user.toSummary(),
       mfaEnabled: user.mfaEnabled,
@@ -152,7 +195,33 @@ export class AuthService {
     input: MfaVerifyRequestDto,
     metadata: { ipAddress: string | null; userAgent: string | null },
   ): Promise<LoginResult> {
-    const verified = await this.mfaService.verifyChallenge(input);
+    let throttleKeys: ReturnType<AuthThrottleService['mfaKeys']>;
+    try {
+      throttleKeys = this.authThrottle.mfaKeys({
+        challengeId: input.challengeId,
+        networkAddress: metadata.ipAddress,
+      });
+      if (!(await this.authThrottle.isAllowed(throttleKeys))) throw authRequired();
+    } catch {
+      throw authRequired();
+    }
+
+    let verified: Awaited<ReturnType<MfaService['verifyChallenge']>>;
+    try {
+      verified = await this.mfaService.verifyChallenge(input);
+    } catch {
+      try {
+        await this.authThrottle.recordFailure(throttleKeys);
+      } catch {
+        // The outward response remains the same safe auth denial if throttle state is unavailable.
+      }
+      throw authRequired();
+    }
+    try {
+      await this.authThrottle.clear(throttleKeys);
+    } catch {
+      throw authRequired();
+    }
     const tenant = await this.tenantService.findById(verified.tenantId);
     const user = await this.userService.findByTenantAndId(verified.tenantId, verified.userId);
     if (!tenant || tenant.status !== 'active' || !user || user.status !== 'active') {
@@ -161,7 +230,12 @@ export class AuthService {
     if (!canIssueSessionForRole(user.role)) {
       throw new ForbiddenException({ code: 'PERMISSION_DENIED' });
     }
-    const issued = await this.issueSession(user, tenant, metadata, true);
+    let issued: Awaited<ReturnType<AuthService['issueSession']>>;
+    try {
+      issued = await this.issueSession(user, tenant, metadata, true);
+    } catch {
+      throw authRequired();
+    }
     return {
       user: user.toSummary(),
       mfaEnabled: user.mfaEnabled,
@@ -214,7 +288,6 @@ export class AuthService {
           targetId: user.userId,
           metadata: {
             reason_code: 'ok',
-            ip_address: metadata.ipAddress,
             session_id: createdSession.sessionId,
             ...(options.method ? { method: options.method } : {}),
           },

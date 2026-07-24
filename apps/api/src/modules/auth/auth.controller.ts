@@ -109,8 +109,10 @@ export class AuthController {
 
   @Public()
   @Post('password-reset/request')
-  requestPasswordReset(@Body() body: PasswordResetRequestDto) {
-    return this.passwordResetService.requestReset(body);
+  requestPasswordReset(@Body() body: PasswordResetRequestDto, @Req() request: RequestMetadata) {
+    return this.passwordResetService.requestReset(body, {
+      ipAddress: request.ip ?? request.socket?.remoteAddress ?? null,
+    });
   }
 
   @Public()
