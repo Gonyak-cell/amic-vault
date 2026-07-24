@@ -30,6 +30,7 @@ import { PermissionService } from '../permission/permission.service';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
+import { assertActiveUserLifecycleFence } from '../user/active-user-lifecycle-fence';
 import { DocumentVersionService } from './document-version.service';
 import { DocumentFolderService } from './document-folder.service';
 import { DocumentService } from './document.service';
@@ -243,6 +244,7 @@ export class DocumentUploadService {
             tags: input.fields.tags,
             tenantId: context.tenantId,
           });
+          await assertActiveUserLifecycleFence(tx, context.tenantId, input.actorUserId);
           const document = await this.documentService.createDraft(
             {
               documentId,
@@ -431,6 +433,7 @@ export class DocumentUploadService {
       let added: AddDocumentVersionResponseDto | undefined;
       try {
         added = await this.auditService.transaction(context.tenantId, async (tx) => {
+          await assertActiveUserLifecycleFence(tx, context.tenantId, input.actorUserId);
           await this.fileObjectService.create(
             {
               fileObjectId,

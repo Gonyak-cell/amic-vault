@@ -37,10 +37,16 @@ describe('storage rollback', () => {
   it('deletes the uploaded object when the DB transaction fails', async () => {
     const storageUri = `s3://vault-dev/tenants/${tenantId}/matters/${matterId}/documents/11111111-1111-4111-8111-111111111133/11111111-1111-4111-8111-111111111144`;
     const deleteByStorageUri = vi.fn(async () => undefined);
+    const transactionQuery = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM users')) {
+        return { rowCount: 1, rows: [{ user_id: actorUserId }] };
+      }
+      return { rowCount: 1, rows: [] };
+    });
     const service = new DocumentUploadService(
       {
         async transaction<T>(_tenantId: string, run: (tx: never) => Promise<T>): Promise<T> {
-          return run({} as never);
+          return run({ query: transactionQuery } as never);
         },
       } as never,
       {
@@ -86,5 +92,9 @@ describe('storage rollback', () => {
     ).rejects.toThrow(/injected db failure/);
 
     expect(deleteByStorageUri).toHaveBeenCalledWith(tenantId, storageUri);
+    expect(transactionQuery).toHaveBeenCalledWith(
+      expect.stringContaining("status = 'active'\n      FOR UPDATE"),
+      [tenantId, actorUserId],
+    );
   });
 });

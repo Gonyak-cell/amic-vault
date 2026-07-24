@@ -13,6 +13,8 @@ export interface LoginCompleteResponseDto {
   user: UserSummary;
   mfaEnabled: boolean;
   mfaRequired?: false;
+  /** Present only for the production-local-admin MFA enrollment bootstrap. */
+  mfaEnrollmentRequired?: true;
 }
 
 export interface LoginMfaRequiredResponseDto {

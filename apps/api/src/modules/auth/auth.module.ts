@@ -5,6 +5,7 @@ import { UserModule } from '../user/user.module';
 import { AuditModule } from '../audit/audit.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthThrottleService } from './auth-throttle.service';
 import { MailerStub } from './mailer.stub';
 import { MfaPolicy } from './mfa.policy';
 import { MfaService } from './mfa.service';
@@ -22,6 +23,7 @@ import { TotpService } from './totp.service';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AuthThrottleService,
     MailerStub,
     MfaPolicy,
     MfaService,

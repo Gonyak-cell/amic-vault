@@ -20,6 +20,7 @@ import { MatterSourcePolicyService } from '../integrations/matter-app/matter-sou
 import { PermissionService } from '../permission/permission.service';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
+import { assertActiveUserLifecycleFence } from '../user/active-user-lifecycle-fence';
 import type { UploadedDiskFile } from '../document/document-upload.service';
 import { sha256File } from '../document/integrity/sha256.util';
 import { FileExtensionValidator } from '../document/validators/file-extension.validator';
@@ -120,6 +121,7 @@ export class QuarantineIntakeService {
       });
       try {
         await this.auditService.transaction(context.tenantId, async (tx) => {
+          await assertActiveUserLifecycleFence(tx, context.tenantId, input.actorUserId);
           const inserted = await tx.query<{ scan_id: string }>(`
             INSERT INTO file_security_scans (
               tenant_id, matter_id, quarantine_ref, quarantine_storage_uri,

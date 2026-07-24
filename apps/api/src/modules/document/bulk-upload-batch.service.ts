@@ -17,6 +17,7 @@ import {
   type TenantId,
 } from '@amic-vault/shared';
 import { DatabaseService } from '../../common/db/database.service';
+import { assertActiveUserLifecycleFence } from '../user/active-user-lifecycle-fence';
 
 export type BulkUploadEnqueue = (payload: BulkUploadJobDto, client: PoolClient) => Promise<string>;
 
@@ -114,6 +115,7 @@ export class BulkUploadBatchService {
     const parsed = parseRegisterBody(input.body);
     assertUniqueItemIds(parsed.items);
     return this.transaction(input.tenantId, async (client) => {
+      await assertActiveUserLifecycleFence(client, input.tenantId, input.actorUserId);
       const batchId = await this.insertBatch(client, input, parsed);
       for (const [chunkIndex, batchItems] of chunks(parsed.items, 100).entries()) {
         const payload = bulkUploadJobSchema.parse({
@@ -139,6 +141,7 @@ export class BulkUploadBatchService {
             WHERE tenant_id = $1
               AND batch_id = $2
               AND item_id = ANY($3::text[])
+              AND status = 'pending'
           `,
           [input.tenantId, batchId, batchItems.map((item) => item.itemId), jobId],
         );
@@ -182,6 +185,7 @@ export class BulkUploadBatchService {
   ): Promise<BulkUploadBatchDto> {
     const parsed = parseRetryBody(input.body);
     return this.transaction(input.tenantId, async (client) => {
+      await assertActiveUserLifecycleFence(client, input.tenantId, input.actorUserId);
       const item = await this.selectRetryItem(client, input);
       const fields = parsed.fields ?? item.fields_json;
       const size = (await stat(item.file_path)).size;
@@ -221,6 +225,7 @@ export class BulkUploadBatchService {
             AND batch_id = $2
             AND item_id = $3
             AND actor_user_id = $4
+            AND status IN ('failed', 'duplicate')
         `,
         [
           input.tenantId,
@@ -265,6 +270,7 @@ export class BulkUploadBatchService {
               WHERE tenant_id = $1
                 AND batch_id = $2
                 AND item_id = $3
+                AND status IN ('pending', 'uploaded')
             `,
             [
               tenantId,
@@ -290,6 +296,7 @@ export class BulkUploadBatchService {
               WHERE tenant_id = $1
                 AND batch_id = $2
                 AND item_id = $3
+                AND status IN ('pending', 'uploaded')
             `,
             [tenantId, batchId, result.itemId, result.quarantineRef],
           );
@@ -306,6 +313,7 @@ export class BulkUploadBatchService {
             WHERE tenant_id = $1
               AND batch_id = $2
               AND item_id = $3
+              AND status IN ('pending', 'uploaded')
           `,
           [
             tenantId,

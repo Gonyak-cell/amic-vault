@@ -8,6 +8,7 @@ import { UserEntity } from '../user/user.entity';
 import type { UserService } from '../user/user.service';
 import type { AuditService } from '../audit/audit.service';
 import { AuthService, type LoginResult } from './auth.service';
+import type { AuthThrottleService } from './auth-throttle.service';
 import { MfaPolicy } from './mfa.policy';
 import type { MfaService } from './mfa.service';
 import type { SessionRecord, SessionRepository } from './session.repository';
@@ -31,14 +32,18 @@ function tenant(
   };
 }
 
-async function user(password: string, mfaEnabled = false): Promise<UserEntity> {
+async function user(
+  password: string,
+  mfaEnabled = false,
+  role: UserEntity['role'] = 'matter_owner',
+): Promise<UserEntity> {
   const now = new Date('2026-06-11T00:00:00Z');
   return new UserEntity({
     userId: '11111111-1111-4111-8111-111111111101',
     tenantId,
     email: 'alpha@test.local',
     name: 'Alpha',
-    role: 'matter_owner',
+    role,
     practiceGroup: 'corporate',
     status: 'active',
     passwordHash: await hashPassword(password),
@@ -147,6 +152,22 @@ function fakeMfaService(input: { hasActiveSecret?: boolean } = {}): MfaService {
   } as unknown as MfaService;
 }
 
+function fakeAuthThrottleService(input: { allowed?: boolean } = {}): AuthThrottleService {
+  return {
+    loginKeys() {
+      return [];
+    },
+    mfaKeys() {
+      return [];
+    },
+    async isAllowed() {
+      return input.allowed ?? true;
+    },
+    async recordFailure() {},
+    async clear() {},
+  } as unknown as AuthThrottleService;
+}
+
 function expectLoginComplete(
   result: LoginResult,
 ): asserts result is Extract<LoginResult, { mfaRequired?: false }> {
@@ -157,6 +178,7 @@ function createService(
   entity: UserEntity | null,
   tenantEntity: TenantEntity | null = tenant(),
   mfaService: MfaService = fakeMfaService(),
+  authThrottle: AuthThrottleService = fakeAuthThrottleService(),
 ) {
   const auditService = new MemoryAuditService();
   return new AuthService(
@@ -165,6 +187,7 @@ function createService(
     new MemorySessionRepository() as unknown as SessionRepository,
     new MfaPolicy(),
     mfaService,
+    authThrottle,
     auditService as unknown as AuditService,
   );
 }
@@ -207,6 +230,7 @@ describe('AuthService', () => {
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
       fakeMfaService(),
+      fakeAuthThrottleService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -228,6 +252,7 @@ describe('AuthService', () => {
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
       fakeMfaService(),
+      fakeAuthThrottleService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -277,6 +302,7 @@ describe('AuthService', () => {
       new MemorySessionRepository() as unknown as SessionRepository,
       new MfaPolicy(),
       fakeMfaService(),
+      fakeAuthThrottleService(),
       new MemoryAuditService() as unknown as AuditService,
     );
 
@@ -304,6 +330,78 @@ describe('AuthService', () => {
         response: { code: 'AUTH_REQUIRED' },
       });
     }
+  });
+
+  it('keeps a throttled login outwardly indistinguishable from invalid credentials', async () => {
+    const service = createService(
+      await user('secret-password'),
+      tenant(),
+      fakeMfaService(),
+      fakeAuthThrottleService({ allowed: false }),
+    );
+
+    await expect(
+      service.login(
+        { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'AUTH_REQUIRED' } });
+  });
+
+  it('fails closed without issuing a session when the audit transaction is unavailable', async () => {
+    const sessions = new MemorySessionRepository();
+    const unavailableAudit = {
+      async transaction() {
+        throw new Error('AUDIT_UNAVAILABLE');
+      },
+      async log() {
+        throw new Error('AUDIT_UNAVAILABLE');
+      },
+    } as unknown as AuditService;
+    const service = new AuthService(
+      fakeTenantService(tenant()),
+      fakeUserService(await user('secret-password')),
+      sessions as unknown as SessionRepository,
+      new MfaPolicy(),
+      fakeMfaService(),
+      fakeAuthThrottleService(),
+      unavailableAudit,
+    );
+
+    await expect(
+      service.login(
+        { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'AUTH_REQUIRED' } });
+    expect(sessions.sessions).toEqual([]);
+  });
+
+  it('keeps an audit-write failure on invalid credentials outwardly safe', async () => {
+    const unavailableAudit = {
+      async transaction<T>(_tenantId: string, run: (client: never) => Promise<T>) {
+        return run(undefined as never);
+      },
+      async log() {
+        throw new Error('AUDIT_UNAVAILABLE');
+      },
+    } as unknown as AuditService;
+    const service = new AuthService(
+      fakeTenantService(tenant()),
+      fakeUserService(await user('secret-password')),
+      new MemorySessionRepository() as unknown as SessionRepository,
+      new MfaPolicy(),
+      fakeMfaService(),
+      fakeAuthThrottleService(),
+      unavailableAudit,
+    );
+
+    await expect(
+      service.login(
+        { tenantId, email: 'alpha@test.local', password: 'wrong-password' },
+        { ipAddress: null, userAgent: null },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'AUTH_REQUIRED' } });
   });
 
   it('fails closed for mfa_enabled users without an active TOTP secret', async () => {
@@ -336,6 +434,52 @@ describe('AuthService', () => {
       mfaEnabled: true,
       mfaChallengeId: `${tenantId}.challenge-token`,
     });
+  });
+
+  it('issues an explicitly unverified MFA bootstrap session only for a production local admin without TOTP', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const service = createService(await user('secret-password', false, 'firm_admin'));
+
+      const result = await service.login(
+        { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      );
+      expectLoginComplete(result);
+
+      expect(result.mfaEnrollmentRequired).toBe(true);
+      expect(result.session.mfaVerified).toBe(false);
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
+  it('never issues a production local-admin session before a TOTP challenge when an active secret exists', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const service = createService(
+        await user('secret-password', false, 'security_admin'),
+        tenant(),
+        fakeMfaService({ hasActiveSecret: true }),
+      );
+
+      await expect(
+        service.login(
+          { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+          { ipAddress: null, userAgent: null },
+        ),
+      ).resolves.toEqual({
+        mfaRequired: true,
+        mfaEnabled: true,
+        mfaChallengeId: `${tenantId}.challenge-token`,
+      });
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 
   it('denies external_user session issuance before R11', async () => {

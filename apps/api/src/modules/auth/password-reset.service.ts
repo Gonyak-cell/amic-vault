@@ -13,6 +13,7 @@ import { TenantService } from '../tenant/tenant.service';
 import { hashPassword, normalizeEmail } from '../user/password';
 import { UserService } from '../user/user.service';
 import { MailerStub } from './mailer.stub';
+import { AuthThrottleService } from './auth-throttle.service';
 import { createOpaqueToken, hashOpaqueToken, SessionRepository } from './session.repository';
 
 const PASSWORD_RESET_TTL_MS = 1000 * 60 * 30;
@@ -151,9 +152,13 @@ export class PasswordResetService {
     @Inject(MailerStub) private readonly mailer: MailerStub,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(PASSWORD_RESET_STORE) private readonly store: PasswordResetStore,
+    @Inject(AuthThrottleService) private readonly authThrottle: AuthThrottleService,
   ) {}
 
-  async requestReset(input: PasswordResetRequestDto): Promise<PasswordResetAcceptedDto> {
+  async requestReset(
+    input: PasswordResetRequestDto,
+    metadata: { ipAddress: string | null } = { ipAddress: null },
+  ): Promise<PasswordResetAcceptedDto> {
     const tenant = await this.resolveTenant(input);
     const email = normalizeEmail(input.email);
     const user =
@@ -161,24 +166,44 @@ export class PasswordResetService {
         ? await this.userService.findByTenantAndEmail(tenant.tenantId, email)
         : null;
 
+    try {
+      const keys = this.authThrottle.resetKeys({
+        ...(tenant && user
+          ? { knownAccount: { tenantId: tenant.tenantId, userId: user.userId } }
+          : {}),
+        suppliedIdentifier: email,
+        tenantHint: input.tenantId ?? input.tenantSlug ?? null,
+        networkAddress: metadata.ipAddress,
+      });
+      if (!(await this.authThrottle.consume(keys))) return { accepted: true };
+    } catch {
+      // A throttle/secret failure must not issue reset material or reveal state.
+      return { accepted: true };
+    }
+
     if (tenant?.status === 'active' && user && ['active', 'inactive'].includes(user.status)) {
-      const token = createOpaqueToken();
-      const tokenHash = hashOpaqueToken(token);
-      const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
-      await this.store.revokeOpenTokensForUser(tenant.tenantId, user.userId);
-      await this.store.createToken({
-        tenantId: tenant.tenantId,
-        userId: user.userId,
-        tokenHash,
-        expiresAt,
-      });
-      await this.mailer.sendPasswordReset({
-        tenantId: tenant.tenantId,
-        userId: user.userId,
-        email,
-        token,
-        expiresAt,
-      });
+      try {
+        const token = createOpaqueToken();
+        const tokenHash = hashOpaqueToken(token);
+        const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
+        await this.store.revokeOpenTokensForUser(tenant.tenantId, user.userId);
+        await this.store.createToken({
+          tenantId: tenant.tenantId,
+          userId: user.userId,
+          tokenHash,
+          expiresAt,
+        });
+        await this.mailer.sendPasswordReset({
+          tenantId: tenant.tenantId,
+          userId: user.userId,
+          email,
+          token,
+          expiresAt,
+        });
+      } catch {
+        // Public reset requests stay enumeration-safe and never disclose a failed issue attempt.
+        return { accepted: true };
+      }
     }
 
     return { accepted: true };

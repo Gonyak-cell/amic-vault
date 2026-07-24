@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
+import { PreviewModule } from '../preview/preview.module';
 import { PgRoleLookup, RequireRolesGuard } from '../../common/guards/require-roles.guard';
 import { PgPasswordResetStore } from '../auth/password-reset.service';
 import { SessionRepository } from '../auth/session.repository';
@@ -13,7 +14,7 @@ import { UserRoleService } from './user-role.service';
 import { PgUserStore, USER_STORE, UserService } from './user.service';
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, PreviewModule],
   controllers: [
     UserDirectoryController,
     UserLoginIdentityController,

@@ -8,6 +8,7 @@ import { hashPassword, verifyPasswordHash } from '../user/password';
 import { UserEntity } from '../user/user.entity';
 import type { UserService } from '../user/user.service';
 import { MailerStub } from './mailer.stub';
+import type { AuthThrottleService } from './auth-throttle.service';
 import {
   type CompletedPasswordReset,
   type ConsumedPasswordResetToken,
@@ -148,6 +149,17 @@ function fakeAuditService(logs: AuditLogInput[] = []): AuditService {
   } as unknown as AuditService;
 }
 
+function fakeAuthThrottle(input: { consumed?: boolean } = {}): AuthThrottleService {
+  return {
+    resetKeys() {
+      return [];
+    },
+    async consume() {
+      return input.consumed ?? true;
+    },
+  } as unknown as AuthThrottleService;
+}
+
 describe('PasswordResetService', () => {
   it('accepts nonexistent accounts without sending reset material', async () => {
     const mailer = new MailerStub();
@@ -158,6 +170,7 @@ describe('PasswordResetService', () => {
       mailer,
       fakeAuditService(),
       new MemoryPasswordResetStore(),
+      fakeAuthThrottle(),
     );
 
     await expect(service.requestReset({ tenantId, email: 'missing@test.local' })).resolves.toEqual({
@@ -177,6 +190,7 @@ describe('PasswordResetService', () => {
       mailer,
       fakeAuditService(),
       store,
+      fakeAuthThrottle(),
     );
 
     await service.requestReset({ tenantId, email: 'Alpha@Test.Local' });
@@ -212,6 +226,7 @@ describe('PasswordResetService', () => {
       mailer,
       fakeAuditService(auditLogs),
       store,
+      fakeAuthThrottle(),
     );
 
     await service.requestReset({ tenantId, email: 'alpha@test.local' });
@@ -246,11 +261,53 @@ describe('PasswordResetService', () => {
       mailer,
       fakeAuditService(),
       new MemoryPasswordResetStore(),
+      fakeAuthThrottle(),
     );
 
     await expect(service.requestReset({ tenantId, email: 'alpha@test.local' })).resolves.toEqual({
       accepted: true,
     });
+    expect(mailer.sentMessages()).toHaveLength(0);
+  });
+
+  it('keeps a throttled reset request accepted while withholding reset material', async () => {
+    const mailer = new MailerStub();
+    const service = new PasswordResetService(
+      fakeTenantService(),
+      fakeUserService(await user()),
+      fakeSessions([]),
+      mailer,
+      fakeAuditService(),
+      new MemoryPasswordResetStore(),
+      fakeAuthThrottle({ consumed: false }),
+    );
+
+    await expect(service.requestReset({ tenantId, email: 'alpha@test.local' })).resolves.toEqual({
+      accepted: true,
+    });
+    expect(mailer.sentMessages()).toHaveLength(0);
+  });
+
+  it('keeps a reset-store failure accepted while withholding reset material', async () => {
+    const mailer = new MailerStub();
+    const failingStore = new MemoryPasswordResetStore();
+    failingStore.createToken = async () => {
+      throw new Error('RESET_STORE_UNAVAILABLE');
+    };
+    const service = new PasswordResetService(
+      fakeTenantService(),
+      fakeUserService(await user()),
+      fakeSessions([]),
+      mailer,
+      fakeAuditService(),
+      failingStore,
+      fakeAuthThrottle(),
+    );
+
+    await expect(service.requestReset({ tenantId, email: 'alpha@test.local' })).resolves.toEqual({
+      accepted: true,
+    });
+    expect(failingStore.tokens).toEqual([]);
     expect(mailer.sentMessages()).toHaveLength(0);
   });
 });

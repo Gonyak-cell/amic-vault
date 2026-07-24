@@ -6,7 +6,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../../apps/api/src/app.module';
 import { configureApp } from '../../../apps/api/src/main';
 import { SESSION_COOKIE_NAME } from '../../../apps/api/src/modules/auth/session.repository';
-import { createOwnerClient, tenantAlphaId, withClient } from '../helpers/db';
+import {
+  advanceAuthThrottleWindows,
+  createOwnerClient,
+  tenantAlphaId,
+  withClient,
+} from '../helpers/db';
 
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
 
@@ -119,6 +124,7 @@ describe('matter update audit coverage', () => {
       password: 'wrong-password',
     });
     expect(failedLogin.status, await failedLogin.text()).toBe(401);
+    await advanceAuthThrottleWindows();
 
     const cookie = await ownerCookie(baseUrl);
     const clientId = await createClient(baseUrl, cookie);

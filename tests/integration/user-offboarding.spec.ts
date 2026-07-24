@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { randomUUID } from 'node:crypto';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -9,6 +10,14 @@ import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.rep
 import { PermissionService } from '../../apps/api/src/modules/permission/permission.service';
 import { hashPassword } from '../../apps/api/src/modules/user/password';
 import { createOwnerClient, tenantAlphaId, withClient } from './helpers/db';
+import {
+  createClient,
+  createMatter,
+  createStorageService,
+  ensureFreshMatterAppSyncState,
+  storageUrisForDocument,
+  uploadPdf,
+} from './document-access/document-api-helpers';
 
 const alphaFirmAdminUserId = '11111111-1111-4111-8111-111111111100';
 const alphaOwnerUserId = '11111111-1111-4111-8111-111111111101';
@@ -107,6 +116,10 @@ async function resetLifecycleFixtures(): Promise<void> {
   });
 }
 
+async function clearAuthThrottleState(): Promise<void> {
+  await withClient(createOwnerClient(), (client) => client.query('DELETE FROM auth_throttle_states'));
+}
+
 async function openResetTokenCount(userId: string): Promise<number> {
   return withClient(createOwnerClient(), async (client) => {
     const result = await client.query<{ count: string }>(
@@ -164,11 +177,45 @@ async function latestLifecycleAudit(userId: string, action: string) {
   });
 }
 
+async function createUnfinishedUploadAuthority(matterId: string): Promise<string> {
+  const batchId = randomUUID();
+  await withClient(createOwnerClient(), async (client) => {
+    await client.query(
+      `
+        INSERT INTO bulk_upload_batches (
+          batch_id, tenant_id, matter_id, actor_user_id, status, total_items
+        )
+        VALUES ($1, $2, $3, $4, 'processing', 1)
+      `,
+      [batchId, tenantAlphaId, matterId, alphaAuthResetUserId],
+    );
+    await client.query(
+      `
+        INSERT INTO bulk_upload_batch_items (
+          tenant_id, batch_id, item_id, matter_id, actor_user_id, status,
+          file_path, original_filename, mime_type, size_bytes, fields_json
+        )
+        VALUES ($1, $2, 'offboarding-pending', $3, $4, 'uploaded', $5, 'offboarding.pdf',
+          'application/pdf', 7, '{}'::jsonb)
+      `,
+      [
+        tenantAlphaId,
+        batchId,
+        matterId,
+        alphaAuthResetUserId,
+        `/tmp/offboarding-${batchId}.pdf`,
+      ],
+    );
+  });
+  return batchId;
+}
+
 describe('user offboarding integration', () => {
   let app: INestApplication;
   let baseUrl: string;
   let mailer: MailerStub;
   let permissionService: PermissionService;
+  const storageUris: string[] = [];
 
   beforeAll(async () => {
     app = await NestFactory.create(AppModule, { logger: false });
@@ -181,11 +228,18 @@ describe('user offboarding integration', () => {
 
   beforeEach(async () => {
     mailer.clear();
+    await clearAuthThrottleState();
     await resetLifecycleFixtures();
   });
 
   afterAll(async () => {
     await resetLifecycleFixtures();
+    const storage = createStorageService();
+    await Promise.all(
+      storageUris.map((storageUri) =>
+        storage.deleteByStorageUri(tenantAlphaId, storageUri).catch(() => undefined),
+      ),
+    );
     await app.close();
   });
 
@@ -205,6 +259,21 @@ describe('user offboarding integration', () => {
       email: 'alpha-auth-reset@test.local',
       password: 'dev-alpha-auth-reset-password',
     });
+    const clientId = await createClient(baseUrl, firmAdminCookie, 'OFFBOARD');
+    const matterId = await createMatter(baseUrl, firmAdminCookie, clientId, 'OFFBOARD', {
+      leadLawyerId: alphaAuthResetUserId,
+    });
+    await ensureFreshMatterAppSyncState(tenantAlphaId, 'user-offboarding');
+    const uploaded = await uploadPdf(baseUrl, targetCookieOne, matterId, 'offboarding-preview');
+    storageUris.push(...(await storageUrisForDocument(uploaded.documentId)));
+    const previewResponse = await fetch(
+      `${baseUrl}/v1/documents/${uploaded.documentId}/preview-sessions`,
+      { method: 'POST', headers: { cookie: targetCookieOne } },
+    );
+    const previewBody = await previewResponse.text();
+    expect(previewResponse.status, previewBody).toBe(201);
+    const previewSessionId = (JSON.parse(previewBody) as { previewSessionId: string }).previewSessionId;
+    const batchId = await createUnfinishedUploadAuthority(matterId);
 
     const userList = await fetch(`${baseUrl}/v1/users`, {
       headers: { cookie: firmAdminCookie },
@@ -252,6 +321,35 @@ describe('user offboarding integration', () => {
       expect(currentUser.status, await currentUser.text()).toBe(401);
     }
     expect(await openResetTokenCount(alphaAuthResetUserId)).toBe(0);
+    await withClient(createOwnerClient(), async (client) => {
+      const preview = await client.query<{ revoked_at: Date | null }>(
+        `SELECT revoked_at FROM preview_access_sessions WHERE preview_session_id = $1`,
+        [previewSessionId],
+      );
+      const batchItem = await client.query<{
+        status: string;
+        error_code: string | null;
+        error_reason: string | null;
+      }>(
+        `
+          SELECT status, error_code, error_reason
+          FROM bulk_upload_batch_items
+          WHERE tenant_id = $1 AND batch_id = $2 AND item_id = 'offboarding-pending'
+        `,
+        [tenantAlphaId, batchId],
+      );
+      const batch = await client.query<{ status: string }>(
+        `SELECT status FROM bulk_upload_batches WHERE tenant_id = $1 AND batch_id = $2`,
+        [tenantAlphaId, batchId],
+      );
+      expect(preview.rows[0]?.revoked_at).toBeInstanceOf(Date);
+      expect(batchItem.rows[0]).toEqual({
+        status: 'failed',
+        error_code: 'PERMISSION_DENIED',
+        error_reason: 'USER_DEACTIVATED',
+      });
+      expect(batch.rows[0]).toEqual({ status: 'failed' });
+    });
     await expect(
       permissionService.canReadMatter(
         { tenantId: tenantAlphaId, userId: alphaAuthResetUserId },
@@ -289,6 +387,7 @@ describe('user offboarding integration', () => {
       status: 'active',
     });
 
+    await clearAuthThrottleState();
     const reactivatedLogin = await login(baseUrl, {
       tenantId: tenantAlphaId,
       email: 'alpha-auth-reset@test.local',

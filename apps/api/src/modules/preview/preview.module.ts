@@ -13,6 +13,6 @@ import { PreviewService } from './preview.service';
   imports: [AuditModule, PermissionModule, StorageModule, TenantModule],
   controllers: [PreviewController],
   providers: [PreviewConvertJob, PreviewPrecreateQueueService, PreviewSessionService, PreviewService],
-  exports: [PreviewConvertJob, PreviewPrecreateQueueService, PreviewService],
+  exports: [PreviewConvertJob, PreviewPrecreateQueueService, PreviewSessionService, PreviewService],
 })
 export class PreviewModule {}

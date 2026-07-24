@@ -103,6 +103,8 @@ const integrationEnv = {
   DATABASE_MIGRATION_URL: migrationDatabaseUrl,
   DATABASE_RUNTIME_URL: runtimeDatabaseUrl,
   DATABASE_RUNTIME_ROLE: process.env.DATABASE_RUNTIME_ROLE ?? 'vault_app',
+  MFA_SECRET_ENCRYPTION_KEY:
+    process.env.MFA_SECRET_ENCRYPTION_KEY ?? 'integration-test-mfa-secret-key',
   MATTER_APP_SOURCE_CONFIGURED: process.env.MATTER_APP_SOURCE_CONFIGURED ?? 'true',
   MATTER_APP_RUNTIME_READY: process.env.MATTER_APP_RUNTIME_READY ?? 'true',
   MATTER_APP_SOURCE_MODE: process.env.MATTER_APP_SOURCE_MODE ?? 'matter_app_event_projection',

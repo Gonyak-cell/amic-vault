@@ -207,6 +207,34 @@ export class DatabaseService implements OnModuleDestroy {
     return result[0];
   }
 
+  async isAuthThrottleAllowed(scope: string, referenceHash: string): Promise<boolean> {
+    const result = await this.authLookup<{ allowed: boolean }>(
+      'SELECT app_auth_throttle_check($1, $2) AS allowed',
+      [scope, referenceHash],
+    );
+    return result[0]?.allowed === true;
+  }
+
+  async recordAuthThrottleFailure(scope: string, referenceHash: string): Promise<boolean> {
+    const result = await this.authLookup<{ allowed: boolean }>(
+      'SELECT app_auth_throttle_record_failure($1, $2) AS allowed',
+      [scope, referenceHash],
+    );
+    return result[0]?.allowed === true;
+  }
+
+  async consumeAuthThrottle(scope: string, referenceHash: string): Promise<boolean> {
+    const result = await this.authLookup<{ allowed: boolean }>(
+      'SELECT app_auth_throttle_consume($1, $2) AS allowed',
+      [scope, referenceHash],
+    );
+    return result[0]?.allowed === true;
+  }
+
+  async clearAuthThrottle(scope: string, referenceHash: string): Promise<void> {
+    await this.authLookup('SELECT app_auth_throttle_clear($1, $2)', [scope, referenceHash]);
+  }
+
   async findUniqueLoginCandidateByEmail(email: string): Promise<LoginCandidateLookup | undefined> {
     const result = await this.authLookup<LoginCandidateLookup>(
       'SELECT * FROM app_find_unique_login_candidate_by_email($1)',
