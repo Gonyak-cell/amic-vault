@@ -1,6 +1,8 @@
 import 'reflect-metadata';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import type { ExecutionContext } from '@nestjs/common';
-import { UnauthorizedException } from '@nestjs/common';
+import { RequestMethod, UnauthorizedException } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 import { describe, expect, it } from 'vitest';
@@ -11,6 +13,7 @@ import type { TenantService } from '../tenant/tenant.service';
 import type { UserEntity } from '../user/user.entity';
 import type { UserService } from '../user/user.service';
 import { AuthController } from './auth.controller';
+import { ALLOW_UNVERIFIED_MFA_BOOTSTRAP_MUTATION } from './mfa-bootstrap.decorator';
 import { IS_PUBLIC_ROUTE } from './public.decorator';
 import { SessionGuard } from './session.guard';
 import {
@@ -38,13 +41,13 @@ function tenant(status: TenantEntity['status'] = 'active'): TenantEntity {
   };
 }
 
-function session(): SessionRecord {
+function session(mfaVerified = false): SessionRecord {
   return {
     sessionId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     tenantId,
     userId: '11111111-1111-4111-8111-111111111101',
     tokenHash,
-    mfaVerified: false,
+    mfaVerified,
     expiresAt: new Date(Date.now() + 60_000),
     revokedAt: null,
   };
@@ -66,7 +69,9 @@ function fakeTenantService(entity: TenantEntity | null): TenantService {
   } as unknown as TenantService;
 }
 
-function fakeUserService(mfaEnabled = false): UserService {
+function fakeUserService(
+  input: { mfaEnabled?: boolean; role?: UserEntity['role'] } = {},
+): UserService {
   return {
     async findByTenantAndId() {
       return {
@@ -74,11 +79,11 @@ function fakeUserService(mfaEnabled = false): UserService {
         tenantId,
         email: 'alpha@test.local',
         name: 'Alpha',
-        role: 'matter_owner',
+        role: input.role ?? 'matter_owner',
         practiceGroup: 'corporate',
         status: 'active',
         passwordHash: '$argon2id$placeholder',
-        mfaEnabled,
+        mfaEnabled: input.mfaEnabled ?? false,
         lastLoginAt: null,
         createdAt: new Date('2026-06-11T00:00:00Z'),
         updatedAt: new Date('2026-06-11T00:00:00Z'),
@@ -89,8 +94,12 @@ function fakeUserService(mfaEnabled = false): UserService {
   } as unknown as UserService;
 }
 
-function contextFor(handler: () => void, headers: Record<string, string> = {}): ExecutionContext {
-  const request = { headers };
+function contextFor(
+  handler: object,
+  headers: Record<string, string> = {},
+  method = 'GET',
+): ExecutionContext {
+  const request = { headers, method };
   return {
     getHandler: () => handler,
     getClass: () => AuthController,
@@ -100,6 +109,29 @@ function contextFor(handler: () => void, headers: Record<string, string> = {}): 
       getNext: <T>() => undefined as T,
     }),
   } as unknown as ExecutionContext;
+}
+
+function bootstrapMutationRoutes(): string[] {
+  const controllerPath = Reflect.getMetadata(PATH_METADATA, AuthController) as string;
+  return Object.getOwnPropertyNames(AuthController.prototype)
+    .filter((method) => method !== 'constructor')
+    .flatMap((method) => {
+      const handler = AuthController.prototype[method as keyof AuthController];
+      const allowed = Reflect.getMetadata(ALLOW_UNVERIFIED_MFA_BOOTSTRAP_MUTATION, handler);
+      const methodPath = Reflect.getMetadata(PATH_METADATA, handler) as string | undefined;
+      const methodCode = Reflect.getMetadata(METHOD_METADATA, handler);
+      return allowed === true && methodPath && methodCode === RequestMethod.POST
+        ? [`/v1/${controllerPath}/${methodPath}`]
+        : [];
+    });
+}
+
+function listSourceFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return listSourceFiles(path);
+    return entry.isFile() && entry.name.endsWith('.ts') ? [path] : [];
+  });
 }
 
 function publicAuthRoutes(): string[] {
@@ -125,6 +157,23 @@ describe('SessionGuard', () => {
       '/v1/auth/password-reset/request',
       '/v1/auth/password-reset/confirm',
     ]);
+  });
+
+  it('keeps the unverified production-admin mutation allowlist limited to MFA enrollment, activation, and self-logout', () => {
+    expect(bootstrapMutationRoutes()).toEqual([
+      '/v1/auth/mfa/enroll',
+      '/v1/auth/mfa/activate',
+      '/v1/auth/logout',
+    ]);
+    const sourceRoot = join(process.cwd(), 'src');
+    const annotatedSources = listSourceFiles(sourceRoot)
+      .map((path) => ({
+        path: relative(sourceRoot, path),
+        count: (readFileSync(path, 'utf8').match(/@AllowUnverifiedMfaBootstrapMutation\(\)/g) ?? [])
+          .length,
+      }))
+      .filter((entry) => entry.count > 0);
+    expect(annotatedSources).toEqual([{ path: 'modules/auth/auth.controller.ts', count: 3 }]);
   });
 
   it('rejects missing and forged session cookies with AUTH_REQUIRED', async () => {
@@ -175,11 +224,50 @@ describe('SessionGuard', () => {
       new FakeSessionRepository(session()) as unknown as SessionRepository,
       fakeTenantService(tenant()),
       new TenantContextService(),
-      fakeUserService(true),
+      fakeUserService({ mfaEnabled: true }),
     );
 
     await expect(
       guard.canActivate(contextFor(() => undefined, { cookie: `${SESSION_COOKIE_NAME}=${token}` })),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('denies every unverified production local-admin mutation except the exact bootstrap allowlist', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const bootstrapGuard = new SessionGuard(
+        new Reflector(),
+        new FakeSessionRepository(session()) as unknown as SessionRepository,
+        fakeTenantService(tenant()),
+        new TenantContextService(),
+        fakeUserService({ role: 'firm_admin' }),
+      );
+      const cookie = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+      for (const handler of [
+        AuthController.prototype.enrollMfa,
+        AuthController.prototype.activateMfa,
+        AuthController.prototype.logout,
+      ]) {
+        await expect(bootstrapGuard.canActivate(contextFor(handler, cookie, 'POST'))).resolves.toBe(true);
+      }
+      await expect(
+        bootstrapGuard.canActivate(contextFor(() => undefined, cookie, 'POST')),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      const verifiedGuard = new SessionGuard(
+        new Reflector(),
+        new FakeSessionRepository(session(true)) as unknown as SessionRepository,
+        fakeTenantService(tenant()),
+        new TenantContextService(),
+        fakeUserService({ role: 'firm_admin' }),
+      );
+      await expect(verifiedGuard.canActivate(contextFor(() => undefined, cookie, 'PATCH'))).resolves.toBe(
+        true,
+      );
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 });

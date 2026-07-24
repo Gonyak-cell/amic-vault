@@ -152,6 +152,7 @@
     "apps/api/src/modules/health/health.controller.ts",
     "apps/api/src/modules/health/health.controller.spec.ts",
     "apps/api/src/modules/auth/mfa.service.ts",
+    "apps/api/src/modules/auth/mfa-bootstrap.decorator.ts",
     "workers/ingestion/app/runtime_secret.py",
     "workers/ingestion/tests/test_runtime_secret.py",
     "tests/integration/document-access/ingestion-gateway.spec.ts",

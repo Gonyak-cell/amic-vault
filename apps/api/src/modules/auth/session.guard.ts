@@ -9,6 +9,10 @@ import { Reflector } from '@nestjs/core';
 import { TenantContextService } from '../tenant/tenant-context';
 import { TenantService } from '../tenant/tenant.service';
 import { UserService } from '../user/user.service';
+import {
+  ALLOW_UNVERIFIED_MFA_BOOTSTRAP_MUTATION,
+} from './mfa-bootstrap.decorator';
+import { isPrivilegedLocalAdminRole } from './mfa.policy';
 import { IS_PUBLIC_ROUTE } from './public.decorator';
 import {
   hashOpaqueToken,
@@ -20,11 +24,16 @@ import {
 
 export interface RequestWithSession {
   headers: Record<string, string | string[] | undefined>;
+  method?: string;
   session?: SessionRecord;
 }
 
 function authRequired(): UnauthorizedException {
   return new UnauthorizedException({ code: 'AUTH_REQUIRED' });
+}
+
+function isReadOnlyHttpMethod(method: string | undefined): boolean {
+  return method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
 }
 
 @Injectable()
@@ -76,6 +85,19 @@ export class SessionGuard implements CanActivate {
       throw authRequired();
     }
     if (user.mfaEnabled && !session.mfaVerified) {
+      throw authRequired();
+    }
+    const allowsBootstrapMutation = this.reflector.getAllAndOverride<boolean>(
+      ALLOW_UNVERIFIED_MFA_BOOTSTRAP_MUTATION,
+      [context.getHandler(), context.getClass()],
+    );
+    if (
+      process.env.NODE_ENV === 'production' &&
+      isPrivilegedLocalAdminRole(user.role) &&
+      !session.mfaVerified &&
+      !isReadOnlyHttpMethod(request.method) &&
+      allowsBootstrapMutation !== true
+    ) {
       throw authRequired();
     }
 

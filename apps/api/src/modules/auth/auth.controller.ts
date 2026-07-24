@@ -7,6 +7,7 @@ import type {
   PasswordResetRequestDto,
 } from '@amic-vault/shared';
 import { AuthService } from './auth.service';
+import { AllowUnverifiedMfaBootstrapMutation } from './mfa-bootstrap.decorator';
 import { Public } from './public.decorator';
 import { PasswordResetService } from './password-reset.service';
 import { SESSION_COOKIE_NAME } from './session.repository';
@@ -54,6 +55,7 @@ export class AuthController {
     return {
       user: result.user,
       mfaEnabled: result.mfaEnabled,
+      ...(result.mfaEnrollmentRequired ? { mfaEnrollmentRequired: true } : {}),
     };
   }
 
@@ -74,6 +76,7 @@ export class AuthController {
   }
 
   @Post('mfa/enroll')
+  @AllowUnverifiedMfaBootstrapMutation()
   enrollMfa(@Req() request: RequestWithSession) {
     const session = request.session;
     if (!session) throw new UnauthorizedException({ code: 'AUTH_REQUIRED' });
@@ -81,6 +84,7 @@ export class AuthController {
   }
 
   @Post('mfa/activate')
+  @AllowUnverifiedMfaBootstrapMutation()
   activateMfa(@Req() request: RequestWithSession, @Body() body: MfaActivateRequestDto) {
     const session = request.session;
     if (!session) throw new UnauthorizedException({ code: 'AUTH_REQUIRED' });
@@ -88,6 +92,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @AllowUnverifiedMfaBootstrapMutation()
   async logout(
     @Req() request: RequestWithSession,
     @Res({ passthrough: true }) response: CookieResponse,

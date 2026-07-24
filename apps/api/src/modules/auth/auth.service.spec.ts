@@ -31,14 +31,18 @@ function tenant(
   };
 }
 
-async function user(password: string, mfaEnabled = false): Promise<UserEntity> {
+async function user(
+  password: string,
+  mfaEnabled = false,
+  role: UserEntity['role'] = 'matter_owner',
+): Promise<UserEntity> {
   const now = new Date('2026-06-11T00:00:00Z');
   return new UserEntity({
     userId: '11111111-1111-4111-8111-111111111101',
     tenantId,
     email: 'alpha@test.local',
     name: 'Alpha',
-    role: 'matter_owner',
+    role,
     practiceGroup: 'corporate',
     status: 'active',
     passwordHash: await hashPassword(password),
@@ -336,6 +340,52 @@ describe('AuthService', () => {
       mfaEnabled: true,
       mfaChallengeId: `${tenantId}.challenge-token`,
     });
+  });
+
+  it('issues an explicitly unverified MFA bootstrap session only for a production local admin without TOTP', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const service = createService(await user('secret-password', false, 'firm_admin'));
+
+      const result = await service.login(
+        { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+        { ipAddress: null, userAgent: null },
+      );
+      expectLoginComplete(result);
+
+      expect(result.mfaEnrollmentRequired).toBe(true);
+      expect(result.session.mfaVerified).toBe(false);
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
+  it('never issues a production local-admin session before a TOTP challenge when an active secret exists', async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const service = createService(
+        await user('secret-password', false, 'security_admin'),
+        tenant(),
+        fakeMfaService({ hasActiveSecret: true }),
+      );
+
+      await expect(
+        service.login(
+          { tenantId, email: 'alpha@test.local', password: 'secret-password' },
+          { ipAddress: null, userAgent: null },
+        ),
+      ).resolves.toEqual({
+        mfaRequired: true,
+        mfaEnabled: true,
+        mfaChallengeId: `${tenantId}.challenge-token`,
+      });
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 
   it('denies external_user session issuance before R11', async () => {

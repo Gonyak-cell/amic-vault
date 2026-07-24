@@ -111,9 +111,8 @@ export class AuthService {
     }
 
     const mfaDecision = this.mfaPolicy.evaluate(user, {
-      hasActiveSecret: user.mfaEnabled
-        ? await this.mfaService.hasActiveSecret(tenant.tenantId, user.userId)
-        : false,
+      hasActiveSecret: await this.mfaService.hasActiveSecret(tenant.tenantId, user.userId),
+      production: process.env.NODE_ENV === 'production',
     });
     if (mfaDecision.outcome === 'deny') {
       this.recordEvent(
@@ -144,6 +143,7 @@ export class AuthService {
     return {
       user: user.toSummary(),
       mfaEnabled: user.mfaEnabled,
+      ...(mfaDecision.outcome === 'bootstrap' ? { mfaEnrollmentRequired: true } : {}),
       ...issued,
     };
   }
