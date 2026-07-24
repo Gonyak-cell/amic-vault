@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const roots = process.argv.length > 2 ? process.argv.slice(2) : ['db/migrations'];
-const exemptTables = new Set(['tenants']);
 let failed = false;
 
 function fail(file, message) {
@@ -30,21 +29,24 @@ function createdTables(sql) {
   );
 }
 
+function hasDirectRlsExemption(sql, createStart) {
+  return /(?:^|\r?\n)\s*--\s*RLS-EXEMPT:\s*[^\r\n]+\r?\n(?:\s*--[^\r\n]*\r?\n)*\s*$/.test(
+    sql.slice(0, createStart),
+  );
+}
+
 for (const root of roots) {
   for (const file of sqlFiles(root)) {
     const sql = fs.readFileSync(file, 'utf8');
     for (const table of createdTables(sql)) {
       const tablePattern = table.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      if (exemptTables.has(table)) {
-        if (!/RLS-EXEMPT:/i.test(sql)) {
-          fail(file, `${table}: RLS exemption requires RLS-EXEMPT comment`);
-        }
-        continue;
-      }
-
       const createStart = sql.search(
         new RegExp(`CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+"?${tablePattern}"?`, 'i'),
       );
+      if (hasDirectRlsExemption(sql, createStart)) {
+        continue;
+      }
+
       const rest = sql.slice(createStart + 1);
       const nextCreate = rest.search(/CREATE\s+TABLE/i);
       const createBlock = nextCreate === -1 ? sql.slice(createStart) : sql.slice(createStart, createStart + 1 + nextCreate);
