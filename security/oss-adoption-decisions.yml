@@ -75,6 +75,8 @@
     "db/migrations/0205_add_file_security_reconciliation_audit_actions.sql",
     "db/migrations/0206_allow_minimal_infected_file_security_verdict.sql",
     "db/migrations/0207_make_file_security_promotions_version_scoped.sql",
+    "db/migrations/0208_create_dlp_assessments_and_reviews.sql",
+    "apps/api/src/modules/dlp/dlp.controller.spec.ts",
     "apps/api/src/modules/storage/storage-adapter.interface.ts",
     "apps/api/src/modules/storage/storage-path.resolver.ts",
     "apps/api/src/modules/storage/storage.service.ts",
