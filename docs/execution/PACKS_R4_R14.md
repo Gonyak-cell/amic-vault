@@ -87,6 +87,7 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-SF20-03 | `feat/pack-sf20-03-production-recovery` | 6 | `DEVOPS-SF20-IAC-TUW-001` through `DEVOPS-SF20-IAC-TUW-003`, `DEVOPS-SF20-DR-TUW-001` through `DEVOPS-SF20-DR-TUW-003` (`docs/execution/TUW_SF20_PRODUCTION_RECOVERY.md`) |
 | PACK-SF20-04 | `feat/pack-sf20-04-observability` | 5 | `DEVOPS-SF20-OPS-TUW-001` through `DEVOPS-SF20-OPS-TUW-005` (`docs/execution/TUW_SF20_OPERATIONS.md`) |
 | PACK-SF20-05 | `feat/pack-sf20-05-dlp-safe-state` | 4 | `DEVOPS-SF20-DLP-TUW-001` through `DEVOPS-SF20-DLP-TUW-004` (`docs/execution/TUW_SF20_DLP_SAFE_STATE.md`) |
+| PACK-SF20-06 | `feat/pack-sf20-06-local-identity` | 4 | `SEC-SF20-AUTH-TUW-001` through `SEC-SF20-AUTH-TUW-004` (`docs/execution/TUW_SF20_LOCAL_IDENTITY.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 

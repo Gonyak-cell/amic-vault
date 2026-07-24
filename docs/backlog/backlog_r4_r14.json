@@ -1,5 +1,5 @@
 {
-  "total": 262,
+  "total": 266,
   "tuws": [
     {
       "id": "SEC-DLP-SENSDATADE-TUW-001",
@@ -3815,6 +3815,50 @@
       "depends_on": ["DEVOPS-SF20-IAC-TUW-002", "DEVOPS-SF20-IAC-TUW-003", "DEVOPS-SF20-DR-TUW-001", "DEVOPS-SF20-DR-TUW-002"],
       "files": ["tools/release/check-sf20-residency.mjs", "tools/release/small-firm-rollback-drill.mjs", "docs/release/backup-dr-runbook.md"],
       "verification": "all state receipts match the approved domestic profile with measured RPO at most 60 minutes and RTO at most 240 minutes AND bad migration image key restore object cases return to the exact compatible digest and data authority before permission wall audit original and gateway regressions pass"
+    },
+    {
+      "id": "SEC-SF20-AUTH-TUW-001",
+      "title": "Production local admin MFA step-up policy",
+      "release": "R14",
+      "module": "SEC-SF20-AUTH",
+      "risk": "C",
+      "size": "M",
+      "depends_on": ["DEVOPS-SF20-DR-TUW-003"],
+      "files": ["apps/api/src/modules/auth", "packages/shared/src/dto/auth", "tests/integration/auth-mfa.spec.ts"],
+      "verification": "production firm_admin and security_admin require active TOTP or one-use recovery proof for every privileged mutation AND limited bootstrap permits only MFA enrollment activation and self-logout AND no flag-only session performs an admin action"
+    },
+    {
+      "id": "SEC-SF20-AUTH-TUW-002",
+      "title": "Bounded local authentication rate and lockout",
+      "release": "R14",
+      "module": "SEC-SF20-AUTH",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["SEC-SF20-AUTH-TUW-001"],
+      "files": ["db/migrations/0209_create_auth_throttle_states.sql", "apps/api/src/modules/auth", "tests/integration/auth-mfa.spec.ts"],
+      "verification": "login reset and MFA use only closed HMAC reference keys with database-clock backoff and lockout AND account-existence responses remain identical AND raw email IP token code and user identifiers are absent from persistence logs audit and errors"
+    },
+    {
+      "id": "SEC-SF20-AUTH-TUW-003",
+      "title": "Atomic offboarding cascade and queued upload fence",
+      "release": "R14",
+      "module": "SEC-SF20-AUTH",
+      "risk": "C",
+      "size": "L",
+      "depends_on": ["SEC-SF20-AUTH-TUW-001", "SEC-SF20-AUTH-TUW-002"],
+      "files": ["apps/api/src/modules/user", "apps/api/src/modules/preview", "apps/api/src/modules/document", "apps/api/src/modules/file-security", "tests/integration/user-offboarding.spec.ts"],
+      "verification": "deactivate atomically revokes sessions reset tokens preview sessions and unfinished bulk upload authority with audit rollback AND a late worker report cannot resurrect a terminal offboarding row AND post-deactivation persistence is fenced"
+    },
+    {
+      "id": "SEC-SF20-AUTH-TUW-004",
+      "title": "Monthly 20-user hash-bound access review gate",
+      "release": "R14",
+      "module": "SEC-SF20-AUTH",
+      "risk": "H",
+      "size": "M",
+      "depends_on": ["SEC-SF20-AUTH-TUW-001", "SEC-SF20-AUTH-TUW-002", "SEC-SF20-AUTH-TUW-003"],
+      "files": ["tools/release/small-firm-access-review.mjs", "tools/release/small-firm-access-review.spec.mjs", "docs/release/small-firm-access-review-runbook.md"],
+      "verification": "tenant-scoped read-only manifest caps at 20 accounts and hashes account references AND detects disabled-session admin-without-MFA orphan-membership stale-account preview and upload authority findings AND contains zero raw contact document UUID token or credential values"
     }
   ]
 }
