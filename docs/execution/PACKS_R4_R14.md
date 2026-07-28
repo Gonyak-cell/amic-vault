@@ -88,6 +88,13 @@ targeted integration suites, and full `pnpm test:integration`.
 | PACK-SF20-04 | `feat/pack-sf20-04-observability` | 5 | `DEVOPS-SF20-OPS-TUW-001` through `DEVOPS-SF20-OPS-TUW-005` (`docs/execution/TUW_SF20_OPERATIONS.md`) |
 | PACK-SF20-05 | `feat/pack-sf20-05-dlp-safe-state` | 4 | `DEVOPS-SF20-DLP-TUW-001` through `DEVOPS-SF20-DLP-TUW-004` (`docs/execution/TUW_SF20_DLP_SAFE_STATE.md`) |
 | PACK-SF20-06 | `feat/pack-sf20-06-local-identity` | 4 | `SEC-SF20-AUTH-TUW-001` through `SEC-SF20-AUTH-TUW-004` (`docs/execution/TUW_SF20_LOCAL_IDENTITY.md`) |
+| PACK-DMS-WB-00 | `feat/pack-dms-wb-00-registration` | 4 | `DMS-WB-GOV-TUW-001` through `DMS-WB-GOV-TUW-004` (`docs/execution/TUW_DMS_OSS_WORKBENCH.md`) |
+| PACK-DMS-WB-01 | `feat/pack-dms-wb-01-files-workbench` | 9 | `DMS-WB-FILES-TUW-001` through `DMS-WB-FILES-TUW-009` (`docs/execution/TUW_DMS_OSS_WORKBENCH.md`) |
+| PACK-DMS-WB-02 | `feat/pack-dms-wb-02-search-flow` | 12 | `DMS-WB-SEARCH-TUW-001` through `DMS-WB-SEARCH-TUW-008`, `DMS-WB-FLOW-TUW-001` through `DMS-WB-FLOW-TUW-004` (`docs/execution/TUW_DMS_OSS_WORKBENCH.md`) |
+| PACK-DMS-WB-03 | `feat/pack-dms-wb-03-personal-pins` | 5 | `DMS-WB-PINS-TUW-001` through `DMS-WB-PINS-TUW-005` (`docs/execution/TUW_DMS_OSS_WORKBENCH.md`; internal contract-gated) |
+| PACK-DMS-WB-04 | `feat/pack-dms-wb-04-bulk-actions` | 5 | `DMS-WB-BULK-TUW-001` through `DMS-WB-BULK-TUW-005` (`docs/execution/TUW_DMS_OSS_WORKBENCH.md`; internal contract-gated) |
+| PACK-DMS-WB-05 | `feat/pack-dms-wb-05-no-offline-cache` | 2 | `DMS-WB-OFFLINE-TUW-001` through `DMS-WB-OFFLINE-TUW-002` (`docs/execution/TUW_DMS_OSS_WORKBENCH.md`; policy-gated) |
+| PACK-DMS-WB-06 | `feat/pack-dms-wb-06-internal-qa` | 3 | `DMS-WB-QA-TUW-001` through `DMS-WB-QA-TUW-003` (`docs/execution/TUW_DMS_OSS_WORKBENCH.md`) |
 
 ## OSS Terra autonomous sequential-execution authority
 

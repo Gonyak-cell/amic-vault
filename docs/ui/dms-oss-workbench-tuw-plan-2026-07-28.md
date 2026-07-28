@@ -1,6 +1,6 @@
 # AMIC Vault 오픈소스 DMS형 워크벤치 UI/UX TUW 계획
 
-> 상태: **PROPOSED — 계획 전용, 아직 실행 불가**  
+> 상태: **ACTIVE INTERNAL EXECUTION — external 연결 제외**
 > 기준일: 2026-07-28 (Asia/Seoul)  
 > 기준 소스: `origin/main@328ecbc9928bd52be1b9ab33b90405e1c7352523`  
 > 계획 브랜치: `codex/dms-oss-ui-ux-tuw-plan-20260728`  
@@ -12,10 +12,19 @@
 
 - 아래 `DMS-WB-*` ID는 기존 `docs/package/codex/40~43_TUW_Backlog_*.md` 또는 `60_Execution_Packs.md`에 등록된 canonical ID가 아니다.
 - `docs/package/**`는 읽기 전용이다. 이 계획 작업에서는 변경하지 않는다.
-- 구현 전 제품·보안 책임자가 범위와 계약을 승인하고 canonical TUW/PACK에 매핑해야 한다.
+- 2026-07-28 운영자 지시에 따라 외부 연결을 제외한 내부 범위는 canonical TUW/PACK 등록 후 구현한다. 다만 material product choice가 없는 기존 계약을 재사용하며, 새 data/API 계약은 fail-closed로 별도 decision record를 먼저 만든다.
 - 이미 `main`에 병합된 기능은 다시 구현하지 않는다. UI가 그 계약을 소비하고 회귀 검증하는 범위만 계획한다.
 - 별도 데이터/API/운영/상용 계약이 필요한 항목은 명시된 계약 Gate 이전에 코드 작업을 시작하지 않는다.
 - 각 구현 PACK은 별도 깨끗한 브랜치에서 수행한다. 이 계획 브랜치는 구현 브랜치가 아니다.
+
+### 0.2 활성 실행 범위와 제외 범위
+
+이번 실행 goal은 `G`, `F`, `S`, `X`, `P`, `B`, `O`, 그리고 repository-local `Q`만 포함한다.
+
+- 제외: `M365-001~008`, `QA-004`의 authenticated external runtime smoke, `QA-005`의 production rollout/owner sign-off, OneDrive/Office/WOPI, 외부 tenant·vendor·credential·staging mutation.
+- 검색 anchor는 DMS-GA-3B의 현재 구현을 소비·회귀 검증한다. 새로운 indexing/preview backend TUW를 만들지 않는다.
+- 일반 self-service access request는 DMS-GA-405의 break-glass policy에 의해 현재 범위 밖이다. 접근 요청 UI를 새로 구현하지 않는다.
+- Pins와 다중 문서 작업은 새 persistence/API가 필요한 내부 계약이므로 해당 decision record가 canonical TUW에서 먼저 확정될 때만 구현한다.
 
 ### 0.1 변하지 않는 보안·제품 원칙
 
@@ -49,9 +58,13 @@
 | preview access session | preview module, preview session tests | 명시적 preview action에서 재사용. 선택 시 자동 생성 금지 |
 | OneDrive migration·Office closeout | `docs/release/onedrive-*` 계획과 gate | 기존 Gate receipt를 소비하며, UI에서 성공을 선행 주장하지 않음 |
 | 즐겨찾기/고정 | i18n label 외 persistence/API 근거 없음 | **별도 제품·데이터 계약 필요** |
-| 접근 요청 | schema/API/UI 근거 없음 | **별도 위협모델·권한 계약 필요** |
+| 접근 요청 | `break-glass` API와 `docs/security/access-request-workflow.md` | self-service UI 재구현 금지. 기존 break-glass 경계 회귀만 수행 |
 | 다중 문서 변경 | bulk upload 외 move/tag/status batch 계약 근거 없음 | **별도 원자성·권한·receipt 계약 필요** |
-| 검색 hit→preview anchor | preview session은 있으나 안전한 anchor mapping 계약 근거 없음 | **별도 indexing·preview 계약 필요** |
+| 검색 hit→preview anchor | DMS-GA-3B `anchorId`, detail preview anchor contract | 재구현 금지. search inspector가 기존 bounded anchor를 보존하는지만 검증 |
+
+### 1.1 current-main correction (supersedes obsolete proposed tracks)
+
+`DMS-WB-ACCESS-TUW-001~006`과 `DMS-WB-ANCHOR-TUW-001~005`는 최초 조사 시점의 gap 가설이다. 기준 SHA 재대조 결과 각각 DMS-GA-405 break-glass boundary와 DMS-GA-3B preview anchor contract가 이미 이를 대체한다. 이 ID들은 새 backend/schema/API 작업으로 실행하지 않으며, `SEARCH-006`, `SEARCH-008`, `QA-002`의 소비·negative regression으로 흡수한다.
 
 ## 2. 목표 UX 계약
 
@@ -436,18 +449,18 @@ Lane 공통 edge: query 없음, 0건, partial facet, permission change, long Kor
 - **Files modify:** search page/shell wiring
 - **Verification:** `V-UI + V-SEC` metadata leakage tests AND selection-only 추가 API 호출 0회.
 - **Edge cases:** snippet 없음, redacted snippet, partial facet, denied after result load.
-- **Stop / Escalation:** inspector가 raw body 또는 권한 밖 field를 요구하면 제외하고 ANCHOR 계약으로 넘긴다.
+- **Stop / Escalation:** inspector가 raw body 또는 권한 밖 field를 요구하면 해당 field를 제외하고 existing detail route로만 연결한다.
 
-### DMS-WB-SEARCH-TUW-006 — explicit result preview without anchors
+### DMS-WB-SEARCH-TUW-006 — explicit result preview with existing bounded anchors
 
 - **Risk / Size / Depends_on:** `H / L / SEARCH-005`
-- **Objective:** 현재 preview session으로 문서를 명시적으로 열되 hit anchor가 없는 동안 “문서 열기” 이상을 약속하지 않는다.
+- **Objective:** 현재 preview session과 DMS-GA-3B의 bounded `anchorId`를 명시적 preview action에서 보존하고, anchor가 없거나 무효이면 일반 문서 열기로 안전하게 fallback한다.
 - **Files create:** 없음 또는 search preview adapter test
 - **Files modify:** search inspector와 preview drawer composition
 - **Files NOT-modify:** indexing/snippet/preview backend
 - **Verification:** `V-UI + V-SEC` preview/metadata suites AND query/snippet/token이 URL history에 없음.
 - **Edge cases:** preview unsupported, session expiry, result revoke.
-- **Stop / Escalation:** 근거 없이 정확한 page/highlight를 표시하려 하면 ANCHOR lane 승인 전 중단한다.
+- **Stop / Escalation:** existing bounded anchor contract 밖의 page/highlight 좌표가 필요하면 새 backend를 추측하지 않고 detail route fallback으로 제한한다.
 
 ### DMS-WB-SEARCH-TUW-007 — AI surface containment
 
@@ -942,21 +955,16 @@ Module: `cross-cutting evidence`
 | B1 Files workbench | F | 8~12일 | B0 | FILES-009 green |
 | B2 Search workbench | S | 7~11일 | B1 | SEARCH-008 Critical review |
 | B3 Matter/detail flow | X | 4~6일 | B1+B2 | FLOW-004 green |
-| B4 Core QA/release | Q core | 5~8일 | B1~B3 | external receipt + sign-off |
+| B4 Core QA/repository evidence | Q-001~003 | 5~8일 | B1~B3 | local technical evidence + independent review |
 | O1 Pins | P | 5~8일 | product/privacy contract | PINS-005 |
-| O2 Access request | A | 7~10일 | threat model approval | ACCESS-006 |
-| O3 Bulk actions | B | 7~10일 | action/atomicity approval | BULK-005 |
-| O4 Search anchors | H | 7~10일 | anchor ADR approval | ANCHOR-005 |
-| E1 M365 status/action | M001~M003 | 4~7일 | existing OneDrive/Office gates | external receipt |
-| E2 WOPI/coauthoring | M004~M008 | 12~20일+ | signed commercial/security contract, new release | certification receipt |
+| O2 Bulk actions | B | 7~10일 | action/atomicity approval | BULK-005 |
 | D1 No-offline guard | O | 1~2일 | no-cache decision | security regression |
 
 - **Core only:** 약 `26~41일`
-- **Core + 네 optional contract tracks:** 약 `52~79일`
-- **M365 status/action 포함:** 약 `56~86일`
-- **WOPI까지 모두 승인·구현하는 최대 envelope:** 약 `68~106일+`, 별도 계약 lead time 제외
+- **Core + Pins·Bulk internal contract tracks:** 약 `38~59일`
+- **Access, search anchor, M365/WOPI, external runtime release는 이번 실행 goal에서 제외**
 
-병렬화는 계약과 소유 파일이 분리된 경우에만 허용한다. `/files`와 `/search`는 동일 interaction contract를 사용하므로 순차 수행한다. Pins/Access/Bulk/Anchor는 각 계약 Gate 이후 별도 브랜치에서 병렬 가능하다.
+병렬화는 계약과 소유 파일이 분리된 경우에만 허용한다. `/files`와 `/search`는 동일 interaction contract를 사용하므로 순차 수행한다. Pins와 Bulk는 각 internal contract Gate 이후 별도 브랜치에서 병렬 가능하다.
 
 ## 17. 출시에 포함하지 않는 것
 
