@@ -13,6 +13,7 @@ import {
   listDocumentSortValues,
   type DocumentConfidentialityLevel,
   type DocumentDto,
+  type DocumentFolderDto,
   type DocumentExtractionStatus,
   type DocumentPrivilegeStatus,
   type DocumentStatus,
@@ -36,6 +37,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
+import type { MatterCodeOption } from '@/lib/matter-app';
 
 const pageSize = 25;
 type BooleanFilterValue = '' | 'true' | 'false';
@@ -56,7 +58,13 @@ export interface DocumentVaultFilterState {
 }
 
 export interface DocumentVaultListProps {
+  folders?: readonly DocumentFolderDto[];
+  onDocumentSelect?: (document: DocumentDto | null) => void;
   refreshKey?: number | string;
+  selectedDocumentId?: string | null;
+  selectedFolderId?: string;
+  selectedMatter?: MatterCodeOption | null;
+  workbenchContext?: boolean;
 }
 
 const emptyDocumentVaultFilters: DocumentVaultFilterState = {
@@ -307,7 +315,15 @@ function countAdvancedFilters(filters: DocumentVaultFilterState): number {
   ].filter(Boolean).length;
 }
 
-export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
+export function DocumentVaultList({
+  folders = [],
+  onDocumentSelect,
+  refreshKey = 0,
+  selectedDocumentId = null,
+  selectedFolderId = '',
+  selectedMatter = null,
+  workbenchContext = false,
+}: DocumentVaultListProps) {
   const router = useRouter();
   const params = useSearchParams();
   const initialFilters = React.useMemo(() => documentVaultFiltersFromParams(params), [params]);
@@ -326,6 +342,48 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   const [statusTransitionDocumentId, setStatusTransitionDocumentId] = React.useState<string | null>(
     null,
   );
+  const filtersRef = React.useRef(filters);
+  const contextKey = `${selectedMatter?.matterReference ?? ''}:${selectedFolderId}`;
+  const previousContextKeyRef = React.useRef(contextKey);
+
+  React.useEffect(() => {
+    filtersRef.current = filters;
+  }, [filters]);
+
+  React.useEffect(() => {
+    if (!workbenchContext || previousContextKeyRef.current === contextKey) return;
+    previousContextKeyRef.current = contextKey;
+    const nextFilters = cleanFilters({
+      ...filtersRef.current,
+      folderId: selectedFolderId,
+      matterCode: selectedMatter?.matterCode ?? '',
+    });
+    setDraftFilters(nextFilters);
+    setFilters(nextFilters);
+    setPage(1);
+    onDocumentSelect?.(null);
+    router.replace(documentVaultUrlForFilters(nextFilters, 1));
+  }, [
+    contextKey,
+    onDocumentSelect,
+    router,
+    selectedFolderId,
+    selectedMatter?.matterCode,
+    workbenchContext,
+  ]);
+
+  React.useEffect(() => {
+    onDocumentSelect?.(null);
+  }, [filters, onDocumentSelect, page, refreshKey]);
+
+  React.useEffect(() => {
+    if (
+      selectedDocumentId &&
+      !documents.some((document) => document.documentId === selectedDocumentId)
+    ) {
+      onDocumentSelect?.(null);
+    }
+  }, [documents, onDocumentSelect, selectedDocumentId]);
 
   React.useEffect(() => {
     let active = true;
@@ -364,10 +422,19 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   }
 
   function resetFilters() {
-    setDraftFilters(emptyDocumentVaultFilters);
-    setFilters(emptyDocumentVaultFilters);
+    const nextFilters = {
+      ...emptyDocumentVaultFilters,
+      ...(workbenchContext
+        ? {
+            folderId: selectedFolderId,
+            matterCode: selectedMatter?.matterCode ?? '',
+          }
+        : {}),
+    };
+    setDraftFilters(nextFilters);
+    setFilters(nextFilters);
     setPage(1);
-    router.replace('/files');
+    router.replace(documentVaultUrlForFilters(nextFilters, 1));
   }
 
   function goToPage(nextPage: number) {
@@ -395,6 +462,7 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   const draftAdvancedFilterCount = countAdvancedFilters(draftFilters);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const advancedPanelId = 'document-vault-advanced-filters';
+  const selectedFolder = folders.find((folder) => folder.folderId === selectedFolderId);
 
   const quickSearchControls = (
     <>
@@ -406,14 +474,6 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           placeholder="문서명 검색"
         />
       </FilterField>
-      <FilterField htmlFor="document-vault-matter-code" label="Matter code">
-        <Input
-          id="document-vault-matter-code"
-          value={draftFilters.matterCode}
-          onChange={(event) => updateDraftFilter('matterCode', event.target.value)}
-          placeholder="AMIC-2026"
-        />
-      </FilterField>
       <FilterField htmlFor="document-vault-tag" label="태그">
         <Input
           id="document-vault-tag"
@@ -422,13 +482,19 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           placeholder="executed"
         />
       </FilterField>
-      <FilterField htmlFor="document-vault-folder-id" label="폴더 ID">
-        <Input
-          id="document-vault-folder-id"
-          value={draftFilters.folderId}
-          onChange={(event) => updateDraftFilter('folderId', event.target.value)}
-          placeholder="폴더 선택 후 자동 입력"
-        />
+      <FilterField htmlFor="document-vault-sort" label="정렬">
+        <select
+          id="document-vault-sort"
+          className={selectClassName}
+          value={draftFilters.sortBy}
+          onChange={(event) => updateDraftFilter('sortBy', event.target.value as ListDocumentSort)}
+        >
+          {Object.entries(sortLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
       </FilterField>
     </>
   );
@@ -562,29 +628,11 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           <option value="false">보존 없음</option>
         </select>
       </FilterField>
-      <FilterField htmlFor="document-vault-sort" label="정렬">
-        <select
-          id="document-vault-sort"
-          className={selectClassName}
-          value={draftFilters.sortBy}
-          onChange={(event) => updateDraftFilter('sortBy', event.target.value as ListDocumentSort)}
-        >
-          {Object.entries(sortLabels).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </FilterField>
     </>
   );
 
   const filterPanel = (
-    <form
-      aria-label="문서함 필터"
-      className="rounded-lg border bg-card p-3 shadow-none sm:p-4"
-      onSubmit={applyFilters}
-    >
+    <form aria-label="문서함 필터" className="border-b pb-4" onSubmit={applyFilters}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
           <div className="min-w-0 space-y-1">
@@ -618,7 +666,15 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           </div>
         </div>
 
-        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {workbenchContext ? (
+          <p className="text-xs leading-5 text-muted-foreground">
+            {selectedMatter
+              ? `${selectedMatter.matterCode} · ${selectedMatter.matterName || 'Matter'} · ${selectedFolder?.path || '전체 폴더'}`
+              : '전체 Matter · 전체 폴더'}
+          </p>
+        ) : null}
+
+        <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {quickSearchControls}
         </div>
 
@@ -678,7 +734,7 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
       <div className="space-y-3">
         {filterPanel}
         <div className="flex min-h-28 items-center justify-center rounded-md border border-dashed bg-muted/30 text-sm text-muted-foreground">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+          <Loader2 className="mr-2 h-4 w-4" aria-hidden="true" />
           전체 문서를 확인하는 중입니다.
         </div>
       </div>
@@ -699,12 +755,12 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
   }
 
   return (
-      <div className="space-y-3">
-        {filterPanel}
-        {statusTransitionError ? (
-          <p className="text-sm text-destructive">{statusTransitionError}</p>
-        ) : null}
-        <div className="flex min-h-11 items-center justify-between gap-3 border-b bg-muted/30 px-3 text-sm">
+    <div className="space-y-3">
+      {filterPanel}
+      {statusTransitionError ? (
+        <p className="text-sm text-destructive">{statusTransitionError}</p>
+      ) : null}
+      <div className="flex min-h-11 items-center justify-between gap-3 border-b bg-muted/30 px-3 text-sm">
         <span className="font-medium text-foreground">권한 내 문서</span>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">{totalCount}건</span>
@@ -731,7 +787,7 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
           </Button>
         </div>
       </div>
-      <DataTable caption="권한 내 문서함" minWidthClassName="min-w-[1180px]">
+      <DataTable caption="권한 내 문서함" minWidthClassName="min-w-[920px]">
         <DataTableHeader>
           <tr>
             <DataTableHead>문서</DataTableHead>
@@ -739,15 +795,16 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
             <DataTableHead>폴더/태그</DataTableHead>
             <DataTableHead>유형</DataTableHead>
             <DataTableHead>상태</DataTableHead>
-            <DataTableHead>보안</DataTableHead>
-            <DataTableHead>정리</DataTableHead>
-            <DataTableHead>추출/OCR</DataTableHead>
             <DataTableHead>업데이트</DataTableHead>
           </tr>
         </DataTableHeader>
         <DataTableBody>
           {documents.map((document) => (
-            <DataTableRow key={document.documentId}>
+            <DataTableRow
+              key={document.documentId}
+              onSelect={onDocumentSelect ? () => onDocumentSelect(document) : undefined}
+              selected={selectedDocumentId === document.documentId}
+            >
               <DataTableCell className="max-w-[20rem] truncate font-medium text-foreground">
                 <Link
                   href={`/documents/${document.documentId}`}
@@ -787,32 +844,9 @@ export function DocumentVaultList({ refreshKey = 0 }: DocumentVaultListProps) {
                     ))}
                   </select>
                   {statusTransitionDocumentId === document.documentId ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    <Loader2 className="h-4 w-4" aria-hidden="true" />
                   ) : null}
                 </div>
-              </DataTableCell>
-              <DataTableCell>
-                <div className="flex flex-wrap gap-1.5">
-                  <StatusBadge
-                    tone={document.confidentialityLevel === 'restricted' ? 'blocked' : 'neutral'}
-                  >
-                    {confidentialityLabels[document.confidentialityLevel]}
-                  </StatusBadge>
-                  <StatusBadge tone={document.privilegeStatus === 'none' ? 'neutral' : 'warning'}>
-                    {privilegeLabels[document.privilegeStatus]}
-                  </StatusBadge>
-                  {document.legalHold ? <StatusBadge tone="warning">보존</StatusBadge> : null}
-                </div>
-              </DataTableCell>
-              <DataTableCell>
-                <StatusBadge tone={document.aiAllowed ? 'success' : 'neutral'}>
-                  {document.aiAllowed ? '정리 준비' : '제외'}
-                </StatusBadge>
-              </DataTableCell>
-              <DataTableCell>
-                <StatusBadge tone={extractionTone(document.extractionStatus)}>
-                  {extractionLabel(document.extractionStatus)}
-                </StatusBadge>
               </DataTableCell>
               <DataTableCell className="text-muted-foreground">
                 {formatDate(document.updatedAt)}

@@ -32,9 +32,8 @@ describe('DocumentVaultList', () => {
     const html = renderToStaticMarkup(<DocumentVaultList />);
 
     expect(html).toContain('문서함 검색');
-    expect(html).toContain('Matter code');
     expect(html).toContain('태그');
-    expect(html).toContain('폴더 ID');
+    expect(html).toContain('정렬');
     expect(html).toContain('상세 검색');
     expect(html).toContain('0개 선택');
     expect(html).toContain('min-w-[220px]');
@@ -44,6 +43,7 @@ describe('DocumentVaultList', () => {
     expect(html).not.toContain('추출/OCR');
     expect(html).not.toContain('문서 ID');
     expect(html).not.toContain('Matter ID');
+    expect(html).not.toContain('폴더 ID');
   });
 
   it('builds a server-side query from document vault filters', () => {
@@ -139,11 +139,16 @@ describe('DocumentVaultList', () => {
       'archived',
     ]);
     expect(documentStatusTransitionTargets(documentFixture({ legalHold: true }))).toEqual([]);
-    expect(documentStatusTransitionTargets(documentFixture({ status: 'disposal_locked' }))).toEqual([]);
+    expect(documentStatusTransitionTargets(documentFixture({ status: 'disposal_locked' }))).toEqual(
+      [],
+    );
   });
 
   it('supports upload-triggered refresh without changing the active filters', () => {
-    const source = readFileSync(fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'), 'utf8');
+    const source = readFileSync(
+      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
+      'utf8',
+    );
 
     expect(source).toMatch(/refreshKey = 0/);
     expect(source).toMatch(/listDocuments\(documentVaultListQueryFromFilters\(filters, page\)\)/);
