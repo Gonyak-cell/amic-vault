@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { HelpCircle, SlidersHorizontal, X } from 'lucide-react';
+import React, { type ReactNode, useEffect, useState } from 'react';
+import { ChevronDown, ChevronUp, HelpCircle, SlidersHorizontal, X } from 'lucide-react';
 import {
   documentConfidentialityLevels,
   documentExtractionStatuses,
@@ -23,7 +23,6 @@ import {
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { approvedDocumentTypeOptions } from '@/lib/dms-taxonomy';
 import {
@@ -57,6 +56,7 @@ export interface SearchAdvancedSelection {
 interface SearchAdvancedControlsProps {
   busy: boolean;
   approvedRefinerKeys?: SearchRefinerKeySet;
+  children?: ReactNode;
   taxonomyCatalog?: EnterpriseApprovedDmsTaxonomyDto[];
   selection: SearchAdvancedSelection;
   onApply: (selection: SearchAdvancedSelection) => void;
@@ -269,11 +269,13 @@ function countAdvanced(
 export function SearchAdvancedControls({
   approvedRefinerKeys = emptySearchRefinerKeys,
   busy,
+  children,
   onApply,
   onReset,
   selection,
   taxonomyCatalog = [],
 }: SearchAdvancedControlsProps) {
+  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<SearchAdvancedDraft>({
     clientName: selection.clientName ?? '',
     confidentialityLevel: selection.confidentialityLevel ?? '',
@@ -324,12 +326,30 @@ export function SearchAdvancedControls({
   );
 
   return (
-    <SectionCard
-      icon={<SlidersHorizontal className="h-4 w-4" />}
-      title="검색 필터"
-      meta="권한 범위 내 결과"
-      actions={activeCount > 0 ? <StatusBadge>{activeCount}</StatusBadge> : null}
-    >
+    <section className="border-y bg-background" aria-label="검색 필터">
+      <button
+        aria-expanded={open}
+        className="flex min-h-11 w-full items-center justify-between gap-3 px-1 text-left"
+        disabled={busy}
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+          <SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden="true" />
+          검색 조건
+          <span className="font-normal text-muted-foreground">권한 범위 내 결과</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          {activeCount > 0 ? <StatusBadge tone="warning">{activeCount}개</StatusBadge> : null}
+          {open ? (
+            <ChevronUp className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <ChevronDown className="h-4 w-4" aria-hidden="true" />
+          )}
+        </span>
+      </button>
+      {open ? (
+        <div className="border-t py-4">
       <div className="grid gap-3 md:grid-cols-4">
         <label className="space-y-1 text-sm font-medium">
           검색 범위
@@ -690,7 +710,10 @@ export function SearchAdvancedControls({
           초기화
         </Button>
       </div>
-    </SectionCard>
+      {children ? <div className="mt-4 border-t pt-4">{children}</div> : null}
+        </div>
+      ) : null}
+    </section>
   );
 }
 

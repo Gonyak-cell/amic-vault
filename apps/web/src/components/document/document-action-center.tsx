@@ -793,7 +793,25 @@ function SearchHitContextPanel({
             </Button>
           )}
           <Button asChild size="sm" variant="outline">
-            <Link href="/search">검색으로 돌아가기</Link>
+            <Link
+              href="/search"
+              onClick={(event) => {
+                if (
+                  event.button !== 0 ||
+                  event.metaKey ||
+                  event.ctrlKey ||
+                  event.shiftKey ||
+                  event.altKey ||
+                  window.history.length <= 1
+                ) {
+                  return;
+                }
+                event.preventDefault();
+                window.history.back();
+              }}
+            >
+              검색으로 돌아가기
+            </Link>
           </Button>
         </div> : null}
       </div>

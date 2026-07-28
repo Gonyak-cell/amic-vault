@@ -34,6 +34,7 @@ export function AppShell({
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchCompositionRef = useRef(false);
   const mobileMenuButtonRef = useRef<HTMLButtonElement | null>(null);
   const mobileNavCloseButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -98,10 +99,11 @@ export function AppShell({
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmedQuery = searchQuery.trim();
-    if (!trimmedQuery) return;
+    if (searchCompositionRef.current) return;
+    const searchPath = globalSearchPath(searchQuery);
+    if (!searchPath) return;
     closeMobileNav(false);
-    router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
+    router.push(searchPath);
   }
 
   function trapMobileNavFocus(event: KeyboardEvent<HTMLElement>) {
@@ -167,6 +169,7 @@ export function AppShell({
             placeholder={t('nav.searchPlaceholder')}
             query={searchQuery}
             setQuery={setSearchQuery}
+            compositionRef={searchCompositionRef}
           />
           <div className="flex shrink-0 items-center gap-2">
             <LanguageToggle />
@@ -220,6 +223,7 @@ export function AppShell({
                 placeholder={t('nav.searchPlaceholder')}
                 query={searchQuery}
                 setQuery={setSearchQuery}
+                compositionRef={searchCompositionRef}
                 compact
               />
             </div>
@@ -250,6 +254,7 @@ export function AppShell({
 function SearchForm({
   ariaLabel,
   compact = false,
+  compositionRef,
   onSubmit,
   placeholder,
   query,
@@ -257,6 +262,7 @@ function SearchForm({
 }: {
   ariaLabel: string;
   compact?: boolean;
+  compositionRef: React.MutableRefObject<boolean>;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   placeholder: string;
   query: string;
@@ -282,10 +288,29 @@ function SearchForm({
         }
         placeholder={placeholder}
         value={query}
+        onCompositionEnd={() => {
+          compositionRef.current = false;
+        }}
+        onCompositionStart={() => {
+          compositionRef.current = true;
+        }}
         onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (
+            event.key === 'Enter' &&
+            (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229)
+          ) {
+            event.preventDefault();
+          }
+        }}
       />
     </form>
   );
+}
+
+export function globalSearchPath(query: string): string | null {
+  const trimmed = query.trim();
+  return trimmed ? `/search?q=${encodeURIComponent(trimmed)}` : null;
 }
 
 function NavigationList({

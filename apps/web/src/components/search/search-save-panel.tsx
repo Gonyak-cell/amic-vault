@@ -33,6 +33,7 @@ export interface SearchSavePanelProps {
   savedSearchError?: string | null;
   savedSearches?: SavedSearchDto[];
   reusableUrl: string;
+  showSavedList?: boolean;
 }
 
 export interface SearchSaveRequest {
@@ -146,6 +147,7 @@ export function SearchSavePanel({
   savedSearchError = null,
   savedSearches = [],
   selection,
+  showSavedList = true,
 }: SearchSavePanelProps) {
   const [copyStatus, setCopyStatus] = React.useState<'idle' | 'copied' | 'error'>('idle');
   const [savedSearchName, setSavedSearchName] = React.useState('');
@@ -189,11 +191,11 @@ export function SearchSavePanel({
       icon={<Bookmark className="h-4 w-4" />}
       title="검색 폴더"
       meta="검색 조건 재사용"
-      actions={
+      actions={showSavedList ? (
         <StatusBadge tone={savedSearchBusy ? 'warning' : 'neutral'}>
           {savedSearchBusy ? '동기화 중' : `${savedSearches.length}개`}
         </StatusBadge>
-      }
+      ) : null}
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.55fr)]">
         <div className="min-w-0">
@@ -296,7 +298,7 @@ export function SearchSavePanel({
             </div>
           </div>
 
-          <div className="rounded-md border bg-background">
+          {showSavedList ? <div className="rounded-md border bg-background">
             <div className="border-b px-3 py-2 text-sm font-semibold">검색 목록</div>
             {savedSearches.length > 0 ? (
               <ul className="divide-y">
@@ -354,7 +356,7 @@ export function SearchSavePanel({
                 저장된 검색이 없습니다.
               </p>
             )}
-          </div>
+          </div> : null}
         </div>
       </div>
     </SectionCard>
@@ -437,7 +439,7 @@ export function savedSearchSummary(query: SearchQueryDto): string {
     .join(' · ');
 }
 
-function privateSavedSearchUrl(savedSearchId: string): string {
+export function privateSavedSearchUrl(savedSearchId: string): string {
   const params = new URLSearchParams();
   params.set('searchRef', savedSearchId);
   return `/search?${params.toString()}`;

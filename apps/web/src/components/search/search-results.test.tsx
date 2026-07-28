@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { SearchResponseDto } from '@amic-vault/shared';
 import { LanguageProvider } from '@/lib/i18n';
-import { SearchResults } from './search-results';
+import { SearchResults, searchResultKey } from './search-results';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -100,6 +100,30 @@ describe('SearchResults', () => {
     expect(html).toContain('2 / 2');
     expect(html).toContain('이전');
     expect(html).toContain('다음');
+  });
+
+  it('marks one selectable result without requesting preview data', () => {
+    const selectedKey = searchResultKey(response.results[0]!);
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <SearchResults
+          response={response}
+          page={1}
+          pageSize={10}
+          busy={false}
+          error={null}
+          onPage={() => undefined}
+          onSelect={() => undefined}
+          selectedResultKey={selectedKey}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(selectedKey).toContain(response.results[0]!.documentId);
+    expect(html).toContain('role="listbox"');
+    expect(html).toContain('role="option"');
+    expect(html).toContain('aria-selected="true"');
+    expect(html).not.toContain('preview-session');
   });
 
   it('groups results by display-safe matter labels', () => {

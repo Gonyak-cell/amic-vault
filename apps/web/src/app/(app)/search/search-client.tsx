@@ -12,6 +12,7 @@ import type {
   SearchResponseDto,
   SearchSort,
   SearchTarget,
+  SearchResultDto,
   EnterpriseApprovedDmsTaxonomyDto,
   EnterpriseApprovedDmsSearchRefinerDto,
 } from '@amic-vault/shared';
@@ -31,7 +32,19 @@ import { SearchAdvancedControls } from '@/components/search/search-advanced-cont
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
 import { SearchResults, type SearchErrorKind } from '@/components/search/search-results';
+import { searchResultKey } from '@/components/search/search-results';
 import { SearchSavePanel } from '@/components/search/search-save-panel';
+import { SearchFilterSummary } from '@/components/search/search-filter-summary';
+import {
+  SearchWorkbenchRail,
+  type SearchRecentFilesState,
+} from '@/components/search/search-workbench-rail';
+import { SearchResultInspector } from '@/components/search/search-result-inspector';
+import {
+  DocumentWorkbenchDrawer,
+  DocumentWorkbenchShell,
+} from '@/components/document/document-workbench-shell';
+import { PreviewSessionFrame } from '@/components/document/preview-session-frame';
 import { safeApiErrorMessage, uiErrorKindForApiError } from '@/lib/api/error-messages';
 import {
   deleteSavedSearch,
@@ -52,9 +65,25 @@ import {
   type SearchRefinerKeySet,
 } from '@/lib/search-refiners';
 import { Button } from '@/components/ui/button';
+import { getDashboardOverview } from '@/lib/api/dashboard';
 
 const pageSize = 10;
 type SearchSurface = 'results' | 'ai';
+const searchSelectionStateKey = 'amicVaultSearchSelection';
+
+function readSearchSelection(): string | null {
+  if (typeof window === 'undefined') return null;
+  const value = window.history.state?.[searchSelectionStateKey];
+  return typeof value === 'string' ? value : null;
+}
+
+function rememberSearchSelection(value: string | null): void {
+  if (typeof window === 'undefined') return;
+  const nextState = { ...(window.history.state ?? {}) };
+  if (value) nextState[searchSelectionStateKey] = value;
+  else delete nextState[searchSelectionStateKey];
+  window.history.replaceState(nextState, '');
+}
 
 export function SearchClient() {
   const { t } = useI18n();
@@ -79,6 +108,16 @@ export function SearchClient() {
   const [surface, setSurface] = useState<SearchSurface>('results');
   const [savedSearchBusy, setSavedSearchBusy] = useState(false);
   const [savedSearchError, setSavedSearchError] = useState<string | null>(null);
+  const [selectedResultKey, setSelectedResultKey] = useState<string | null>(null);
+  const [railOpen, setRailOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [previewResult, setPreviewResult] = useState<SearchResultDto | null>(null);
+  const [recentFiles, setRecentFiles] = useState<SearchRecentFilesState>({ status: 'loading' });
+  const railTriggerRef = useRef<HTMLButtonElement>(null);
+  const inspectorTriggerRef = useRef<HTMLButtonElement>(null);
+  const saveTriggerRef = useRef<HTMLButtonElement>(null);
+  const previewTriggerRef = useRef<HTMLButtonElement>(null);
   const approvedRefinerKeys = useMemo(() => searchRefinerKeySet(refinerCatalog), [refinerCatalog]);
   const reusableSearchUrl = useMemo(
     () =>
@@ -90,6 +129,11 @@ export function SearchClient() {
   const aiMatterContext = useMemo(
     () => matterContextForAi(selection, response),
     [response, selection],
+  );
+  const selectedResult = useMemo(
+    () =>
+      response?.results.find((result) => searchResultKey(result) === selectedResultKey) ?? null,
+    [response, selectedResultKey],
   );
 
   const refreshSavedSearches = useCallback(async () => {
@@ -123,21 +167,45 @@ export function SearchClient() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    getDashboardOverview()
+      .then((overview) => {
+        if (!active) return;
+        setRecentFiles(
+          overview.recentFiles.length > 0
+            ? { status: 'ready', items: overview.recentFiles }
+            : { status: 'empty' },
+        );
+      })
+      .catch(() => {
+        if (active) setRecentFiles({ status: 'unavailable' });
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const runSearch = useCallback(
     async (
       nextQuery: string,
       nextSelection: SearchFacetSelection,
       nextPage: number,
-      options: { replaceUrl?: string | null } = {},
+      options: { preserveSelection?: boolean; replaceUrl?: string | null } = {},
     ) => {
       const trimmed = nextQuery.trim();
       if (!trimmed) return;
+      const restoredSelection = options.preserveSelection ? readSearchSelection() : null;
       const constrainedSelection = constrainSelection(nextSelection, approvedRefinerKeys);
       setBusy(true);
       setError(null);
       setQuery(trimmed);
       setSelection(constrainedSelection);
       setPage(nextPage);
+      if (!options.preserveSelection) {
+        setSelectedResultKey(null);
+        rememberSearchSelection(null);
+      }
       const replacementUrl =
         options.replaceUrl === undefined
           ? urlForPolicy(searchPrivacySettings, trimmed, constrainedSelection, nextPage)
@@ -152,6 +220,15 @@ export function SearchClient() {
         );
         const result = await searchDocuments(request);
         setResponse(result);
+        if (options.preserveSelection) {
+          const availableSelection = result.results.some(
+            (item) => searchResultKey(item) === restoredSelection,
+          )
+            ? restoredSelection
+            : null;
+          setSelectedResultKey(availableSelection);
+          rememberSearchSelection(availableSelection);
+        }
       } catch (caught) {
         setResponse(null);
         setError(searchErrorKind(caught));
@@ -175,6 +252,8 @@ export function SearchClient() {
       setQuery(nextQuery);
       setSelection(nextSelection);
       setPage(1);
+      setSelectedResultKey(null);
+      rememberSearchSelection(null);
       router.replace(
         searchPrivacySettings.urlMode === 'private_saved_ref'
           ? privateSearchUrl(savedSearch.savedSearchId)
@@ -221,6 +300,7 @@ export function SearchClient() {
     if (restoredUrl.current === initialUrl) return;
     restoredUrl.current = initialUrl;
     void runSearch(initial.query, constrainedInitialSelection, initial.page, {
+      preserveSelection: true,
       replaceUrl: initialUrl,
     });
   }, [approvedRefinerKeys, initial, runSearch, searchPrivacySettings.allowPlaintextReusableUrls]);
@@ -236,6 +316,13 @@ export function SearchClient() {
 
   function applyFacets(next: SearchFacetSelection) {
     void runSearch(query, next, 1);
+  }
+
+  function selectResult(result: SearchResultDto) {
+    const key = searchResultKey(result);
+    setSelectedResultKey(key);
+    rememberSearchSelection(key);
+    setInspectorOpen(true);
   }
 
   function submitSearchBar(nextQuery: string) {
@@ -289,7 +376,7 @@ export function SearchClient() {
   }
 
   return (
-    <main className="flex flex-col gap-5">
+    <main className="flex flex-col gap-4">
       <section className="flex flex-col gap-2 border-b pb-4">
         <h1 className="text-2xl font-semibold tracking-normal">{t('search.title')}</h1>
         <SearchBar
@@ -315,45 +402,76 @@ export function SearchClient() {
         selection={selection}
         onApply={(advanced) => runSearch(query, { ...selection, ...advanced }, 1)}
         onReset={() => runSearch(query, resetAdvancedSelection(selection), 1)}
-      />
-      <SearchSavePanel
-        busy={busy}
-        onDeleteSavedSearch={(savedSearchId) => void deleteCurrentSavedSearch(savedSearchId)}
-        onOpenSavedSearch={(savedSearch) => void openSavedSearch(savedSearch)}
-        onSaveSearch={(name) => void saveCurrentSearch(name)}
-        query={query}
-        selection={selection}
-        savedSearchBusy={savedSearchBusy}
-        savedSearchError={savedSearchError}
-        savedSearches={savedSearches}
-        privacyMode={searchPrivacySettings.urlMode}
-        reusableUrl={reusableSearchUrl}
-      />
+      >
+        <SearchFacets
+          approvedRefinerKeys={approvedRefinerKeys}
+          facets={response?.facets ?? emptyFacets}
+          selection={selection}
+          onChange={applyFacets}
+        />
+      </SearchAdvancedControls>
       {surface === 'results' ? (
-        <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)]">
-          <SearchFacets
-            approvedRefinerKeys={approvedRefinerKeys}
+        <>
+          <SearchFilterSummary
             facets={response?.facets ?? emptyFacets}
+            onReset={() => runSearch(query, resetAdvancedSelection(selection), 1)}
             selection={selection}
-            onChange={applyFacets}
           />
-          <div className="flex flex-col gap-3">
-            {query.trim() ? (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card p-3">
-                <p className="text-sm text-muted-foreground">
-                  이 검색어를 Matter AI 질문으로 전환할 수 있습니다.
-                </p>
+          <DocumentWorkbenchShell
+            inspector={
+              <SearchResultInspector
+                onOpen={() => rememberSearchSelection(selectedResultKey)}
+                onPreview={setPreviewResult}
+                previewTriggerRef={previewTriggerRef}
+                result={selectedResult}
+                target={selection.target ?? 'all'}
+              />
+            }
+            mobileControls={
+              <div className="flex flex-wrap gap-2">
                 <Button
-                  type="button"
+                  onClick={() => setRailOpen(true)}
+                  ref={railTriggerRef}
                   size="sm"
+                  type="button"
                   variant="outline"
-                  disabled={!aiMatterContext.matterId}
-                  onClick={() => setSurface('ai')}
                 >
-                  AI에게 질문
+                  검색 폴더
+                </Button>
+                <Button
+                  disabled={!selectedResult}
+                  onClick={() => setInspectorOpen(true)}
+                  ref={inspectorTriggerRef}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  결과 정보
+                </Button>
+                <Button
+                  onClick={() => setSaveOpen(true)}
+                  ref={saveTriggerRef}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  현재 검색 저장
                 </Button>
               </div>
-            ) : null}
+            }
+            rail={
+              <SearchWorkbenchRail
+                busy={busy || savedSearchBusy}
+                onDelete={(savedSearchId) => void deleteCurrentSavedSearch(savedSearchId)}
+                onOpen={(savedSearch) => void openSavedSearch(savedSearch)}
+                onSave={() => setSaveOpen(true)}
+                privacyMode={searchPrivacySettings.urlMode}
+                recentFiles={recentFiles}
+                savedSearchError={savedSearchError}
+                savedSearches={savedSearches}
+              />
+            }
+          >
             <SearchResults
               response={response}
               page={page}
@@ -364,9 +482,84 @@ export function SearchClient() {
               target={selection.target ?? 'all'}
               error={error}
               onPage={(nextPage) => runSearch(query, selection, nextPage)}
+              onSelect={selectResult}
+              selectedResultKey={selectedResultKey}
             />
-          </div>
-        </div>
+          </DocumentWorkbenchShell>
+          <DocumentWorkbenchDrawer
+            onClose={() => setRailOpen(false)}
+            open={railOpen}
+            returnFocusRef={railTriggerRef}
+            title="검색 폴더"
+          >
+            <SearchWorkbenchRail
+              busy={busy || savedSearchBusy}
+              onDelete={(savedSearchId) => void deleteCurrentSavedSearch(savedSearchId)}
+              onOpen={(savedSearch) => {
+                setRailOpen(false);
+                void openSavedSearch(savedSearch);
+              }}
+              onSave={() => {
+                setRailOpen(false);
+                setSaveOpen(true);
+              }}
+              privacyMode={searchPrivacySettings.urlMode}
+              recentFiles={recentFiles}
+              savedSearchError={savedSearchError}
+              savedSearches={savedSearches}
+            />
+          </DocumentWorkbenchDrawer>
+          <DocumentWorkbenchDrawer
+            onClose={() => setInspectorOpen(false)}
+            open={inspectorOpen}
+            returnFocusRef={inspectorTriggerRef}
+            side="right"
+            title="검색 결과 정보"
+          >
+            <SearchResultInspector
+              onOpen={() => rememberSearchSelection(selectedResultKey)}
+              onPreview={setPreviewResult}
+              result={selectedResult}
+              target={selection.target ?? 'all'}
+            />
+          </DocumentWorkbenchDrawer>
+          <DocumentWorkbenchDrawer
+            onClose={() => setSaveOpen(false)}
+            open={saveOpen}
+            returnFocusRef={saveTriggerRef}
+            side="right"
+            title="현재 검색 저장"
+          >
+            <SearchSavePanel
+              busy={busy}
+              onSaveSearch={(name) => void saveCurrentSearch(name)}
+              privacyMode={searchPrivacySettings.urlMode}
+              query={query}
+              reusableUrl={reusableSearchUrl}
+              savedSearchBusy={savedSearchBusy}
+              savedSearchError={savedSearchError}
+              selection={selection}
+              showSavedList={false}
+            />
+          </DocumentWorkbenchDrawer>
+          <DocumentWorkbenchDrawer
+            onClose={() => setPreviewResult(null)}
+            open={Boolean(previewResult)}
+            returnFocusRef={previewTriggerRef}
+            side="right"
+            title="문서 미리보기"
+          >
+            {previewResult?.documentId ? (
+              <div className="min-h-[65vh] overflow-hidden border bg-muted/20">
+                <PreviewSessionFrame
+                  documentId={previewResult.documentId}
+                  key={previewResult.documentId}
+                  title={previewResult.displayName || previewResult.title}
+                />
+              </div>
+            ) : null}
+          </DocumentWorkbenchDrawer>
+        </>
       ) : (
         <AiAnswerPanel
           seedQuery={query}

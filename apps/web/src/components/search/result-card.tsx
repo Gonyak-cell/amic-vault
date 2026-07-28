@@ -20,17 +20,26 @@ import type {
 import { Button } from '@/components/ui/button';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
 import { useI18n } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 
 interface ResultCardProps {
   mode?: SearchMode;
+  onSelect?: ((result: SearchResultDto) => void) | undefined;
   result: SearchResultDto;
+  selected?: boolean;
   target?: SearchTarget;
 }
 
-export function ResultCard({ mode = 'keyword', result, target = 'all' }: ResultCardProps) {
+export function ResultCard({
+  mode = 'keyword',
+  onSelect,
+  result,
+  selected = false,
+  target = 'all',
+}: ResultCardProps) {
   const { t } = useI18n();
   if (isAuthorityResult(result)) {
-    return <AuthorityResultCard result={result} />;
+    return <AuthorityResultCard onSelect={onSelect} result={result} selected={selected} />;
   }
   const isClauseResult = result.resultKind === 'clause' || (target === 'clause' && !!result.clauseId);
   const clauseDisplay = isClauseResult ? clauseLabel(result) : undefined;
@@ -50,7 +59,24 @@ export function ResultCard({ mode = 'keyword', result, target = 'all' }: ResultC
   const authorLabel = result.author?.displayName?.trim();
   const permissionBadges = result.permissionBadges;
   return (
-    <article className="rounded-md border bg-card p-4">
+    <article
+      aria-selected={selected}
+      className={cn(
+        'border-l-2 border-y border-r bg-background p-3 outline-none transition-colors',
+        selected ? 'border-l-primary bg-primary/5' : 'border-l-transparent hover:bg-muted/30',
+      )}
+      onClick={(event) => {
+        if (isInteractiveTarget(event.target)) return;
+        onSelect?.(result);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        onSelect?.(result);
+      }}
+      role="option"
+      tabIndex={0}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <Link
@@ -142,7 +168,15 @@ export function ResultCard({ mode = 'keyword', result, target = 'all' }: ResultC
   );
 }
 
-function AuthorityResultCard({ result }: { result: SearchResultDto }) {
+function AuthorityResultCard({
+  onSelect,
+  result,
+  selected,
+}: {
+  onSelect?: ((result: SearchResultDto) => void) | undefined;
+  result: SearchResultDto;
+  selected: boolean;
+}) {
   const context = [
     result.citation,
     authoritySourceLabel(result.sourceType),
@@ -152,7 +186,24 @@ function AuthorityResultCard({ result }: { result: SearchResultDto }) {
     .filter(Boolean)
     .join(' · ');
   return (
-    <article className="rounded-md border bg-card p-4">
+    <article
+      aria-selected={selected}
+      className={cn(
+        'border-l-2 border-y border-r bg-background p-3 outline-none transition-colors',
+        selected ? 'border-l-primary bg-primary/5' : 'border-l-transparent hover:bg-muted/30',
+      )}
+      onClick={(event) => {
+        if (isInteractiveTarget(event.target)) return;
+        onSelect?.(result);
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        onSelect?.(result);
+      }}
+      role="option"
+      tabIndex={0}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           {result.sourceUrl ? (
@@ -191,6 +242,10 @@ function AuthorityResultCard({ result }: { result: SearchResultDto }) {
 
 function isAuthorityResult(result: SearchResultDto): boolean {
   return String(result.resultKind) === 'authority' || !!result.authorityId;
+}
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && Boolean(target.closest('a,button'));
 }
 
 function authoritySourceLabel(value: string | undefined): string {

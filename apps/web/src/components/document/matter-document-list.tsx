@@ -41,6 +41,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { FilterBar, FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { matterFileCabinetContextUrl } from '@/components/matter/matter-dms-links';
 import {
   confidentialityLabels,
   documentStatusLabels,
@@ -721,6 +722,18 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
 
   const filterPanel = (
     <form onSubmit={applyFilters}>
+      <div className="mb-3 flex justify-end">
+        <Button asChild size="sm" variant="outline">
+          <Link
+            href={matterFileCabinetContextUrl(
+              selectedMatter.matterCode,
+              filters.folderId || undefined,
+            )}
+          >
+            워크벤치에서 보기
+          </Link>
+        </Button>
+      </div>
       <FilterBar
         label="Matter 문서함 필터"
         title="Matter 문서함 필터"
