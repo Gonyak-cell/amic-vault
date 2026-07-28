@@ -24,7 +24,7 @@
 | break-glass 접근 | Reuse / boundary | break-glass module, `docs/security/access-request-workflow.md` | break-glass/search permission tests | self-service access request UI 금지 |
 | 즐겨찾기 | Implemented internal contract | ADR-019, migration `0210`, `/v1/saved-items`, files/search rail and inspector actions | saved-item DTO/service/web/integration tests | personal document/Matter/personal saved-search only; permission-scoped on every read |
 | 다중 문서 변경 | Implemented internal contract | ADR-020, migration `0211`, `/v1/document-bulk-action-batches`, document bulk-action worker and `/files` action bar | shared/API/web tests and `document-bulk-actions.spec.ts` | current-page folder/tag/status only; per-item permission, explicit partial receipt, failed-only retry; delete/share/Office excluded |
-| web offline document cache | New internal decision | PWA shell과 desktop cache 경계 존재 | desktop cache policy tests | customer document cache는 승인 전 금지 |
+| web offline document cache | Implemented policy guard | `docs/security/dms-workbench-offline-cache-decision.md`, PWA shell allowlist, sensitive-route BFCache reload | cache policy unit tests, actual service-worker execution integration test | `RETAIN_NO_DOCUMENT_CACHE`; query/auth/cookie variants와 customer data cache 금지 |
 | M365/Office/WOPI | Excluded | ADR-017 및 OneDrive release docs | gate/receipt docs | 이번 goal에서 변경하지 않음 |
 
 ## 구현 전제가 되는 기존 계약
@@ -43,7 +43,7 @@
 | 2 | `PACK-DMS-WB-02` | `/search` query ownership, progressive filters, saved-search rail, inspector, existing anchor consumption, Matter/detail return | `PACK-DMS-WB-01` |
 | 3 | `PACK-DMS-WB-03` | personal favorites persistence/API/UI/audit | ADR-019 |
 | 4 | `PACK-DMS-WB-04` | approved folder/tag/status batch actions only | ADR-020 |
-| 5 | `PACK-DMS-WB-05` | no-document-cache guard only | explicit no-cache decision |
+| 5 | `PACK-DMS-WB-05` | retained no-document-cache guard, old-cache eviction, sensitive BFCache reload | accepted `RETAIN_NO_DOCUMENT_CACHE` decision |
 | 6 | `PACK-DMS-WB-06` | repo-local component/security/a11y evidence | enabled predecessors |
 
 ## Hard exclusions

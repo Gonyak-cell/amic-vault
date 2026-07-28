@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE_NAME = 'amic-vault-desktop-shell-v1';
+const CACHE_NAME = 'amic-vault-desktop-shell-v2';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -18,6 +18,7 @@ const DENIED_CACHE_PREFIXES = [
   '/v1',
   '/dashboard',
   '/matters',
+  '/files',
   '/search',
   '/documents',
   '/audit',
@@ -27,6 +28,7 @@ const DENIED_CACHE_PREFIXES = [
   '/dd',
   '/litigation',
   '/enterprise',
+  '/integrations',
   '/scale',
   '/walls',
   '/external',
@@ -50,6 +52,10 @@ function isAllowedCachePath(pathname) {
 
 function hasExplicitAuthHeader(request) {
   return request.headers.has('authorization');
+}
+
+function hasExplicitCookieHeader(request) {
+  return request.headers.has('cookie');
 }
 
 self.addEventListener('install', (event) => {
@@ -92,6 +98,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   if (hasExplicitAuthHeader(request) || isDeniedPath(url.pathname)) return;
+  if (hasExplicitCookieHeader(request) || url.search) return;
 
   if (isAllowedCachePath(url.pathname)) {
     event.respondWith(cacheFirst(request));

@@ -19,6 +19,7 @@
 | break-glass | break-glass API | two-approver/revoke/audit | no fake self-service state | break-glass tests |
 | 즐겨찾기 add/remove/reorder | `SavedItemService` | existing document search scope, Matter permission query, personal saved-search owner check + transactional audit | personal only; server labels/routes only; optimistic failure restores target state | saved-item service and canonical integration tests |
 | batch folder/tag/status mutation | `DocumentBulkActionBatchService` and existing single-document services | creation injects the existing search scope; every worker attempt re-enters the edit/Matter permission and audit transaction; batch create/complete/retry audit is transactional | current page only; max 100 unique IDs; explicit partial receipt; failed-only retry; no delete/share/Office action | shared/API/web tests and canonical `document-bulk-actions.spec.ts` cover bounds, replay conflict, invisible/missing parity, cross-tenant rejection, partial result, retry, and audit counts |
+| offline shell/cache | web middleware, API no-store middleware, service-worker shell allowlist, and BFCache restore handler | browser policy only; no document action or audit ownership moves to the client | queryless public shell assets only; document/preview/token/search/tenant state never enters Cache Storage; sensitive BFCache restore reloads | cache-policy unit test and actual service-worker execution test cover old-cache eviction and route/query/auth/cookie bypass |
 
 ## Required UI-safe data
 
@@ -31,4 +32,4 @@
 |---|---|---|
 | 즐겨찾기 | ADR-019 closes personal document/Matter/personal-saved-search scope | team-shared or administrator-curated visibility requires a new contract |
 | batch mutations | ADR-020 closes current-page folder/tag/status actions with explicit per-item receipt and failed-only retry | all-result selection, direct delete/share/Office action, cached permission, or silent partial failure requires a new contract |
-| offline | explicit no-document-cache policy guard | client document caching, token persistence, or missing logout/tenant-switch proof |
+| offline | `RETAIN_NO_DOCUMENT_CACHE` accepted and implemented by `docs/security/dms-workbench-offline-cache-decision.md` | any client document caching, token persistence, offline decryption/key custody, or remote-revocation claim requires a separate security release |

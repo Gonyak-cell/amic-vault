@@ -34,6 +34,10 @@ export function isDesktopSensitivePath(pathname: string): boolean {
   return sensitivePathPrefixes.some((prefix) => exactOrDescendant(pathname, prefix));
 }
 
+export function shouldReloadSensitiveBfcache(persisted: boolean, pathname: string): boolean {
+  return persisted && isDesktopSensitivePath(pathname);
+}
+
 export function isDesktopCacheAllowedPath(pathname: string): boolean {
   if (exactAllowedCachePaths.has(pathname)) return true;
   return allowedCachePrefixes.some((prefix) => pathname.startsWith(prefix));
