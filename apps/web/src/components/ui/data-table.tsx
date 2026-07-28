@@ -55,6 +55,14 @@ export interface DataTableRowProps extends React.HTMLAttributes<HTMLTableRowElem
   selected?: boolean | undefined;
 }
 
+function eventTargetsInteractiveControl(event: React.SyntheticEvent<HTMLTableRowElement>): boolean {
+  const target = event.target;
+  return (
+    target instanceof Element &&
+    Boolean(target.closest('a, button, input, select, textarea, [role="button"], [role="link"]'))
+  );
+}
+
 export function DataTableRow({
   className,
   onClick,
@@ -66,7 +74,7 @@ export function DataTableRow({
   const selectable = Boolean(onSelect);
   return (
     <tr
-      aria-selected={selected}
+      aria-selected={selectable ? selected : undefined}
       className={cn(
         'border-t transition-colors',
         selectable ? 'cursor-pointer hover:bg-muted/50 aria-selected:bg-primary/5' : null,
@@ -74,11 +82,16 @@ export function DataTableRow({
       )}
       onClick={(event) => {
         onClick?.(event);
-        if (!event.defaultPrevented) onSelect?.();
+        if (!event.defaultPrevented && !eventTargetsInteractiveControl(event)) onSelect?.();
       }}
       onKeyDown={(keyboardEvent) => {
         onKeyDown?.(keyboardEvent);
-        if (keyboardEvent.defaultPrevented || !onSelect) return;
+        if (
+          keyboardEvent.defaultPrevented ||
+          !onSelect ||
+          eventTargetsInteractiveControl(keyboardEvent)
+        )
+          return;
         if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
           keyboardEvent.preventDefault();
           onSelect();

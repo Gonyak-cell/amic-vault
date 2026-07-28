@@ -12,7 +12,10 @@ export function previewTotalBytes(contentRange: string | null): number | null {
   return Number.isSafeInteger(value) && value > 0 && value <= previewMaxBytes ? value : null;
 }
 
-async function loadPreviewBytes(documentId: string, session: Awaited<ReturnType<typeof issueDocumentPreviewSession>>) {
+async function loadPreviewBytes(
+  documentId: string,
+  session: Awaited<ReturnType<typeof issueDocumentPreviewSession>>,
+) {
   const first = await fetchDocumentPreviewRange(
     documentId,
     session,
@@ -48,6 +51,8 @@ export function PreviewSessionFrame({ documentId, title }: { documentId: string;
   useEffect(() => {
     let active = true;
     let objectUrl: string | undefined;
+    setSrc(undefined);
+    setFailed(false);
     async function load() {
       try {
         // A session can expire while the tab is suspended. The loader retries once
@@ -72,8 +77,17 @@ export function PreviewSessionFrame({ documentId, title }: { documentId: string;
   }, [documentId]);
 
   if (failed) {
-    return <p className="p-4 text-sm text-muted-foreground">미리보기를 불러올 수 없습니다.</p>;
+    return (
+      <p aria-live="polite" className="p-4 text-sm text-muted-foreground">
+        미리보기를 불러올 수 없습니다.
+      </p>
+    );
   }
-  if (!src) return <p className="p-4 text-sm text-muted-foreground">미리보기를 준비하고 있습니다.</p>;
+  if (!src)
+    return (
+      <p aria-live="polite" className="p-4 text-sm text-muted-foreground">
+        미리보기를 준비하고 있습니다.
+      </p>
+    );
   return <iframe className="h-full w-full bg-background" src={src} title={`${title} preview`} />;
 }
