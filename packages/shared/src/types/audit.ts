@@ -1,6 +1,7 @@
 export {
   auditActions,
   auditAnchorActions,
+  dmsPersonalizationAuditActions,
   dmsWorkAuditActions,
   fileSecurityAuditActions,
   isAuditAction,
@@ -28,6 +29,7 @@ export {
   outlookAuditActions,
   type AuditAction,
   type AuditAnchorAction,
+  type DmsPersonalizationAuditAction,
   type DmsWorkAuditAction,
   type FileSecurityAuditAction,
   type R1AuditAction,

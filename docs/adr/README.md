@@ -24,5 +24,6 @@ Status note: ADR-001 through ADR-012 inherit their accepted status from `docs/pa
 | ADR-016 | Document editing and Office flow | DMS-UX-208, DMS-UX-210, B12 local desktop handoff |
 | ADR-017 | Office and OneDrive flow gate | DMS-GA-605, DMS-UX-607, DMS-UX-610 |
 | ADR-018 | WOPI evaluation for Office and Hancom editing | ADR-016, ADR-017, B12 |
+| ADR-019 | Personal saved items | ADR-004, ADR-005, PACK-DMS-WB-03 |
 
 ADR changes require human approval and a Decision Ledger append.

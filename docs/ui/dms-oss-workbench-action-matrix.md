@@ -17,7 +17,7 @@
 | share | sharing route | external policy/audit | no generic list/inspector shortcut | external policy regression |
 | disposal | records route | records service/hold/approval/audit | no direct delete action | records governance |
 | break-glass | break-glass API | two-approver/revoke/audit | no fake self-service state | break-glass tests |
-| Pins | not yet owned | new contract required | hidden until backend is ready | future PINS contract |
+| 즐겨찾기 add/remove/reorder | `SavedItemService` | existing document search scope, Matter permission query, personal saved-search owner check + transactional audit | personal only; server labels/routes only; optimistic failure restores target state | saved-item service and canonical integration tests |
 | batch mutation | not yet owned | new contract required | no checkbox/action bar before API | future BULK contract |
 
 ## Required UI-safe data
@@ -29,6 +29,6 @@
 
 | decision | smallest allowed initial scope | stop condition |
 |---|---|---|
-| Pins | personal document/Matter/saved-search references only | team-shared visibility, rank rules, or audit event absent |
+| 즐겨찾기 | ADR-019 closes personal document/Matter/personal-saved-search scope | team-shared or administrator-curated visibility requires a new contract |
 | batch mutations | per-page folder/tag/status action with explicit receipt | all-result selection, direct delete/share/Office action, or undefined partial-failure policy |
 | offline | explicit no-document-cache policy guard | client document caching, token persistence, or missing logout/tenant-switch proof |

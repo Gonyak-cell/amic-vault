@@ -205,6 +205,12 @@ export const knowledgeBankAuditActions = [
 
 export const dmsWorkAuditActions = ['WORK_ITEM_REASSIGNED'] as const;
 
+export const dmsPersonalizationAuditActions = [
+  'SAVED_ITEM_ADDED',
+  'SAVED_ITEM_REMOVED',
+  'SAVED_ITEMS_REORDERED',
+] as const;
+
 export const r13EnterpriseAuditActions = [
   'SSO_PROVIDER_CHANGED',
   'SSO_METADATA_VIEWED',
@@ -282,6 +288,7 @@ export const auditActions = [
   ...r12RecordsAuditActions,
   ...knowledgeBankAuditActions,
   ...dmsWorkAuditActions,
+  ...dmsPersonalizationAuditActions,
   ...r13EnterpriseAuditActions,
   ...r14ScaleLearningAuditActions,
   ...r4EmailAuditActions,
@@ -309,6 +316,7 @@ export type R11ExternalAuditAction = (typeof r11ExternalAuditActions)[number];
 export type R12RecordsAuditAction = (typeof r12RecordsAuditActions)[number];
 export type KnowledgeBankAuditAction = (typeof knowledgeBankAuditActions)[number];
 export type DmsWorkAuditAction = (typeof dmsWorkAuditActions)[number];
+export type DmsPersonalizationAuditAction = (typeof dmsPersonalizationAuditActions)[number];
 export type R13EnterpriseAuditAction = (typeof r13EnterpriseAuditActions)[number];
 export type R14ScaleLearningAuditAction = (typeof r14ScaleLearningAuditActions)[number];
 export type R4EmailAuditAction = (typeof r4EmailAuditActions)[number];

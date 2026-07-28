@@ -2,8 +2,14 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { BookmarkPlus, Copy, FolderSearch, RotateCcw, Trash2 } from 'lucide-react';
-import type { DashboardRecentFileDto, SavedSearchDto, SearchUrlPrivacyMode } from '@amic-vault/shared';
+import { BookmarkPlus, Copy, FolderSearch, RotateCcw, Star, Trash2 } from 'lucide-react';
+import type {
+  DashboardRecentFileDto,
+  SavedItemDto,
+  SavedSearchDto,
+  SearchUrlPrivacyMode,
+} from '@amic-vault/shared';
+import { SavedItemsSection } from '@/components/saved-item/saved-items-section';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import {
@@ -22,8 +28,14 @@ export interface SearchWorkbenchRailProps {
   onDelete: (savedSearchId: string) => void;
   onOpen: (savedSearch: SavedSearchDto) => void;
   onSave: () => void;
+  onToggleSavedSearch?: (savedSearch: SavedSearchDto) => void;
   privacyMode: SearchUrlPrivacyMode;
   recentFiles: SearchRecentFilesState;
+  savedItemError?: string | null;
+  savedItems?: readonly SavedItemDto[];
+  savedItemsLoading?: boolean;
+  savedSearchIsFavorite?: (savedSearchId: string) => boolean;
+  savedSearchToggleBusy?: (savedSearchId: string) => boolean;
   savedSearchError: string | null;
   savedSearches: SavedSearchDto[];
 }
@@ -39,8 +51,14 @@ export function SearchWorkbenchRail({
   onDelete,
   onOpen,
   onSave,
+  onToggleSavedSearch,
   privacyMode,
   recentFiles,
+  savedItemError = null,
+  savedItems = [],
+  savedItemsLoading = false,
+  savedSearchIsFavorite = () => false,
+  savedSearchToggleBusy = () => false,
   savedSearchError,
   savedSearches,
 }: SearchWorkbenchRailProps) {
@@ -59,6 +77,13 @@ export function SearchWorkbenchRail({
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="px-3 pb-3">
+          <SavedItemsSection
+            error={savedItemError}
+            items={savedItems}
+            loading={savedItemsLoading}
+          />
+        </div>
         {(['personal', 'matter-team', 'admin-shared'] as const).map((scope) => {
           const items = savedSearches.filter((savedSearch) => savedSearch.scope === scope);
           return (
@@ -83,6 +108,32 @@ export function SearchWorkbenchRail({
                         </span>
                       </button>
                       <div className="mt-2 flex items-center gap-1">
+                        {scope === 'personal' && onToggleSavedSearch ? (
+                          <Button
+                            aria-label={`${savedSearch.name} ${
+                              savedSearchIsFavorite(savedSearch.savedSearchId)
+                                ? '즐겨찾기 해제'
+                                : '즐겨찾기 추가'
+                            }`}
+                            aria-pressed={savedSearchIsFavorite(savedSearch.savedSearchId)}
+                            disabled={
+                              busy || savedSearchToggleBusy(savedSearch.savedSearchId)
+                            }
+                            onClick={() => onToggleSavedSearch(savedSearch)}
+                            size="sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Star
+                              aria-hidden="true"
+                              className={
+                                savedSearchIsFavorite(savedSearch.savedSearchId)
+                                  ? 'h-3.5 w-3.5 fill-current text-primary'
+                                  : 'h-3.5 w-3.5'
+                              }
+                            />
+                          </Button>
+                        ) : null}
                         <Button
                           aria-label={`${savedSearch.name} 열기`}
                           disabled={busy}

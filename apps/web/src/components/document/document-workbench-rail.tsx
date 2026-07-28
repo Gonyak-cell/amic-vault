@@ -3,8 +3,10 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Clock3, FileText, FolderTree, Search } from 'lucide-react';
-import type { DocumentFolderDto } from '@amic-vault/shared';
+import type { DocumentFolderDto, SavedItemDto } from '@amic-vault/shared';
 import { MatterCodePicker } from '@/components/matter/matter-code-picker';
+import { SavedItemsSection } from '@/components/saved-item/saved-items-section';
+import { SavedItemToggle } from '@/components/saved-item/saved-item-toggle';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { MatterAppSourceMode, MatterCodeOption } from '@/lib/matter-app';
@@ -17,6 +19,12 @@ export interface DocumentWorkbenchRailProps {
   onShowAll: () => void;
   selectedFolderId: string;
   selectedMatter: MatterCodeOption | null;
+  savedItemError?: string | null;
+  savedItems?: readonly SavedItemDto[];
+  savedItemsLoading?: boolean;
+  matterSaved?: boolean;
+  matterSavedBusy?: boolean;
+  onToggleMatterSaved?: (() => void) | undefined;
   sourceMode: MatterAppSourceMode;
 }
 
@@ -28,6 +36,12 @@ export function DocumentWorkbenchRail({
   onShowAll,
   selectedFolderId,
   selectedMatter,
+  savedItemError = null,
+  savedItems = [],
+  savedItemsLoading = false,
+  matterSaved = false,
+  matterSavedBusy = false,
+  onToggleMatterSaved,
   sourceMode,
 }: DocumentWorkbenchRailProps) {
   const sortedFolders = [...folders].sort((left, right) => left.path.localeCompare(right.path));
@@ -58,6 +72,12 @@ export function DocumentWorkbenchRail({
         </Button>
       </nav>
 
+      <SavedItemsSection
+        error={savedItemError}
+        items={savedItems}
+        loading={savedItemsLoading}
+      />
+
       <section className="grid gap-3 border-t pt-4" aria-labelledby="workbench-matter-title">
         <div>
           <h2 className="text-sm font-semibold text-foreground" id="workbench-matter-title">
@@ -72,6 +92,14 @@ export function DocumentWorkbenchRail({
           selectedMatter={selectedMatter}
           sourceMode={sourceMode}
         />
+        {selectedMatter && onToggleMatterSaved ? (
+          <SavedItemToggle
+            busy={matterSavedBusy}
+            onToggle={onToggleMatterSaved}
+            saved={matterSaved}
+            targetLabel={`${selectedMatter.matterCode} ${selectedMatter.matterName}`}
+          />
+        ) : null}
       </section>
 
       {selectedMatter ? (

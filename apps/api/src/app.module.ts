@@ -38,6 +38,7 @@ import { EmailModule } from './modules/email/email.module';
 import { OutlookModule } from './modules/outlook/outlook.module';
 import { PreviewModule } from './modules/preview/preview.module';
 import { SearchModule } from './modules/search/search.module';
+import { SavedItemModule } from './modules/saved-item/saved-item.module';
 import { OrgDirectoryModule } from './modules/org-directory/org-directory.module';
 import { WorkModule } from './modules/work/work.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -87,6 +88,7 @@ class AppController {
     PartyModule,
     StorageModule,
     SearchModule,
+    SavedItemModule,
     DlpModule,
     EmailModule,
     OutlookModule,

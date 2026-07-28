@@ -66,6 +66,7 @@ import {
 } from '@/lib/search-refiners';
 import { Button } from '@/components/ui/button';
 import { getDashboardOverview } from '@/lib/api/dashboard';
+import { useSavedItems } from '@/hooks/use-saved-items';
 
 const pageSize = 10;
 type SearchSurface = 'results' | 'ai';
@@ -87,6 +88,7 @@ function rememberSearchSelection(value: string | null): void {
 
 export function SearchClient() {
   const { t } = useI18n();
+  const savedItems = useSavedItems();
   const router = useRouter();
   const params = useSearchParams();
   const searchPrivacySettings = useMemo(() => searchPrivacySettingsFromEnv(), []);
@@ -422,8 +424,31 @@ export function SearchClient() {
               <SearchResultInspector
                 onOpen={() => rememberSearchSelection(selectedResultKey)}
                 onPreview={setPreviewResult}
+                onToggleSaved={(result) => {
+                  if (!result.documentId) return;
+                  void savedItems.toggle({
+                    targetType: 'document',
+                    targetId: result.documentId,
+                    label: result.displayName || result.title,
+                    contextLabel:
+                      [result.matterDisplayCode, result.matterDisplayName]
+                        .filter(Boolean)
+                        .join(' · ') || null,
+                    href: `/documents/${result.documentId}?from=search`,
+                  });
+                }}
                 previewTriggerRef={previewTriggerRef}
                 result={selectedResult}
+                saved={
+                  selectedResult?.documentId
+                    ? savedItems.isSaved('document', selectedResult.documentId)
+                    : false
+                }
+                savedBusy={
+                  selectedResult?.documentId
+                    ? savedItems.isBusy('document', selectedResult.documentId)
+                    : false
+                }
                 target={selection.target ?? 'all'}
               />
             }
@@ -465,8 +490,26 @@ export function SearchClient() {
                 onDelete={(savedSearchId) => void deleteCurrentSavedSearch(savedSearchId)}
                 onOpen={(savedSearch) => void openSavedSearch(savedSearch)}
                 onSave={() => setSaveOpen(true)}
+                onToggleSavedSearch={(savedSearch) =>
+                  void savedItems.toggle({
+                    targetType: 'saved_search',
+                    targetId: savedSearch.savedSearchId,
+                    label: savedSearch.name,
+                    contextLabel: '저장 검색',
+                    href: privateSearchUrl(savedSearch.savedSearchId),
+                  })
+                }
                 privacyMode={searchPrivacySettings.urlMode}
                 recentFiles={recentFiles}
+                savedItemError={savedItems.error}
+                savedItems={savedItems.items}
+                savedItemsLoading={savedItems.loading}
+                savedSearchIsFavorite={(savedSearchId) =>
+                  savedItems.isSaved('saved_search', savedSearchId)
+                }
+                savedSearchToggleBusy={(savedSearchId) =>
+                  savedItems.isBusy('saved_search', savedSearchId)
+                }
                 savedSearchError={savedSearchError}
                 savedSearches={savedSearches}
               />
@@ -503,8 +546,26 @@ export function SearchClient() {
                 setRailOpen(false);
                 setSaveOpen(true);
               }}
+              onToggleSavedSearch={(savedSearch) =>
+                void savedItems.toggle({
+                  targetType: 'saved_search',
+                  targetId: savedSearch.savedSearchId,
+                  label: savedSearch.name,
+                  contextLabel: '저장 검색',
+                  href: privateSearchUrl(savedSearch.savedSearchId),
+                })
+              }
               privacyMode={searchPrivacySettings.urlMode}
               recentFiles={recentFiles}
+              savedItemError={savedItems.error}
+              savedItems={savedItems.items}
+              savedItemsLoading={savedItems.loading}
+              savedSearchIsFavorite={(savedSearchId) =>
+                savedItems.isSaved('saved_search', savedSearchId)
+              }
+              savedSearchToggleBusy={(savedSearchId) =>
+                savedItems.isBusy('saved_search', savedSearchId)
+              }
               savedSearchError={savedSearchError}
               savedSearches={savedSearches}
             />
@@ -519,7 +580,30 @@ export function SearchClient() {
             <SearchResultInspector
               onOpen={() => rememberSearchSelection(selectedResultKey)}
               onPreview={setPreviewResult}
+              onToggleSaved={(result) => {
+                if (!result.documentId) return;
+                void savedItems.toggle({
+                  targetType: 'document',
+                  targetId: result.documentId,
+                  label: result.displayName || result.title,
+                  contextLabel:
+                    [result.matterDisplayCode, result.matterDisplayName]
+                      .filter(Boolean)
+                      .join(' · ') || null,
+                  href: `/documents/${result.documentId}?from=search`,
+                });
+              }}
               result={selectedResult}
+              saved={
+                selectedResult?.documentId
+                  ? savedItems.isSaved('document', selectedResult.documentId)
+                  : false
+              }
+              savedBusy={
+                selectedResult?.documentId
+                  ? savedItems.isBusy('document', selectedResult.documentId)
+                  : false
+              }
               target={selection.target ?? 'all'}
             />
           </DocumentWorkbenchDrawer>

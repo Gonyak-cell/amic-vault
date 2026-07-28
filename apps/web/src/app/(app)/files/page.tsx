@@ -19,12 +19,14 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { listDocumentFolders } from '@/lib/api-client';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { useSavedItems } from '@/hooks/use-saved-items';
 import { matterAppSourceMode, type MatterCodeOption } from '@/lib/matter-app';
 import { useI18n } from '@/lib/i18n';
 
 export default function FilesPage() {
   const { t } = useI18n();
   const sourceMode = matterAppSourceMode();
+  const savedItems = useSavedItems();
   const [selectedMatter, setSelectedMatter] = React.useState<MatterCodeOption | null>(null);
   const [selectedFolderId, setSelectedFolderId] = React.useState('');
   const [folders, setFolders] = React.useState<DocumentFolderDto[]>([]);
@@ -94,6 +96,31 @@ export default function FilesPage() {
       onShowAll={handleShowAll}
       selectedFolderId={selectedFolderId}
       selectedMatter={selectedMatter}
+      savedItemError={savedItems.error}
+      savedItems={savedItems.items}
+      savedItemsLoading={savedItems.loading}
+      matterSaved={
+        selectedMatter
+          ? savedItems.isSaved('matter', selectedMatter.matterReference)
+          : false
+      }
+      matterSavedBusy={
+        selectedMatter
+          ? savedItems.isBusy('matter', selectedMatter.matterReference)
+          : false
+      }
+      onToggleMatterSaved={
+        selectedMatter
+          ? () =>
+              void savedItems.toggle({
+                targetType: 'matter',
+                targetId: selectedMatter.matterReference,
+                label: selectedMatter.matterName,
+                contextLabel: selectedMatter.matterCode,
+                href: `/matters/${selectedMatter.matterReference}`,
+              })
+          : undefined
+      }
       sourceMode={sourceMode}
     />
   );
@@ -101,11 +128,33 @@ export default function FilesPage() {
   const inspector = (
     <DocumentQuickInspector
       document={selectedDocument}
+      onToggleSaved={(document) =>
+        void savedItems.toggle({
+          targetType: 'document',
+          targetId: document.documentId,
+          label: document.title,
+          contextLabel:
+            [document.matterDisplayCode, document.matterDisplayName]
+              .filter(Boolean)
+              .join(' · ') || null,
+          href: `/documents/${document.documentId}`,
+        })
+      }
       onPreview={(document) => {
         setSelectedDocument(document);
         setPreviewOpen(true);
       }}
       previewTriggerRef={previewTriggerRef}
+      saved={
+        selectedDocument
+          ? savedItems.isSaved('document', selectedDocument.documentId)
+          : false
+      }
+      savedBusy={
+        selectedDocument
+          ? savedItems.isBusy('document', selectedDocument.documentId)
+          : false
+      }
     />
   );
 
