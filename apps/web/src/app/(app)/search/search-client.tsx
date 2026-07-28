@@ -133,8 +133,7 @@ export function SearchClient() {
     [response, selection],
   );
   const selectedResult = useMemo(
-    () =>
-      response?.results.find((result) => searchResultKey(result) === selectedResultKey) ?? null,
+    () => response?.results.find((result) => searchResultKey(result) === selectedResultKey) ?? null,
     [response, selectedResultKey],
   );
 
@@ -455,6 +454,8 @@ export function SearchClient() {
             mobileControls={
               <div className="flex flex-wrap gap-2">
                 <Button
+                  aria-controls="search-workbench-rail"
+                  aria-expanded={railOpen}
                   onClick={() => setRailOpen(true)}
                   ref={railTriggerRef}
                   size="sm"
@@ -464,6 +465,8 @@ export function SearchClient() {
                   검색 폴더
                 </Button>
                 <Button
+                  aria-controls="search-workbench-inspector"
+                  aria-expanded={inspectorOpen}
                   disabled={!selectedResult}
                   onClick={() => setInspectorOpen(true)}
                   ref={inspectorTriggerRef}
@@ -474,6 +477,8 @@ export function SearchClient() {
                   결과 정보
                 </Button>
                 <Button
+                  aria-controls="search-workbench-save"
+                  aria-expanded={saveOpen}
                   onClick={() => setSaveOpen(true)}
                   ref={saveTriggerRef}
                   size="sm"
@@ -535,40 +540,42 @@ export function SearchClient() {
             returnFocusRef={railTriggerRef}
             title="검색 폴더"
           >
-            <SearchWorkbenchRail
-              busy={busy || savedSearchBusy}
-              onDelete={(savedSearchId) => void deleteCurrentSavedSearch(savedSearchId)}
-              onOpen={(savedSearch) => {
-                setRailOpen(false);
-                void openSavedSearch(savedSearch);
-              }}
-              onSave={() => {
-                setRailOpen(false);
-                setSaveOpen(true);
-              }}
-              onToggleSavedSearch={(savedSearch) =>
-                void savedItems.toggle({
-                  targetType: 'saved_search',
-                  targetId: savedSearch.savedSearchId,
-                  label: savedSearch.name,
-                  contextLabel: '저장 검색',
-                  href: privateSearchUrl(savedSearch.savedSearchId),
-                })
-              }
-              privacyMode={searchPrivacySettings.urlMode}
-              recentFiles={recentFiles}
-              savedItemError={savedItems.error}
-              savedItems={savedItems.items}
-              savedItemsLoading={savedItems.loading}
-              savedSearchIsFavorite={(savedSearchId) =>
-                savedItems.isSaved('saved_search', savedSearchId)
-              }
-              savedSearchToggleBusy={(savedSearchId) =>
-                savedItems.isBusy('saved_search', savedSearchId)
-              }
-              savedSearchError={savedSearchError}
-              savedSearches={savedSearches}
-            />
+            <div id="search-workbench-rail">
+              <SearchWorkbenchRail
+                busy={busy || savedSearchBusy}
+                onDelete={(savedSearchId) => void deleteCurrentSavedSearch(savedSearchId)}
+                onOpen={(savedSearch) => {
+                  setRailOpen(false);
+                  void openSavedSearch(savedSearch);
+                }}
+                onSave={() => {
+                  setRailOpen(false);
+                  setSaveOpen(true);
+                }}
+                onToggleSavedSearch={(savedSearch) =>
+                  void savedItems.toggle({
+                    targetType: 'saved_search',
+                    targetId: savedSearch.savedSearchId,
+                    label: savedSearch.name,
+                    contextLabel: '저장 검색',
+                    href: privateSearchUrl(savedSearch.savedSearchId),
+                  })
+                }
+                privacyMode={searchPrivacySettings.urlMode}
+                recentFiles={recentFiles}
+                savedItemError={savedItems.error}
+                savedItems={savedItems.items}
+                savedItemsLoading={savedItems.loading}
+                savedSearchIsFavorite={(savedSearchId) =>
+                  savedItems.isSaved('saved_search', savedSearchId)
+                }
+                savedSearchToggleBusy={(savedSearchId) =>
+                  savedItems.isBusy('saved_search', savedSearchId)
+                }
+                savedSearchError={savedSearchError}
+                savedSearches={savedSearches}
+              />
+            </div>
           </DocumentWorkbenchDrawer>
           <DocumentWorkbenchDrawer
             onClose={() => setInspectorOpen(false)}
@@ -577,35 +584,37 @@ export function SearchClient() {
             side="right"
             title="검색 결과 정보"
           >
-            <SearchResultInspector
-              onOpen={() => rememberSearchSelection(selectedResultKey)}
-              onPreview={setPreviewResult}
-              onToggleSaved={(result) => {
-                if (!result.documentId) return;
-                void savedItems.toggle({
-                  targetType: 'document',
-                  targetId: result.documentId,
-                  label: result.displayName || result.title,
-                  contextLabel:
-                    [result.matterDisplayCode, result.matterDisplayName]
-                      .filter(Boolean)
-                      .join(' · ') || null,
-                  href: `/documents/${result.documentId}?from=search`,
-                });
-              }}
-              result={selectedResult}
-              saved={
-                selectedResult?.documentId
-                  ? savedItems.isSaved('document', selectedResult.documentId)
-                  : false
-              }
-              savedBusy={
-                selectedResult?.documentId
-                  ? savedItems.isBusy('document', selectedResult.documentId)
-                  : false
-              }
-              target={selection.target ?? 'all'}
-            />
+            <div id="search-workbench-inspector">
+              <SearchResultInspector
+                onOpen={() => rememberSearchSelection(selectedResultKey)}
+                onPreview={setPreviewResult}
+                onToggleSaved={(result) => {
+                  if (!result.documentId) return;
+                  void savedItems.toggle({
+                    targetType: 'document',
+                    targetId: result.documentId,
+                    label: result.displayName || result.title,
+                    contextLabel:
+                      [result.matterDisplayCode, result.matterDisplayName]
+                        .filter(Boolean)
+                        .join(' · ') || null,
+                    href: `/documents/${result.documentId}?from=search`,
+                  });
+                }}
+                result={selectedResult}
+                saved={
+                  selectedResult?.documentId
+                    ? savedItems.isSaved('document', selectedResult.documentId)
+                    : false
+                }
+                savedBusy={
+                  selectedResult?.documentId
+                    ? savedItems.isBusy('document', selectedResult.documentId)
+                    : false
+                }
+                target={selection.target ?? 'all'}
+              />
+            </div>
           </DocumentWorkbenchDrawer>
           <DocumentWorkbenchDrawer
             onClose={() => setSaveOpen(false)}
@@ -614,17 +623,19 @@ export function SearchClient() {
             side="right"
             title="현재 검색 저장"
           >
-            <SearchSavePanel
-              busy={busy}
-              onSaveSearch={(name) => void saveCurrentSearch(name)}
-              privacyMode={searchPrivacySettings.urlMode}
-              query={query}
-              reusableUrl={reusableSearchUrl}
-              savedSearchBusy={savedSearchBusy}
-              savedSearchError={savedSearchError}
-              selection={selection}
-              showSavedList={false}
-            />
+            <div id="search-workbench-save">
+              <SearchSavePanel
+                busy={busy}
+                onSaveSearch={(name) => void saveCurrentSearch(name)}
+                privacyMode={searchPrivacySettings.urlMode}
+                query={query}
+                reusableUrl={reusableSearchUrl}
+                savedSearchBusy={savedSearchBusy}
+                savedSearchError={savedSearchError}
+                selection={selection}
+                showSavedList={false}
+              />
+            </div>
           </DocumentWorkbenchDrawer>
           <DocumentWorkbenchDrawer
             onClose={() => setPreviewResult(null)}
@@ -663,7 +674,11 @@ function SearchSurfaceTabs({
   surface: SearchSurface;
 }) {
   return (
-    <div aria-label="검색 표면" className="flex w-fit rounded-md border bg-background p-0.5">
+    <div
+      aria-label="검색 표면"
+      className="flex w-fit rounded-md border bg-background p-0.5"
+      role="group"
+    >
       <Button
         type="button"
         size="sm"
@@ -801,7 +816,8 @@ function matterContextForAi(
   selection: SearchFacetSelection,
   response: SearchResponseDto | null,
 ): { matterId?: string; label?: string } {
-  if (selection.matterId) return matterContext(selection.matterId, matterLabelFromSelection(selection));
+  if (selection.matterId)
+    return matterContext(selection.matterId, matterLabelFromSelection(selection));
   const results = response?.results ?? [];
   const matterIds = [...new Set(results.map((result) => result.matterId).filter(Boolean))];
   if (matterIds.length !== 1 || !matterIds[0]) return {};
@@ -1080,9 +1096,7 @@ function parseTarget(value: string | null): SearchTarget | undefined {
 }
 
 function parseMode(value: string | null): SearchMode | undefined {
-  return value === 'keyword' || value === 'semantic' || value === 'hybrid'
-    ? value
-    : undefined;
+  return value === 'keyword' || value === 'semantic' || value === 'hybrid' ? value : undefined;
 }
 
 function parseSort(value: string | null): SearchSort | undefined {

@@ -2,17 +2,14 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/lib/i18n';
-import { SearchBar } from './search-bar';
+import { SearchBar, searchSubmissionQuery } from './search-bar';
 
 const mockState = vi.hoisted(() => ({
   buttonProps: [] as React.ButtonHTMLAttributes<HTMLButtonElement>[],
 }));
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({
-    children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => {
+  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => {
     mockState.buttonProps.push(props);
     return <button {...props}>{children}</button>;
   },
@@ -75,5 +72,14 @@ describe('SearchBar', () => {
     semanticButton?.onClick?.({} as React.MouseEvent<HTMLButtonElement>);
 
     expect(onModeChange).toHaveBeenCalledWith('semantic');
+  });
+
+  it('does not submit while Korean IME composition is active and preserves long queries', () => {
+    const longQuery = `계약 해지 ${'가'.repeat(400)}`;
+
+    expect(searchSubmissionQuery('계약 해지', false, true)).toBeNull();
+    expect(searchSubmissionQuery('계약 해지', true, false)).toBeNull();
+    expect(searchSubmissionQuery('   ', false, false)).toBeNull();
+    expect(searchSubmissionQuery(`  ${longQuery}  `, false, false)).toBe(longQuery);
   });
 });
