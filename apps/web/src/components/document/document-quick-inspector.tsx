@@ -9,6 +9,7 @@ import {
   DetailInspectorSection,
 } from '@/components/ui/detail-inspector';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { SavedItemToggle } from '@/components/saved-item/saved-item-toggle';
 import {
   documentStatusLabels,
   documentTypeLabels,
@@ -18,7 +19,10 @@ import {
 export interface DocumentQuickInspectorProps {
   document: DocumentDto | null;
   onPreview: (document: DocumentDto) => void;
+  onToggleSaved?: (document: DocumentDto) => void;
   previewTriggerRef?: React.RefObject<HTMLButtonElement>;
+  saved?: boolean;
+  savedBusy?: boolean;
 }
 
 function matterLabel(document: DocumentDto): string {
@@ -31,7 +35,10 @@ function matterLabel(document: DocumentDto): string {
 export function DocumentQuickInspector({
   document,
   onPreview,
+  onToggleSaved,
   previewTriggerRef,
+  saved = false,
+  savedBusy = false,
 }: DocumentQuickInspectorProps) {
   if (!document) {
     return (
@@ -51,6 +58,14 @@ export function DocumentQuickInspector({
     <DetailInspector
       actions={
         <>
+          {onToggleSaved ? (
+            <SavedItemToggle
+              busy={savedBusy}
+              onToggle={() => onToggleSaved(document)}
+              saved={saved}
+              targetLabel={document.title}
+            />
+          ) : null}
           <Button
             ref={previewTriggerRef}
             onClick={() => onPreview(document)}

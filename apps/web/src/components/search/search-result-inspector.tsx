@@ -11,21 +11,28 @@ import {
   DetailInspectorSection,
 } from '@/components/ui/detail-inspector';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { SavedItemToggle } from '@/components/saved-item/saved-item-toggle';
 import { documentSearchHitUrlForSearchResult } from './result-card';
 
 export interface SearchResultInspectorProps {
   onOpen: () => void;
   onPreview: (result: SearchResultDto) => void;
+  onToggleSaved?: (result: SearchResultDto) => void;
   previewTriggerRef?: React.RefObject<HTMLButtonElement>;
   result: SearchResultDto | null;
+  saved?: boolean;
+  savedBusy?: boolean;
   target: SearchTarget;
 }
 
 export function SearchResultInspector({
   onOpen,
   onPreview,
+  onToggleSaved,
   previewTriggerRef,
   result,
+  saved = false,
+  savedBusy = false,
   target,
 }: SearchResultInspectorProps) {
   if (!result) {
@@ -50,6 +57,14 @@ export function SearchResultInspector({
     <DetailInspector
       actions={
         <>
+          {!authority && result.documentId && onToggleSaved ? (
+            <SavedItemToggle
+              busy={savedBusy}
+              onToggle={() => onToggleSaved(result)}
+              saved={saved}
+              targetLabel={title}
+            />
+          ) : null}
           {!authority && result.documentId ? (
             <Button
               onClick={() => onPreview(result)}

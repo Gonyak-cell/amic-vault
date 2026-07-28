@@ -26,6 +26,7 @@ export interface ApiErrorResponse {
 export {
   auditActions,
   auditAnchorActions,
+  dmsPersonalizationAuditActions,
   dmsWorkAuditActions,
   fileSecurityAuditActions,
   auditMetadataKeys,
@@ -54,6 +55,7 @@ export {
   outlookAuditActions,
   type AuditAction,
   type AuditAnchorAction,
+  type DmsPersonalizationAuditAction,
   type DmsWorkAuditAction,
   type FileSecurityAuditAction,
   type AuditMetadata,
@@ -1200,6 +1202,17 @@ export {
   type DocumentTimelineAuditAction,
   type MatterAuditQueryDto,
 } from './dto/audit/audit-query.dto';
+export {
+  createSavedItemSchema,
+  reorderSavedItemsSchema,
+  savedItemTargetTypeSchema,
+  savedItemTargetTypes,
+  type CreateSavedItemDto,
+  type ReorderSavedItemsDto,
+  type SavedItemDto,
+  type SavedItemListDto,
+  type SavedItemTargetType,
+} from './dto/saved-item/saved-item.dto';
 export {
   createSavedSearchSchema,
   savedSearchScopeSchema,
