@@ -4,6 +4,7 @@ import {
   desktopCacheDirectiveForPath,
   isDesktopCacheAllowedPath,
   isDesktopSensitivePath,
+  shouldReloadSensitiveBfcache,
 } from './cache-policy';
 
 describe('desktop PWA cache policy', () => {
@@ -41,5 +42,13 @@ describe('desktop PWA cache policy', () => {
     expect(DESKTOP_NO_STORE_HEADER_VALUE).toBe(
       'no-store, no-cache, max-age=0, must-revalidate, private',
     );
+  });
+
+  it('re-enters the server and session boundary after sensitive BFCache restores', () => {
+    expect(shouldReloadSensitiveBfcache(true, '/files')).toBe(true);
+    expect(shouldReloadSensitiveBfcache(true, '/search')).toBe(true);
+    expect(shouldReloadSensitiveBfcache(true, '/documents/document-id')).toBe(true);
+    expect(shouldReloadSensitiveBfcache(false, '/files')).toBe(false);
+    expect(shouldReloadSensitiveBfcache(true, '/offline.html')).toBe(false);
   });
 });
