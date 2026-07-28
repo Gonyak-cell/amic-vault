@@ -18,7 +18,11 @@ import type { DocumentDto } from '@amic-vault/shared';
 import { documentStatusTransitionTargets } from '@/lib/document-status-transitions';
 
 vi.mock('@/lib/api-client', () => ({
+  createDocumentBulkActionBatch: vi.fn(),
+  getDocumentBulkActionBatch: vi.fn(),
+  listDocumentFolders: vi.fn(),
   listDocuments: vi.fn(),
+  retryDocumentBulkActionBatch: vi.fn(),
   updateDocumentStatus: vi.fn(),
 }));
 
@@ -152,7 +156,19 @@ describe('DocumentVaultList', () => {
 
     expect(source).toMatch(/refreshKey = 0/);
     expect(source).toMatch(/listDocuments\(documentVaultListQueryFromFilters\(filters, page\)\)/);
-    expect(source).toMatch(/\[filters, page, refreshKey\]/);
+    expect(source).toMatch(/\[bulkActionRevision, filters, page, refreshKey\]/);
+  });
+
+  it('keeps bulk selection page-scoped and clears it when list ownership changes', () => {
+    const source = readFileSync(
+      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('aria-label="현재 페이지 문서 선택"');
+    expect(source).toContain('setSelectedDocumentIds(new Set())');
+    expect(source).toContain('new Set(documents.map((document) => document.documentId))');
+    expect(source).not.toContain('전체 검색 결과 선택');
   });
 });
 

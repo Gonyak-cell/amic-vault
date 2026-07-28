@@ -239,6 +239,7 @@ export class DocumentLifecycleService {
     documentId: string,
     toStatus: DocumentStatus,
     note?: string,
+    options: { allowAlreadyAtTarget?: boolean } = {},
   ): Promise<DocumentDto> {
     const context = this.tenantContext.require();
     return this.auditService.transaction(context.tenantId, async (tx) => {
@@ -253,7 +254,14 @@ export class DocumentLifecycleService {
         matterStatus: target.matter_status,
       });
       if (toStatus === 'deleted') throw transitionRejected('DOCUMENT_DELETE_ENDPOINT_REQUIRED');
-      if (target.status === toStatus) throw transitionRejected('DOCUMENT_STATUS_NOOP');
+      if (target.status === toStatus) {
+        if (!options.allowAlreadyAtTarget) {
+          throw transitionRejected('DOCUMENT_STATUS_NOOP');
+        }
+        const existing = await this.findStatusTransitionDocument(tx, context.tenantId, documentId);
+        if (!existing) throw notFoundDenied();
+        return mapLifecycleDocument(existing);
+      }
       if (!canTransitionDocumentStatus(domainDocumentStatus(target.status), domainDocumentStatus(toStatus))) {
         throw transitionRejected('DOCUMENT_STATUS_TRANSITION_NOT_ALLOWED');
       }

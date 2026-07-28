@@ -1152,6 +1152,29 @@ export {
 } from './dto/document/download-reason.dto';
 export { updateLegalHoldSchema, type UpdateLegalHoldDto } from './dto/legal-hold.dto';
 export {
+  createDocumentBulkActionBatchSchema,
+  documentBulkActionBatchStatusSchema,
+  documentBulkActionBatchStatuses,
+  documentBulkActionDeadLetterQueueName,
+  documentBulkActionItemStatusSchema,
+  documentBulkActionItemStatuses,
+  documentBulkActionJobSchema,
+  documentBulkActionKindSchema,
+  documentBulkActionKinds,
+  documentBulkActionQueueName,
+  documentBulkActionSchema,
+  retryDocumentBulkActionBatchSchema,
+  type CreateDocumentBulkActionBatchDto,
+  type DocumentBulkActionBatchDto,
+  type DocumentBulkActionBatchItemDto,
+  type DocumentBulkActionBatchStatus,
+  type DocumentBulkActionDto,
+  type DocumentBulkActionItemStatus,
+  type DocumentBulkActionJobDto,
+  type DocumentBulkActionKind,
+  type RetryDocumentBulkActionBatchDto,
+} from './dto/document/bulk-action.dto';
+export {
   bulkUploadBatchItemStatusSchema,
   bulkUploadBatchItemStatuses,
   bulkUploadBatchStatusSchema,

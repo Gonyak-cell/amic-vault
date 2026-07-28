@@ -38,6 +38,7 @@ import { FilterField } from '@/components/ui/filter-bar';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
 import type { MatterCodeOption } from '@/lib/matter-app';
+import { DocumentBulkActions } from './document-bulk-actions';
 
 const pageSize = 25;
 type BooleanFilterValue = '' | 'true' | 'false';
@@ -342,6 +343,11 @@ export function DocumentVaultList({
   const [statusTransitionDocumentId, setStatusTransitionDocumentId] = React.useState<string | null>(
     null,
   );
+  const [selectedDocumentIds, setSelectedDocumentIds] = React.useState<Set<string>>(
+    () => new Set(),
+  );
+  const [bulkActionRevision, setBulkActionRevision] = React.useState(0);
+  const bulkActionRefreshRef = React.useRef(false);
   const filtersRef = React.useRef(filters);
   const contextKey = `${selectedMatter?.matterReference ?? ''}:${selectedFolderId}`;
   const previousContextKeyRef = React.useRef(contextKey);
@@ -374,6 +380,7 @@ export function DocumentVaultList({
 
   React.useEffect(() => {
     onDocumentSelect?.(null);
+    setSelectedDocumentIds(new Set());
   }, [filters, onDocumentSelect, page, refreshKey]);
 
   React.useEffect(() => {
@@ -387,24 +394,30 @@ export function DocumentVaultList({
 
   React.useEffect(() => {
     let active = true;
-    setIsLoading(true);
+    const silentRefresh = bulkActionRefreshRef.current;
+    bulkActionRefreshRef.current = false;
+    if (!silentRefresh) setIsLoading(true);
     setErrorMessage(null);
     listDocuments(documentVaultListQueryFromFilters(filters, page))
       .then((response) => {
         if (!active) return;
         setDocuments(response.items);
         setTotalCount(response.totalCount);
+        setSelectedDocumentIds((current) => {
+          const visibleIds = new Set(response.items.map((document) => document.documentId));
+          return new Set([...current].filter((documentId) => visibleIds.has(documentId)));
+        });
       })
       .catch((error) => {
         if (active) setErrorMessage(safeApiErrorMessage(error));
       })
       .finally(() => {
-        if (active) setIsLoading(false);
+        if (active && !silentRefresh) setIsLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [filters, page, refreshKey]);
+  }, [bulkActionRevision, filters, page, refreshKey]);
 
   function updateDraftFilter<K extends keyof DocumentVaultFilterState>(
     key: K,
@@ -458,11 +471,26 @@ export function DocumentVaultList({
     }
   }
 
+  function toggleDocumentSelection(documentId: string, selected: boolean) {
+    setSelectedDocumentIds((current) => {
+      const next = new Set(current);
+      if (selected) next.add(documentId);
+      else next.delete(documentId);
+      return next;
+    });
+  }
+
   const activeFilterCount = countActiveFilters(filters);
   const draftAdvancedFilterCount = countAdvancedFilters(draftFilters);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const advancedPanelId = 'document-vault-advanced-filters';
   const selectedFolder = folders.find((folder) => folder.folderId === selectedFolderId);
+  const selectedDocuments = documents.filter((document) =>
+    selectedDocumentIds.has(document.documentId),
+  );
+  const allPageDocumentsSelected =
+    documents.length > 0 && selectedDocumentIds.size === documents.length;
+  const somePageDocumentsSelected = selectedDocumentIds.size > 0 && !allPageDocumentsSelected;
 
   const quickSearchControls = (
     <>
@@ -757,6 +785,16 @@ export function DocumentVaultList({
   return (
     <div className="space-y-3">
       {filterPanel}
+      {selectedDocuments.length > 0 ? (
+        <DocumentBulkActions
+          documents={selectedDocuments}
+          onClear={() => setSelectedDocumentIds(new Set())}
+          onCompleted={() => {
+            bulkActionRefreshRef.current = true;
+            setBulkActionRevision((current) => current + 1);
+          }}
+        />
+      ) : null}
       {statusTransitionError ? (
         <p className="text-sm text-destructive">{statusTransitionError}</p>
       ) : null}
@@ -790,6 +828,19 @@ export function DocumentVaultList({
       <DataTable caption="권한 내 문서함" minWidthClassName="min-w-[920px]">
         <DataTableHeader>
           <tr>
+            <DataTableHead className="w-12">
+              <PageSelectionCheckbox
+                allSelected={allPageDocumentsSelected}
+                someSelected={somePageDocumentsSelected}
+                onChange={(selected) =>
+                  setSelectedDocumentIds(
+                    selected
+                      ? new Set(documents.map((document) => document.documentId))
+                      : new Set(),
+                  )
+                }
+              />
+            </DataTableHead>
             <DataTableHead>문서</DataTableHead>
             <DataTableHead>Matter</DataTableHead>
             <DataTableHead>폴더/태그</DataTableHead>
@@ -805,6 +856,17 @@ export function DocumentVaultList({
               onSelect={onDocumentSelect ? () => onDocumentSelect(document) : undefined}
               selected={selectedDocumentId === document.documentId}
             >
+              <DataTableCell className="w-12">
+                <input
+                  aria-label={`${document.title} 선택`}
+                  checked={selectedDocumentIds.has(document.documentId)}
+                  className="h-4 w-4 rounded border"
+                  onChange={(event) =>
+                    toggleDocumentSelection(document.documentId, event.target.checked)
+                  }
+                  type="checkbox"
+                />
+              </DataTableCell>
               <DataTableCell className="max-w-[20rem] truncate font-medium text-foreground">
                 <Link
                   href={`/documents/${document.documentId}`}
@@ -856,6 +918,31 @@ export function DocumentVaultList({
         </DataTableBody>
       </DataTable>
     </div>
+  );
+}
+
+function PageSelectionCheckbox({
+  allSelected,
+  someSelected,
+  onChange,
+}: {
+  allSelected: boolean;
+  someSelected: boolean;
+  onChange: (selected: boolean) => void;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    if (inputRef.current) inputRef.current.indeterminate = someSelected;
+  }, [someSelected]);
+  return (
+    <input
+      ref={inputRef}
+      aria-label="현재 페이지 문서 선택"
+      checked={allSelected}
+      className="h-4 w-4 rounded border"
+      onChange={(event) => onChange(event.target.checked)}
+      type="checkbox"
+    />
   );
 }
 

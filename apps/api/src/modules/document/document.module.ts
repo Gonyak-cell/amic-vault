@@ -16,6 +16,11 @@ import { BulkUploadBatchController } from './bulk-upload-batch.controller';
 import { BulkUploadBatchService } from './bulk-upload-batch.service';
 import { BulkUploadJob } from './bulk-upload.job';
 import { BulkUploadQueueService } from './bulk-upload-queue.service';
+import { DocumentBulkActionBatchService } from './document-bulk-action-batch.service';
+import { DocumentBulkActionController } from './document-bulk-action.controller';
+import { DocumentBulkActionExecutor } from './document-bulk-action.executor';
+import { DocumentBulkActionJob } from './document-bulk-action.job';
+import { DocumentBulkActionQueueService } from './document-bulk-action-queue.service';
 import { DocumentComparisonController } from './comparison/document-comparison.controller';
 import { DocumentComparisonService } from './comparison/document-comparison.service';
 import { DocumentController, DocumentMetadataController } from './document.controller';
@@ -61,6 +66,7 @@ import { ZipChildDocumentService } from './zip-child-document.service';
   ],
   controllers: [
     DocumentController,
+    DocumentBulkActionController,
     BulkUploadBatchController,
     DocumentComparisonController,
     DocumentFolderController,
@@ -73,6 +79,10 @@ import { ZipChildDocumentService } from './zip-child-document.service';
     BulkUploadJob,
     BulkUploadBatchService,
     BulkUploadQueueService,
+    DocumentBulkActionBatchService,
+    DocumentBulkActionExecutor,
+    DocumentBulkActionJob,
+    DocumentBulkActionQueueService,
     DocumentComparisonService,
     DocumentEditingService,
     DocumentFolderService,
@@ -96,6 +106,10 @@ import { ZipChildDocumentService } from './zip-child-document.service';
     BulkUploadJob,
     BulkUploadBatchService,
     BulkUploadQueueService,
+    DocumentBulkActionBatchService,
+    DocumentBulkActionExecutor,
+    DocumentBulkActionJob,
+    DocumentBulkActionQueueService,
     DocumentComparisonService,
     DocumentEditingService,
     DocumentFolderService,

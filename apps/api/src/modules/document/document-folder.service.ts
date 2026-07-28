@@ -330,6 +330,49 @@ export class DocumentFolderService {
     });
   }
 
+  async mutateDocumentTag(
+    actorUserId: string,
+    documentId: string,
+    input: { mode: 'add' | 'remove'; tag: string },
+  ): Promise<DocumentTagListDto> {
+    const [tag] = normalizeTags([input.tag]);
+    if (!tag) throw validationFailed('INVALID_DOCUMENT_TAG');
+    const context = this.tenantContext.require();
+    return this.auditService.transaction(context.tenantId, async (tx) => {
+      const document = await this.findDocumentTarget(tx, context.tenantId, documentId);
+      if (!document) throw notFoundDenied();
+      await this.assertCanEditMatter(context.tenantId, actorUserId, document.matter_id);
+      const current = (await tx.query(
+        `
+          SELECT tag
+          FROM document_tags
+          WHERE tenant_id = $1
+            AND document_id = $2
+          ORDER BY tag ASC
+        `,
+        [context.tenantId, documentId],
+      )) as { rows: Array<{ tag: string }>; rowCount: number | null };
+      const key = tag.toLocaleLowerCase('ko-KR');
+      const tags =
+        input.mode === 'add'
+          ? current.rows.some((row) => row.tag.toLocaleLowerCase('ko-KR') === key)
+            ? current.rows.map((row) => row.tag)
+            : [...current.rows.map((row) => row.tag), tag]
+          : current.rows
+              .map((row) => row.tag)
+              .filter((currentTag) => currentTag.toLocaleLowerCase('ko-KR') !== key);
+      const sortedTags = tags.sort((left, right) => left.localeCompare(right));
+      await this.replaceDocumentTags(tx, {
+        actorUserId,
+        documentId,
+        matterId: document.matter_id,
+        tags: sortedTags,
+        tenantId: context.tenantId,
+      });
+      return { tags: sortedTags };
+    });
+  }
+
   private parseUpdateFolder(body: unknown): UpdateDocumentFolderDto {
     const parsed = updateDocumentFolderSchema.safeParse(body ?? {});
     if (!parsed.success) throw validationFailed();

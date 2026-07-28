@@ -3,6 +3,8 @@ import type {
   AddDocumentVersionResponseDto,
   ApiErrorResponse,
   BulkUploadBatchDto,
+  CreateDocumentBulkActionBatchDto,
+  DocumentBulkActionBatchDto,
   ErrorCode,
   AddMatterMemberDto,
   AiSessionListDto,
@@ -89,6 +91,7 @@ import type {
   CreateUploadPreflightRequestDto,
   RegisterBulkUploadBatchDto,
   RetryBulkUploadBatchItemDto,
+  RetryDocumentBulkActionBatchDto,
   UploadPreflightResponseDto,
   UploadDocumentFieldsDto,
   UploadDocumentResponseDto,
@@ -557,8 +560,7 @@ export function uploadRawEmailToMatter(
   const formData = new FormData();
   formData.set('file', file);
   for (const [key, value] of Object.entries(fields)) {
-    if (value !== undefined)
-      formData.set(key, Array.isArray(value) ? value.join(',') : String(value));
+    if (value !== undefined) formData.set(key, Array.isArray(value) ? value.join(',') : String(value));
   }
   return apiFetchFormData<UploadEmailToMatterResponseDto>(
     `/matters/${encodeURIComponent(matterId)}/emails`,
@@ -662,7 +664,8 @@ export function stageBulkUploadBatch(
 ): Promise<BulkUploadBatchDto> {
   const formData = new FormData();
   for (const [key, value] of Object.entries(fields)) {
-    if (value !== undefined) formData.set(key, Array.isArray(value) ? value.join(',') : String(value));
+    if (value !== undefined)
+      formData.set(key, Array.isArray(value) ? value.join(',') : String(value));
   }
   if (options.sourceRelativePaths) {
     formData.set('sourceRelativePaths', JSON.stringify(options.sourceRelativePaths));
@@ -708,6 +711,34 @@ export function retryBulkUploadBatchItem(
 
 export function getDocument(documentId: string): Promise<DocumentDto> {
   return apiFetch<DocumentDto>(`/documents/${encodeURIComponent(documentId)}`);
+}
+
+export function createDocumentBulkActionBatch(
+  input: CreateDocumentBulkActionBatchDto,
+): Promise<DocumentBulkActionBatchDto> {
+  return apiFetch<DocumentBulkActionBatchDto>('/document-bulk-action-batches', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function getDocumentBulkActionBatch(batchId: string): Promise<DocumentBulkActionBatchDto> {
+  return apiFetch<DocumentBulkActionBatchDto>(
+    `/document-bulk-action-batches/${encodeURIComponent(batchId)}`,
+  );
+}
+
+export function retryDocumentBulkActionBatch(
+  batchId: string,
+  input: RetryDocumentBulkActionBatchDto,
+): Promise<DocumentBulkActionBatchDto> {
+  return apiFetch<DocumentBulkActionBatchDto>(
+    `/document-bulk-action-batches/${encodeURIComponent(batchId)}/retry`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export function updateDocumentMetadata(
