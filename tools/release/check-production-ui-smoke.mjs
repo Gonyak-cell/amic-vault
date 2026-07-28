@@ -161,9 +161,12 @@ const uploadBrowseFlowFiles = [
   {
     path: 'apps/web/src/app/(app)/files/page.tsx',
     patterns: [
-      { name: 'Matter Code picker on files route', pattern: /MatterCodePicker/ },
-      { name: 'matter-scoped upload panel on files route', pattern: /DocumentUploadPanel/ },
-      { name: 'matter document list on files route', pattern: /MatterDocumentList/ },
+      { name: 'Matter Code picker workbench rail on files route', pattern: /DocumentWorkbenchRail/ },
+      { name: 'matter-scoped upload drawer on files route', pattern: /DocumentUploadDrawer/ },
+      {
+        name: 'matter-scoped document workbench on files route',
+        pattern: /<DocumentVaultList[\s\S]*selectedMatter=\{selectedMatter\}/,
+      },
       { name: 'Matter app source mode on files route', pattern: /matterAppSourceMode/ },
     ],
   },
@@ -311,7 +314,7 @@ const uploadBrowseFlowFiles = [
     path: 'apps/web/src/components/document/document-vault-list.tsx',
     patterns: [
       { name: 'document vault filter bar', pattern: /문서함 필터/ },
-      { name: 'document vault Matter Code filter', pattern: /document-vault-matter-code/ },
+      { name: 'document vault workbench Matter scope', pattern: /selectedMatter\?\.matterCode/ },
       { name: 'document vault security filter', pattern: /document-vault-confidentiality/ },
       { name: 'document vault AI prep filter', pattern: /document-vault-ai-allowed/ },
       { name: 'document vault extraction filter', pattern: /document-vault-extraction-status/ },
@@ -1572,7 +1575,7 @@ const responsiveAccessibilityFiles = [
       { name: 'table horizontal overflow containment', pattern: /overflow-x-auto/ },
       { name: 'table screen-reader caption', pattern: /caption className="sr-only"/ },
       { name: 'selectable row keyboard access', pattern: /tabIndex={selectable \? 0 : undefined}/ },
-      { name: 'selectable row active state', pattern: /aria-selected={selected}/ },
+      { name: 'selectable row active state', pattern: /aria-selected={selectable \? selected : undefined}/ },
     ],
   },
   {
