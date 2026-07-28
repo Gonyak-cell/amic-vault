@@ -203,7 +203,12 @@ export const knowledgeBankAuditActions = [
   'WIKI_EXPORTED',
 ] as const;
 
-export const dmsWorkAuditActions = ['WORK_ITEM_REASSIGNED'] as const;
+export const dmsWorkAuditActions = [
+  'WORK_ITEM_REASSIGNED',
+  'DOCUMENT_BULK_ACTION_CREATED',
+  'DOCUMENT_BULK_ACTION_COMPLETED',
+  'DOCUMENT_BULK_ACTION_RETRIED',
+] as const;
 
 export const dmsPersonalizationAuditActions = [
   'SAVED_ITEM_ADDED',

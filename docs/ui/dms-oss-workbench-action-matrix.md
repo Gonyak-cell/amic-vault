@@ -18,7 +18,7 @@
 | disposal | records route | records service/hold/approval/audit | no direct delete action | records governance |
 | break-glass | break-glass API | two-approver/revoke/audit | no fake self-service state | break-glass tests |
 | 즐겨찾기 add/remove/reorder | `SavedItemService` | existing document search scope, Matter permission query, personal saved-search owner check + transactional audit | personal only; server labels/routes only; optimistic failure restores target state | saved-item service and canonical integration tests |
-| batch mutation | not yet owned | new contract required | no checkbox/action bar before API | future BULK contract |
+| batch folder/tag/status mutation | `DocumentBulkActionBatchService` and existing single-document services | creation injects the existing search scope; every worker attempt re-enters the edit/Matter permission and audit transaction; batch create/complete/retry audit is transactional | current page only; max 100 unique IDs; explicit partial receipt; failed-only retry; no delete/share/Office action | shared/API/web tests and canonical `document-bulk-actions.spec.ts` cover bounds, replay conflict, invisible/missing parity, cross-tenant rejection, partial result, retry, and audit counts |
 
 ## Required UI-safe data
 
@@ -30,5 +30,5 @@
 | decision | smallest allowed initial scope | stop condition |
 |---|---|---|
 | 즐겨찾기 | ADR-019 closes personal document/Matter/personal-saved-search scope | team-shared or administrator-curated visibility requires a new contract |
-| batch mutations | per-page folder/tag/status action with explicit receipt | all-result selection, direct delete/share/Office action, or undefined partial-failure policy |
+| batch mutations | ADR-020 closes current-page folder/tag/status actions with explicit per-item receipt and failed-only retry | all-result selection, direct delete/share/Office action, cached permission, or silent partial failure requires a new contract |
 | offline | explicit no-document-cache policy guard | client document caching, token persistence, or missing logout/tenant-switch proof |

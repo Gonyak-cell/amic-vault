@@ -1,6 +1,6 @@
 # DMS OSS Workbench Handoff
 
-> Applies to `PACK-DMS-WB-01` and `PACK-DMS-WB-02`.
+> Applies to `PACK-DMS-WB-01`, `PACK-DMS-WB-02`, and `PACK-DMS-WB-04`.
 > Source pattern: current AMIC Vault components plus the linked Lazyweb DMS report. This is a behavior specification, not a visual copy of another product.
 
 ## Layout
@@ -27,6 +27,16 @@
 | preview | idle | explicit button only issues existing session | expire/error closes old source and announces failure |
 | upload | closed | opens contextual panel with selected Matter | Matter absent means upload action is disabled with explanation |
 
+## `/files` bulk-action contract
+
+| element | default | action | failure/empty |
+|---|---|---|---|
+| selection | none | row checkbox or current-page checkbox selects only the loaded page | filter, page, Matter/folder context, or refresh clears stale selection |
+| action bar | hidden | appears with an exact selected count; folder move is available only for one Matter | no “all search results” option or raw-ID input |
+| confirmation | closed | names the bounded action and exact count; cancel/Escape restores focus | no mutation starts before explicit confirmation |
+| progress | queued/running receipt | announces processed/total count without exposing policy details | navigation does not imply cancellation |
+| result receipt | explicit success/failure counts | lists safe row labels and retries failed items only | deny/wall details collapse to safe copy; successes are never hidden |
+
 ## `/search` interaction contract
 
 | element | default | action | failure/empty |
@@ -48,7 +58,7 @@
 
 ## Non-goals
 
-- No bulk-selection UI before the batch backend contract passes.
+- No all-results selection, bulk delete/disposal, external share, Office write, permission change, or original overwrite.
 - No automatic preview/download on selection or hover.
 - No inline document editing, sharing, records disposal, or access escalation.
 - No mobile document cache or OneDrive/Office affordance.

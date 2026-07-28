@@ -12,7 +12,12 @@ import {
 describe('shared audit declaration bridge', () => {
   it('publishes only the approved shared declaration groups', () => {
     expect(auditAnchorActions).toEqual(['AUDIT_ANCHOR_RECORDED']);
-    expect(dmsWorkAuditActions).toEqual(['WORK_ITEM_REASSIGNED']);
+    expect(dmsWorkAuditActions).toEqual([
+      'WORK_ITEM_REASSIGNED',
+      'DOCUMENT_BULK_ACTION_CREATED',
+      'DOCUMENT_BULK_ACTION_COMPLETED',
+      'DOCUMENT_BULK_ACTION_RETRIED',
+    ]);
     expect(knowledgeBankAuditActions).toEqual([
       'KNOWLEDGE_CANDIDATE_PROPOSED',
       'KNOWLEDGE_CANDIDATE_REVIEWED',

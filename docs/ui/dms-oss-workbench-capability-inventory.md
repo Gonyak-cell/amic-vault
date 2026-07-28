@@ -1,6 +1,6 @@
 # DMS OSS Workbench Capability Inventory
 
-> 기준: `origin/main@8166d1c6`
+> 기준: `origin/main@5dbf977d04693b587bd8dcfb19a7baf47474626f`
 > 목적: `PACK-DMS-WB-00`의 current-main 재대조. 사용자 데이터·외부 tenant·운영 receipt는 포함하지 않는다.
 
 ## 분류 규칙
@@ -23,7 +23,7 @@
 | search hit anchor | Reuse | `anchorId` search result contract, `document-action-center.tsx` | DMS-GA-3B evidence, preview/metadata leakage tests | bounded anchor를 보존, 새 index/preview backend 금지 |
 | break-glass 접근 | Reuse / boundary | break-glass module, `docs/security/access-request-workflow.md` | break-glass/search permission tests | self-service access request UI 금지 |
 | 즐겨찾기 | Implemented internal contract | ADR-019, migration `0210`, `/v1/saved-items`, files/search rail and inspector actions | saved-item DTO/service/web/integration tests | personal document/Matter/personal saved-search only; permission-scoped on every read |
-| 다중 문서 변경 | New internal contract | bulk upload만 존재 | bulk upload/DLP tests | folder/tag/status batch만 후보; delete/share/Office 제외 |
+| 다중 문서 변경 | Implemented internal contract | ADR-020, migration `0211`, `/v1/document-bulk-action-batches`, document bulk-action worker and `/files` action bar | shared/API/web tests and `document-bulk-actions.spec.ts` | current-page folder/tag/status only; per-item permission, explicit partial receipt, failed-only retry; delete/share/Office excluded |
 | web offline document cache | New internal decision | PWA shell과 desktop cache 경계 존재 | desktop cache policy tests | customer document cache는 승인 전 금지 |
 | M365/Office/WOPI | Excluded | ADR-017 및 OneDrive release docs | gate/receipt docs | 이번 goal에서 변경하지 않음 |
 
@@ -42,7 +42,7 @@
 | 1 | `PACK-DMS-WB-01` | `/files` layout, selection, safe inspector, explicit preview, upload composition, responsive behavior | `PACK-DMS-WB-00` local evidence |
 | 2 | `PACK-DMS-WB-02` | `/search` query ownership, progressive filters, saved-search rail, inspector, existing anchor consumption, Matter/detail return | `PACK-DMS-WB-01` |
 | 3 | `PACK-DMS-WB-03` | personal favorites persistence/API/UI/audit | ADR-019 |
-| 4 | `PACK-DMS-WB-04` | approved folder/tag/status batch actions only | bulk action/atomicity decision |
+| 4 | `PACK-DMS-WB-04` | approved folder/tag/status batch actions only | ADR-020 |
 | 5 | `PACK-DMS-WB-05` | no-document-cache guard only | explicit no-cache decision |
 | 6 | `PACK-DMS-WB-06` | repo-local component/security/a11y evidence | enabled predecessors |
 
