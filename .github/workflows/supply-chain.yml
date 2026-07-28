@@ -101,9 +101,11 @@ jobs:
           node-version: 22
           package-manager-cache: false
       - name: Download the source-pinned Syft release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p .tmp/syft
-          env -u GH_TOKEN -u GITHUB_TOKEN gh release download v1.44.0 --repo anchore/syft --pattern 'syft_1.44.0_linux_amd64.tar.gz' --output .tmp/syft/syft.tar.gz
+          gh release download v1.44.0 --repo anchore/syft --pattern 'syft_1.44.0_linux_amd64.tar.gz' --output .tmp/syft/syft.tar.gz
           echo '0e91737aee2b5baf1d255b959630194a302335d848ff97bb07921eb6205b5f5a  .tmp/syft/syft.tar.gz' | sha256sum --check --status
           tar -xzf .tmp/syft/syft.tar.gz -C .tmp/syft
           .tmp/syft/syft version | grep -F 'GitCommit:     8cb78ce40ced6a731fb83f2a491a67444f541bf1'
@@ -142,13 +144,15 @@ jobs:
           node-version: 22
           package-manager-cache: false
       - name: Download source-pinned scanner releases
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p .tmp/gitleaks .tmp/trivy
-          env -u GH_TOKEN -u GITHUB_TOKEN gh release download v8.30.0 --repo gitleaks/gitleaks --pattern 'gitleaks_8.30.0_linux_x64.tar.gz' --output .tmp/gitleaks/gitleaks.tar.gz
+          gh release download v8.30.0 --repo gitleaks/gitleaks --pattern 'gitleaks_8.30.0_linux_x64.tar.gz' --output .tmp/gitleaks/gitleaks.tar.gz
           echo '79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e  .tmp/gitleaks/gitleaks.tar.gz' | sha256sum --check --status
           tar -xzf .tmp/gitleaks/gitleaks.tar.gz -C .tmp/gitleaks
           .tmp/gitleaks/gitleaks version | grep -F '8.30.0'
-          env -u GH_TOKEN -u GITHUB_TOKEN gh release download v0.70.0 --repo aquasecurity/trivy --pattern 'trivy_0.70.0_Linux-64bit.tar.gz' --output .tmp/trivy/trivy.tar.gz
+          gh release download v0.70.0 --repo aquasecurity/trivy --pattern 'trivy_0.70.0_Linux-64bit.tar.gz' --output .tmp/trivy/trivy.tar.gz
           echo '8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9  .tmp/trivy/trivy.tar.gz' | sha256sum --check --status
           tar -xzf .tmp/trivy/trivy.tar.gz -C .tmp/trivy
           .tmp/trivy/trivy --version | grep -F 'Version: 0.70.0'

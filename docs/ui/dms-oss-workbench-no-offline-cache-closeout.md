@@ -26,6 +26,8 @@ No offline document feature, client decryption/key custody, remote deletion clai
 
 The full local integration runner first reproduced shared-database queue contention in unchanged DD/bulk-upload suites. An isolated database passed those suites and every preceding product/security batch. The run then stopped before assertions in the unchanged Docker-only ingestion gateway/sandbox suites with `status=null` and `UNKNOWN` compose initialization. Reclaiming 21.47GB of unused Docker build cache and two bounded retries reproduced the same initialization failure; 16 container assertions were skipped by their failed setup. The WB05 canonical metadata-leakage profile and its actual service-worker execution test remain green. Exact-head CI is the clean-container completion gate.
 
+The first push and pull-request supply-chain runs exposed an unrelated workflow regression: the SBOM step removed both GitHub token variables before using `gh release download`, and current GitHub returned `401 Unauthorized`. The remediation passes the job's read-only `github.token` only to the pinned-release download steps. Version, release archive checksum, and source commit verification remain unchanged; the same correction is applied to the dependent pinned scanner downloads before they can run.
+
 ## UI and external boundary
 
 This PACK changes no rendered layout, component hierarchy, copy, or interaction control. Authenticated viewport screenshots are therefore not applicable; the changed browser behavior is covered by deterministic `pageshow` and service-worker execution tests.
