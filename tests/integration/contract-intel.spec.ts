@@ -160,8 +160,8 @@ This Non-Disclosure Agreement protects confidential information. [[ADD:Use reaso
     await insertDocument({
       documentId: unrelatedDocumentId,
       versionId: unrelatedVersionId,
-      text: `제 9 조 통지
-모든 통지는 서면으로 발송하고 수령 확인을 보관한다.
+      text: `제 9 조 손해배상 책임 상한
+손해배상 책임 상한은 별도 부속서에서 정한 기준에 따른다.
 
 제 10 조 준거법
 본 계약은 대한민국 법률을 따른다.`,

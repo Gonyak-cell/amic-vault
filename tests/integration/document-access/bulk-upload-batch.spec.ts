@@ -40,6 +40,29 @@ const crcTable = Array.from({ length: 256 }, (_, index) => {
   return value >>> 0;
 });
 
+const unrelatedWorkerEnvironmentKeys = [
+  'AI_PREP_QUEUE_WORKER_ENABLED',
+  'AUDIT_ANCHOR_QUEUE_WORKER_ENABLED',
+  'CONTRACT_AI_REVIEW_QUEUE_WORKER_ENABLED',
+  'DD_EXPORT_QUEUE_WORKER_ENABLED',
+  'DD_RFI_NOTIFICATION_SWEEPER_ENABLED',
+  'DLP_BULK_DOWNLOAD_MONITOR_WORKER_ENABLED',
+  'DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED',
+  'EDIT_SESSION_SWEEPER_ENABLED',
+  'EMAIL_REPARSE_QUEUE_WORKER_ENABLED',
+  'EXTRACTION_QUEUE_WORKER_ENABLED',
+  'FILE_SECURITY_RECONCILIATION_WORKER_ENABLED',
+  'FILE_SECURITY_SCAN_WORKER_ENABLED',
+  'GRAPH_SYNC_OUTBOX_WORKER_ENABLED',
+  'LAW_AMENDMENT_REFRESH_WORKER_ENABLED',
+  'LITIGATION_DEADLINE_NOTIFICATION_SWEEPER_ENABLED',
+  'OCR_QUEUE_WORKER_ENABLED',
+  'PREVIEW_CONVERT_QUEUE_WORKER_ENABLED',
+  'RECORDS_DISPOSAL_WORKER_ENABLED',
+  'RETENTION_REVIEW_QUEUE_WORKER_ENABLED',
+  'SEARCH_INDEX_QUEUE_WORKER_ENABLED',
+] as const;
+
 function crc32(buffer: Buffer): number {
   let crc = 0xffffffff;
   for (const byte of buffer) {
@@ -172,6 +195,9 @@ describe('bulk upload batch integration', () => {
   const createdDocumentIds: string[] = [];
 
   beforeAll(async () => {
+    // bootstrapWorker starts the complete worker application. Keep this test's
+    // queue consumer isolated from jobs left by other integration suites.
+    for (const key of unrelatedWorkerEnvironmentKeys) process.env[key] = 'false';
     process.env.BULK_UPLOAD_QUEUE_WORKER_ENABLED = 'true';
     process.env.PROCESS_ROLE = 'api';
     tempDir = await mkdtemp(join(tmpdir(), 'amic-vault-b7-bulk-'));
