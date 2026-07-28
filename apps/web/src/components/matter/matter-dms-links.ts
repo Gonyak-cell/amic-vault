@@ -1,8 +1,13 @@
 import type { MatterDto } from '@amic-vault/shared';
 
 export function matterFileCabinetUrl(matter: MatterDto): string {
+  return matterFileCabinetContextUrl(matter.matterCode);
+}
+
+export function matterFileCabinetContextUrl(matterCode: string, folderId?: string): string {
   const params = new URLSearchParams();
-  params.set('matterCode', matter.matterCode);
+  params.set('matterCode', matterCode);
+  if (folderId?.trim()) params.set('folderId', folderId.trim());
   return `/files?${params.toString()}`;
 }
 

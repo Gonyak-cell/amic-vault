@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TenantId, UserSummary } from '@amic-vault/shared';
 import { LanguageProvider } from '@/lib/i18n';
-import { AppShell } from './app-shell';
+import { AppShell, globalSearchPath } from './app-shell';
 
 const navigationMock = vi.hoisted(() => ({
   pathname: '/dashboard',
@@ -105,5 +105,12 @@ describe('AppShell', () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('Search folders payload');
     expect((html.match(/aria-current="page"/g) || []).length).toBe(1);
+  });
+
+  it('builds one encoded global-search destination and rejects blank input', () => {
+    expect(globalSearchPath('  계약서 검토  ')).toBe(
+      '/search?q=%EA%B3%84%EC%95%BD%EC%84%9C%20%EA%B2%80%ED%86%A0',
+    );
+    expect(globalSearchPath('   ')).toBeNull();
   });
 });

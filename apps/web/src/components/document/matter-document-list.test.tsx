@@ -61,6 +61,8 @@ describe('MatterDocumentList', () => {
     expect(html).toContain('폴더');
     expect(html).toContain('태그');
     expect(html).toContain('정렬');
+    expect(html).toContain('워크벤치에서 보기');
+    expect(html).toContain('href="/files?matterCode=AMIC-2026-0001"');
     expect(html).toContain('표시할 파일이 없습니다.');
     expect(html).not.toContain(selectedMatter.matterReference);
   });

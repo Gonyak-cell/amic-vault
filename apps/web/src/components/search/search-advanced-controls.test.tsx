@@ -19,7 +19,7 @@ vi.mock('@/components/ui/input', () => ({
 }));
 
 describe('SearchAdvancedControls', () => {
-  it('renders enterprise search controls without raw id prompts', () => {
+  it('starts collapsed with an active-condition count and no raw id prompts', () => {
     const allRefinerKeys = new Set(enterpriseDmsSearchRefinerFieldKeys);
     const html = renderToStaticMarkup(
       <SearchAdvancedControls
@@ -60,39 +60,11 @@ describe('SearchAdvancedControls', () => {
     );
 
     expect(html).toContain('검색 필터');
-    expect(html).toContain('검색 범위');
-    expect(html).toContain('본문');
-    expect(html).toContain('조항');
-    expect(html).toContain('정렬');
-    expect(html).toContain('최근 수정');
-    expect(html).toContain('그룹');
-    expect(html).toContain('문서 유형');
-    expect(html).toContain('Tenant Contract');
-    expect(html).toContain('기밀도');
-    expect(html).toContain('제한');
-    expect(html).toContain('특권 상태');
-    expect(html).toContain('변호사-의뢰인 특권');
-    expect(html).toContain('버전 상태');
-    expect(html).toContain('현재 버전');
-    expect(html).toContain('추출/OCR');
-    expect(html).toContain('OCR 필요');
-    expect(html).toContain('보존/삭제 금지');
-    expect(html).toContain('파일 삭제 금지');
-    expect(html).toContain('기록 상태');
-    expect(html).toContain('보관됨');
-    expect(html).toContain('수정 기간');
-    expect(html).toContain('최근 30일');
-    expect(html).toContain('Matter code');
-    expect(html).toContain('AMIC-2026-0007');
-    expect(html).toContain('Matter 이름');
-    expect(html).toContain('Vault Upgrade');
-    expect(html).toContain('고객명');
-    expect(html).toContain('활성 필터');
-    expect(html).toContain('검색식 도움말');
-    expect(html).toContain('&quot;정확한 문구&quot;');
-    expect(html).toContain('-제외어');
-    expect(html).toContain('적용');
-    expect(html).toContain('초기화');
+    expect(html).toContain('검색 조건');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('15개');
+    expect(html).not.toContain('검색 범위');
+    expect(html).not.toContain('검색식 도움말');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain('Client ID');
     expect(html).not.toContain('Document ID');

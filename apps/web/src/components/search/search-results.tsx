@@ -24,6 +24,8 @@ interface SearchResultsProps {
   target?: SearchTarget;
   error: SearchErrorKind | null;
   onPage: (page: number) => void;
+  onSelect?: (result: SearchResultDto) => void;
+  selectedResultKey?: string | null;
 }
 
 export function SearchResults({
@@ -36,6 +38,8 @@ export function SearchResults({
   mode = 'keyword',
   target = 'all',
   onPage,
+  onSelect,
+  selectedResultKey,
 }: SearchResultsProps) {
   const { language, t } = useI18n();
 
@@ -76,7 +80,14 @@ export function SearchResults({
           </Button>
         </div>
       </div>
-      <GroupedResults groupBy={groupBy} mode={mode} results={response.results} target={target} />
+      <GroupedResults
+        groupBy={groupBy}
+        mode={mode}
+        onSelect={onSelect}
+        results={response.results}
+        selectedResultKey={selectedResultKey}
+        target={target}
+      />
     </section>
   );
 }
@@ -84,19 +95,30 @@ export function SearchResults({
 function GroupedResults({
   groupBy,
   mode,
+  onSelect,
   results,
+  selectedResultKey,
   target,
 }: {
   groupBy: SearchGroupBy;
   mode: SearchMode;
+  onSelect?: ((result: SearchResultDto) => void) | undefined;
   results: SearchResultDto[];
+  selectedResultKey?: string | null | undefined;
   target: SearchTarget;
 }) {
   if (groupBy === 'none') {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2" role="listbox" aria-label="검색 결과">
         {results.map((result) => (
-          <ResultCard key={resultKey(result)} mode={mode} result={result} target={target} />
+          <ResultCard
+            key={searchResultKey(result)}
+            mode={mode}
+            onSelect={onSelect}
+            result={result}
+            selected={selectedResultKey === searchResultKey(result)}
+            target={target}
+          />
         ))}
       </div>
     );
@@ -108,9 +130,16 @@ function GroupedResults({
       {groups.map((group) => (
         <section key={group.label} className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">{group.label}</h2>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2" role="listbox" aria-label={`${group.label} 검색 결과`}>
             {group.items.map((result) => (
-              <ResultCard key={resultKey(result)} mode={mode} result={result} target={target} />
+              <ResultCard
+                key={searchResultKey(result)}
+                mode={mode}
+                onSelect={onSelect}
+                result={result}
+                selected={selectedResultKey === searchResultKey(result)}
+                target={target}
+              />
             ))}
           </div>
         </section>
@@ -140,8 +169,14 @@ function groupLabel(result: SearchResultDto, groupBy: Exclude<SearchGroupBy, 'no
   return 'Matter 표시명 없음';
 }
 
-function resultKey(result: SearchResultDto): string {
-  return result.versionId ?? result.authorityId ?? `${result.title}:${result.updatedAt}`;
+export function searchResultKey(result: SearchResultDto): string {
+  if (result.authorityId) return `authority:${result.authorityId}`;
+  return [
+    result.resultKind ?? 'document',
+    result.documentId ?? 'document',
+    result.versionId ?? 'version',
+    result.clauseId ?? 'result',
+  ].join(':');
 }
 
 function searchErrorKey(error: SearchErrorKind): TranslationKey {
