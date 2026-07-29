@@ -84,6 +84,9 @@ Node 22.22.3 and pnpm 9.15.9 were used.
 - root lint, typecheck, test, and production build pass;
 - web tests pass at 122 files and 393 tests;
 - production UI literal, production smoke, and UI PR checklist guards pass;
+- static source-map and reuse-first governance gates pass, with the four new
+  Vault-owned selector/label source and test files explicitly registered as
+  no-copy L0 paths;
 - frozen package remains 51 files and both canonical backlogs validate at
   174 and 266 TUWs;
 - `git diff --check` passes and `docs/package/**` has no change; and
