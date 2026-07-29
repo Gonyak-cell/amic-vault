@@ -62,7 +62,7 @@ export default function MatterAppIntegrationPage() {
       <PageHeader
         breadcrumbs={['문서 보관', t('integrations.page.title'), 'Matter 관리 시스템']}
         title="Matter 관리 시스템 연결 상태"
-        description="Matter code 기준 정보와 업로드 가능 여부를 확인합니다. 연결 전에는 파일 업로드가 가능 상태로 표시되지 않습니다."
+        description="Matter 코드 기준 정보와 업로드 가능 여부를 확인합니다. 연결 전에는 파일 업로드가 가능 상태로 표시되지 않습니다."
         actions={
           <Button asChild variant="outline">
             <Link href="/files">업로드 화면 보기</Link>
@@ -72,7 +72,7 @@ export default function MatterAppIntegrationPage() {
 
       <SectionCard
         icon={<FolderSearch className="h-4 w-4" />}
-        title="Matter code 기준 정보"
+        title="Matter 코드 기준 정보"
         meta="연결 기준"
       >
         <div className="grid gap-3 lg:grid-cols-4">
@@ -111,11 +111,7 @@ export default function MatterAppIntegrationPage() {
         </div>
       </SectionCard>
 
-      <SectionCard
-        icon={<ShieldCheck className="h-4 w-4" />}
-        title="운영 조건"
-        meta="업로드 기준"
-      >
+      <SectionCard icon={<ShieldCheck className="h-4 w-4" />} title="운영 조건" meta="업로드 기준">
         <div className="grid gap-3 lg:grid-cols-2">
           <ContractRow
             title="Matter 정보 확인"
@@ -123,7 +119,7 @@ export default function MatterAppIntegrationPage() {
             tone={status.sourceContractReady ? 'success' : 'blocked'}
             description={
               statusSource === 'api'
-                ? 'Matter code, 표시명, 고객, 상태, 업무그룹은 서버의 승인된 동기화 헬스로 확인합니다.'
+                ? 'Matter 코드, 표시명, 고객, 상태, 업무그룹은 서버에서 확인된 연동 상태를 기준으로 표시합니다.'
                 : '서버 확인 전에는 업로드 가능한 연결로 취급하지 않습니다.'
             }
           />
@@ -131,7 +127,7 @@ export default function MatterAppIntegrationPage() {
             title="Matter 미선택 업로드"
             status="불가"
             tone="blocked"
-            description="사용자는 Matter code를 먼저 선택해야 하며, 임의 값을 직접 입력하지 않습니다."
+            description="사용자는 Matter 코드를 먼저 선택해야 하며, 임의 값을 직접 입력하지 않습니다."
           />
           <ContractRow
             title="문서 보관함 기준 표시"

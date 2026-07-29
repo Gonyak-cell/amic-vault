@@ -141,24 +141,25 @@ describe('Matter contracts read-only page', () => {
       />,
     );
 
-    expect(html).toContain('Rule findings');
+    expect(html).toContain('규칙 검토 결과');
     expect(html).toContain('rule.finding.missing_governing_law');
     expect(html).toContain('governing_law');
     expect(html).toContain('계약 1차 검토');
-    expect(html).toContain('Rule violations');
+    expect(html).toContain('기준 위반');
     expect(html).toContain('AI 소견');
     expect(html).toContain('ai.contract.clause.governing_law_gap');
     expect(html).toContain('준거법 조항의 적용 범위');
-    expect(html).toContain('claim:11111111-1111-4111-8111-111111111235');
+    expect(html).toContain('참조 ••••11111235');
+    expect(html).not.toContain('claim:11111111-1111-4111-8111-111111111235');
     expect(html).toContain('검토 완료');
     expect(html).toContain('계약 진행');
     expect(html).toContain('Draft Agreement');
     expect(html).toContain('마크업 수령');
     expect(html).toContain('Final Agreement');
     expect(html).toContain('체결');
-    expect(html).toContain('협상쟁점표');
+    expect(html).toContain('협상 쟁점표');
     expect(html).toContain('검토 중');
-    expect(html).toContain('Clause bank');
+    expect(html).toContain('조항 라이브러리');
     expect(html).toContain('12.3');
   });
 });

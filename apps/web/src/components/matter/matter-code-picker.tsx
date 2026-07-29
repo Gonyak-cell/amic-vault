@@ -124,7 +124,7 @@ export function MatterCodePicker({
       <EmptyState
         variant="api-unavailable"
         title="Matter 관리 시스템 연결 필요"
-        description="Matter 관리 시스템에서 확인된 Matter code를 선택한 뒤 작업을 진행합니다."
+        description="Matter 관리 시스템에서 확인된 Matter 코드를 선택한 뒤 작업을 진행합니다."
       />
     );
   }
@@ -147,7 +147,7 @@ export function MatterCodePicker({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="flex-1">
-          <span className="sr-only">Matter code 검색</span>
+          <span className="sr-only">Matter 코드 검색</span>
           <span className="relative block">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -156,7 +156,7 @@ export function MatterCodePicker({
             <Input
               className="pl-9"
               value={query}
-              placeholder="Matter code, Matter 이름 또는 고객 검색"
+              placeholder="Matter 코드, Matter 이름 또는 고객 검색"
               onChange={handleQueryChange}
             />
           </span>
@@ -170,15 +170,15 @@ export function MatterCodePicker({
       {rejectedInternalReference ? (
         <EmptyState
           variant="no-data"
-          title="Matter code 또는 Matter 이름으로 검색해 주세요."
-          description="일반 문서 작업에서는 Matter code 또는 Matter 이름으로만 선택합니다."
+          title="Matter 코드 또는 Matter 이름으로 검색해 주세요."
+          description="일반 문서 작업에서는 Matter 코드 또는 Matter 이름으로만 선택합니다."
         />
       ) : null}
 
       {hasLoadError ? (
         <EmptyState
           variant="api-error"
-          title="Matter code를 불러올 수 없습니다."
+          title="Matter 코드를 불러올 수 없습니다."
           description="권한 또는 Matter 관리 시스템 연결 상태를 확인해 주세요."
         />
       ) : null}
@@ -186,12 +186,12 @@ export function MatterCodePicker({
       {isLoading ? (
         <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed bg-muted/30 text-sm text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-          Matter code를 확인하는 중입니다.
+          Matter 코드를 확인하는 중입니다.
         </div>
       ) : null}
 
       {!isLoading && !hasLoadError && !rejectedInternalReference ? (
-        <div className="grid gap-2" role="listbox" aria-label="Matter code 선택">
+        <div className="grid gap-2" role="listbox" aria-label="Matter 코드 선택">
           {filteredOptions.map((option) => {
             const isSelected = selectedMatter?.matterReference === option.matterReference;
             const secondaryLabel = [option.matterName, option.clientDisplayName]
@@ -219,7 +219,9 @@ export function MatterCodePicker({
                 </span>
                 <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
                   {option.practiceGroup ? <span>{option.practiceGroup}</span> : null}
-                  {isSelected ? <Check className="h-4 w-4 text-primary" aria-hidden="true" /> : null}
+                  {isSelected ? (
+                    <Check className="h-4 w-4 text-primary" aria-hidden="true" />
+                  ) : null}
                 </span>
               </button>
             );
@@ -227,8 +229,8 @@ export function MatterCodePicker({
           {filteredOptions.length === 0 ? (
             <EmptyState
               variant="no-data"
-              title="선택 가능한 Matter code가 없습니다."
-              description="접근 권한이 있는 Matter만 표시됩니다."
+              title="선택 가능한 Matter 코드가 없습니다."
+              description="접근 가능한 Matter만 표시됩니다."
             />
           ) : null}
         </div>

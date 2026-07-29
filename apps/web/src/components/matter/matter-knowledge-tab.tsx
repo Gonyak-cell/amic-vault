@@ -20,13 +20,10 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { maskInternalReference } from '@/components/security/secure-ref';
 import { listDdIssues } from '@/lib/api/dd';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
-import {
-  getAiSessionClaims,
-  listGraphFacts,
-  listGraphNeighborhood,
-} from '@/lib/api/graph';
+import { getAiSessionClaims, listGraphFacts, listGraphNeighborhood } from '@/lib/api/graph';
 import { listLitigationIssues } from '@/lib/api/litigation';
 import { listMatterWiki, matterWikiExportUrl } from '@/lib/api/matter-wiki';
 
@@ -86,7 +83,7 @@ export function MatterKnowledgeTab({
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-base font-semibold text-foreground">지식</h2>
-          <p className="text-xs text-muted-foreground">Matter Graph · Issue Map · Citation Panel</p>
+          <p className="text-xs text-muted-foreground">관계도 · 쟁점 지도 · 인용 근거</p>
         </div>
       </div>
 
@@ -100,7 +97,9 @@ export function MatterKnowledgeTab({
           description={state.message}
         />
       ) : null}
-      {state.status === 'ready' ? <MatterKnowledgeView data={state.data} matterId={matterId} /> : null}
+      {state.status === 'ready' ? (
+        <MatterKnowledgeView data={state.data} matterId={matterId} />
+      ) : null}
     </section>
   );
 }
@@ -145,10 +144,10 @@ function MatterKnowledgeView({ data, matterId }: { data: MatterKnowledgeData; ma
       />
       <MetricStrip
         items={[
-          { label: 'Facts', value: data.facts.length },
-          { label: 'Nodes', value: nodeCount },
-          { label: 'Issues', value: issueCount },
-          { label: 'Wiki', value: data.wiki.pages.length },
+          { label: '사실관계', value: data.facts.length },
+          { label: '관계 항목', value: nodeCount },
+          { label: '쟁점', value: issueCount },
+          { label: '위키', value: data.wiki.pages.length },
         ]}
       />
       <MatterGraphPanel facts={data.facts} neighborhood={data.neighborhood} />
@@ -171,10 +170,10 @@ function KnowledgeSubtabs({
   wikiCount: number;
 }) {
   const items = [
-    { href: '#matter-graph', label: 'Graph', value: factCount },
-    { href: '#matter-issues', label: 'Issues', value: issueCount },
-    { href: '#matter-citations', label: 'Citations', value: claimCount },
-    { href: '#matter-wiki', label: 'Wiki', value: wikiCount },
+    { href: '#matter-graph', label: '관계도', value: factCount },
+    { href: '#matter-issues', label: '쟁점', value: issueCount },
+    { href: '#matter-citations', label: '인용 근거', value: claimCount },
+    { href: '#matter-wiki', label: '위키', value: wikiCount },
   ];
   return (
     <nav aria-label="Matter 지식 서브탭" className="flex flex-wrap gap-2">
@@ -204,24 +203,24 @@ function MatterGraphPanel({
     <SectionCard
       id="matter-graph"
       icon={<Network className="h-4 w-4" />}
-      title="Matter Graph"
-      meta={`${nodes.length} nodes`}
+      title="Matter 관계도"
+      meta={`${nodes.length}개 항목`}
     >
       {facts.length === 0 ? (
-        <EmptyState title="표시할 그래프 Fact가 없습니다." />
+        <EmptyState title="표시할 관계 정보가 없습니다." />
       ) : (
         <div className="grid gap-3">
           <GraphStrip nodes={nodes} edgeCount={facts.length} />
           <GraphNodeDirectory nodes={nodes} />
           <div className="overflow-x-auto rounded-md border">
             <table className="w-full min-w-[760px] border-collapse text-sm">
-              <caption className="sr-only">Matter Graph fact 목록</caption>
+              <caption className="sr-only">Matter 관계 정보 목록</caption>
               <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
                 <tr>
-                  <TableHeader>Source</TableHeader>
-                  <TableHeader>Edge</TableHeader>
-                  <TableHeader>Target</TableHeader>
-                  <TableHeader>Document</TableHeader>
+                  <TableHeader>출발 항목</TableHeader>
+                  <TableHeader>관계</TableHeader>
+                  <TableHeader>도착 항목</TableHeader>
+                  <TableHeader>문서</TableHeader>
                 </tr>
               </thead>
               <tbody>
@@ -231,9 +230,9 @@ function MatterGraphPanel({
                       <NodeLabel node={fact.source} />
                     </TableCell>
                     <TableCell>
-                      <code className="rounded border bg-muted px-1.5 py-0.5 text-[11px]">
-                        {fact.edgeType}
-                      </code>
+                      <span className="rounded border bg-muted px-1.5 py-0.5 text-[11px]">
+                        {displayDomainValue(fact.edgeType)}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <NodeLabel node={fact.target} />
@@ -263,15 +262,15 @@ function IssueMapPanel({
     <SectionCard
       id="matter-issues"
       icon={<GitBranch className="h-4 w-4" />}
-      title="Issue Map"
-      meta="송무 · DD"
+      title="쟁점 지도"
+      meta="송무 · 실사"
     >
       {ddIssues.length + litigationIssues.length === 0 ? (
-        <EmptyState title="표시할 Issue가 없습니다." />
+        <EmptyState title="표시할 쟁점이 없습니다." />
       ) : (
         <div className="grid gap-3 lg:grid-cols-2">
           <IssueList
-            caption="송무 issue tree"
+            caption="송무 쟁점 목록"
             items={litigationIssues
               .slice()
               .sort((left, right) => left.position - right.position)
@@ -280,18 +279,18 @@ function IssueMapPanel({
                 parentId: issue.parentIssueId,
                 label: issue.issueCode,
                 title: issue.label,
-                status: issue.status,
+                status: displayDomainValue(issue.status),
                 tone: statusTone(issue.status),
               }))}
           />
           <IssueList
-            caption="DD issue 목록"
+            caption="실사 쟁점 목록"
             items={ddIssues.map((issue) => ({
               id: issue.issueId,
               parentId: issue.rfiId,
               label: issue.issueCode,
               title: issue.title,
-              status: issue.severity,
+              status: displayDomainValue(issue.severity),
               tone: severityTone(issue.severity),
             }))}
           />
@@ -306,11 +305,11 @@ function CitationPanel({ claims }: { claims: AiSessionClaimsResponseDto | null }
     <SectionCard
       id="matter-citations"
       icon={<Quote className="h-4 w-4" />}
-      title="Citation Panel"
-      meta={claims ? `${claims.claims.length} claims` : '최근 AI 세션 없음'}
+      title="인용 근거"
+      meta={claims ? `${claims.claims.length}개 주장` : '최근 AI 세션 없음'}
     >
       {!claims || claims.claims.length === 0 ? (
-        <EmptyState title="표시할 Citation 원장이 없습니다." />
+        <EmptyState title="표시할 인용 근거가 없습니다." />
       ) : (
         <div className="grid gap-3">
           {claims.claims.map((claim) => (
@@ -318,11 +317,11 @@ function CitationPanel({ claims }: { claims: AiSessionClaimsResponseDto | null }
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <StatusBadge tone={claim.verificationStatus === 'cited' ? 'success' : 'warning'}>
-                    {claim.verificationStatus}
+                    {displayDomainValue(claim.verificationStatus)}
                   </StatusBadge>
-                  <code className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                    {claim.kind}
-                  </code>
+                  <span className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                    {displayDomainValue(claim.kind)}
+                  </span>
                 </div>
                 {claim.isLegalConclusion ? (
                   <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
@@ -366,7 +365,7 @@ function MatterWikiPanel({
       id="matter-wiki"
       icon={<BookOpen className="h-4 w-4" />}
       title="위키"
-      meta={`${wiki.pages.length} pages · ${confirmedCount} confirmed`}
+      meta={`${wiki.pages.length}개 페이지 · 확정 ${confirmedCount}개`}
       actions={
         <Button asChild size="sm" variant="outline">
           <a href={matterWikiExportUrl(matterId)}>
@@ -385,7 +384,9 @@ function MatterWikiPanel({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className="truncate text-sm font-semibold">{page.title}</h3>
-                  <p className="text-xs text-muted-foreground">{page.pageKind}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {displayDomainValue(page.pageKind)}
+                  </p>
                 </div>
                 <StatusBadge tone={wikiStatusTone(page.reviewStatus)}>
                   {wikiStatusLabel(page.reviewStatus)}
@@ -456,7 +457,7 @@ function WikiSourceRefs({
     <div className="mt-3 flex flex-wrap gap-2">
       {refs.slice(0, 8).map((ref) => {
         const href = wikiRefHref(ref, graphNodes, matterId);
-        const label = ref.sourceRef.length > 36 ? `${ref.sourceRef.slice(0, 33)}...` : ref.sourceRef;
+        const label = maskInternalReference(ref.sourceRef);
         return href ? (
           <Link
             key={ref.sourceRef}
@@ -523,7 +524,9 @@ function resolveWikiLinkHref(
       item.versionId === normalized,
   );
   if (ref) return wikiRefHref(ref, graphNodes, matterId);
-  const node = graphNodes.find((item) => item.nodeId === normalized || item.sourceId === normalized);
+  const node = graphNodes.find(
+    (item) => item.nodeId === normalized || item.sourceId === normalized,
+  );
   return node ? graphNodeHref(matterId, node.nodeId) : null;
 }
 
@@ -561,7 +564,7 @@ function GraphStrip({ nodes, edgeCount }: { edgeCount: number; nodes: GraphNodeR
   if (visibleNodes.length === 0) return null;
   return (
     <svg
-      aria-label={`Matter graph preview with ${visibleNodes.length} nodes and ${edgeCount} edges`}
+      aria-label={`Matter 관계도 미리보기: 항목 ${visibleNodes.length}개, 관계 ${edgeCount}개`}
       className="h-20 w-full rounded-md border bg-muted/30"
       role="img"
       viewBox="0 0 600 80"
@@ -590,7 +593,7 @@ function GraphStrip({ nodes, edgeCount }: { edgeCount: number; nodes: GraphNodeR
             textAnchor="middle"
             y="1"
           >
-            {node.nodeType.slice(0, 3)}
+            {displayDomainValue(node.nodeType).slice(0, 3)}
           </text>
         </g>
       ))}
@@ -601,7 +604,7 @@ function GraphStrip({ nodes, edgeCount }: { edgeCount: number; nodes: GraphNodeR
 function GraphNodeDirectory({ nodes }: { nodes: GraphNodeRefDto[] }) {
   if (nodes.length === 0) return null;
   return (
-    <div aria-label="Matter Graph node anchors" className="grid gap-2 sm:grid-cols-3">
+    <div aria-label="Matter 관계 항목 바로가기" className="grid gap-2 sm:grid-cols-3">
       {nodes.slice(0, 9).map((node) => (
         <div
           key={node.nodeId}
@@ -609,14 +612,14 @@ function GraphNodeDirectory({ nodes }: { nodes: GraphNodeRefDto[] }) {
           className="rounded-md border bg-background px-3 py-2"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-medium">{node.nodeType}</span>
+            <span className="text-sm font-medium">{displayDomainValue(node.nodeType)}</span>
             <StatusBadge tone={provenanceTone(node.provenance)}>
               {provenanceLabel(node.provenance)}
             </StatusBadge>
           </div>
-          <code className="mt-1 block truncate text-[11px] text-muted-foreground">
-            {node.sourceId}
-          </code>
+          <span className="mt-1 block truncate text-[11px] text-muted-foreground">
+            {maskInternalReference(node.sourceId)}
+          </span>
         </div>
       ))}
     </div>
@@ -662,12 +665,14 @@ function NodeLabel({ node }: { node: GraphNodeRefDto }) {
   return (
     <div className="grid gap-1">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="font-medium">{node.nodeType}</span>
+        <span className="font-medium">{displayDomainValue(node.nodeType)}</span>
         <StatusBadge tone={provenanceTone(node.provenance)}>
           {provenanceLabel(node.provenance)}
         </StatusBadge>
       </div>
-      <code className="text-[11px] text-muted-foreground">{shortId(node.sourceId)}</code>
+      <span className="text-[11px] text-muted-foreground">
+        {maskInternalReference(node.sourceId)}
+      </span>
     </div>
   );
 }
@@ -676,7 +681,10 @@ function DocumentLink({ fallback, node }: { fallback: string | null; node: Graph
   const documentId = node.documentId ?? fallback;
   if (!documentId) return <span className="text-muted-foreground">-</span>;
   return (
-    <Link className="text-primary hover:underline" href={`/documents/${encodeURIComponent(documentId)}`}>
+    <Link
+      className="text-primary hover:underline"
+      href={`/documents/${encodeURIComponent(documentId)}`}
+    >
       문서 {shortId(documentId)}
     </Link>
   );
@@ -724,9 +732,9 @@ function statusTone(value: string): StatusBadgeTone {
 }
 
 function wikiStatusLabel(value: MatterWikiReviewStatus): string {
-  if (value === 'confirmed') return 'confirmed';
-  if (value === 'rejected') return 'rejected';
-  return 'proposed';
+  if (value === 'confirmed') return '확정';
+  if (value === 'rejected') return '반려';
+  return '제안';
 }
 
 function wikiStatusTone(value: MatterWikiReviewStatus): StatusBadgeTone {
@@ -737,7 +745,42 @@ function wikiStatusTone(value: MatterWikiReviewStatus): StatusBadgeTone {
 
 function shortId(value: string | null): string {
   if (!value) return '-';
-  return value.length > 12 ? value.slice(0, 8) : value;
+  return maskInternalReference(value);
+}
+
+function displayDomainValue(value: string): string {
+  const labels: Record<string, string> = {
+    active: '진행 중',
+    ai_proposed: 'AI 제안',
+    allegation: '주장',
+    blocked: '차단됨',
+    cited: '인용 확인',
+    claim: '주장',
+    closed: '종결',
+    company: '법인',
+    critical: '중요',
+    disputed: '다툼 있음',
+    document: '문서',
+    event: '사건',
+    evidenced_by: '근거',
+    fact: '사실관계',
+    has_issue: '쟁점',
+    high: '높음',
+    human_confirmed: '담당자 확정',
+    low: '낮음',
+    medium: '보통',
+    open: '검토 중',
+    organization: '조직',
+    person: '인물',
+    proposed: '제안',
+    resolved: '해결',
+    source_derived: '자료 기반',
+    timeline: '일정',
+    uncited: '인용 미확인',
+    verified: '확인됨',
+    withdrawn: '철회',
+  };
+  return labels[value.toLowerCase()] ?? '기타';
 }
 
 export type MatterKnowledgeInitialData = MatterKnowledgeData;

@@ -101,7 +101,9 @@ function emptyStateFor(loadStatus: ConflictLoadStatus) {
     return <EmptyState variant="no-access" title="이해상충 검토 이력을 볼 권한이 없습니다." />;
   }
   if (loadStatus === 'blocked') {
-    return <EmptyState variant="policy-blocked" title="권한 정책으로 검토 이력이 차단되었습니다." />;
+    return (
+      <EmptyState variant="policy-blocked" title="권한 정책으로 검토 이력이 차단되었습니다." />
+    );
   }
   return null;
 }
@@ -109,7 +111,7 @@ function emptyStateFor(loadStatus: ConflictLoadStatus) {
 function openMatterErrorMessage(error: unknown, conflictsStatus: MatterConflictStatus): string {
   if (error instanceof ApiClientError && error.reason === 'CONFLICTS_NOT_CLEARED') {
     if (conflictsStatus === 'blocked') {
-      return '수임 차단 상태입니다. /walls 정보 차단 설정을 확인해 주세요.';
+      return '정보 차단 설정으로 인해 수임을 진행할 수 없습니다.';
     }
     return '이해상충 검토 해소 후 Matter를 열 수 있습니다.';
   }
@@ -160,7 +162,8 @@ export function MatterConflictsPanelView({
 }: MatterConflictsPanelViewProps) {
   const latestCheck = latestConflictCheck(checks);
   const trimmedRationale = rationale.trim();
-  const isBusy = actionState === 'running' || actionState === 'resolving' || actionState === 'opening';
+  const isBusy =
+    actionState === 'running' || actionState === 'resolving' || actionState === 'opening';
   const canResolve = Boolean(latestCheck) && trimmedRationale.length > 0 && !isBusy;
   const canOpenMatter = matter.status === 'proposed' && !isBusy;
   const blocked = matter.conflictsStatus === 'blocked';
@@ -193,8 +196,11 @@ export function MatterConflictsPanelView({
               </span>
             ) : null}
             {blocked ? (
-              <a className="text-sm font-medium text-primary underline-offset-4 hover:underline" href="/walls">
-                /walls 정보 차단 설정
+              <a
+                className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                href="/walls"
+              >
+                정보 차단 설정 보기
               </a>
             ) : null}
           </div>
@@ -229,7 +235,9 @@ export function MatterConflictsPanelView({
             />
           </label>
 
-          {actionError ? <p className="text-sm font-medium text-destructive">{actionError}</p> : null}
+          {actionError ? (
+            <p className="text-sm font-medium text-destructive">{actionError}</p>
+          ) : null}
 
           <div className="grid grid-cols-2 gap-2">
             <Button
@@ -305,7 +313,10 @@ export function MatterConflictsPanel({
     setOpenError(null);
     try {
       const check = await runMatterConflictCheck(matter.matterId);
-      setChecks((current) => [check, ...current.filter((item) => item.conflictCheckId !== check.conflictCheckId)]);
+      setChecks((current) => [
+        check,
+        ...current.filter((item) => item.conflictCheckId !== check.conflictCheckId),
+      ]);
       setLoadStatus('ready');
       setRationale('');
       await refreshMatter();

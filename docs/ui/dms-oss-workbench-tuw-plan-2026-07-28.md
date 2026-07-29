@@ -45,22 +45,22 @@
 
 841개로 보였던 변경은 현재 `main`에 이미 병합되어 있다. 따라서 과거 계획이나 route inventory의 “미구현” 표시는 현재 소스와 다를 수 있다.
 
-| 기능 | 현재 근거 | 이번 계획의 처리 |
-|---|---|---|
-| Matter 폴더·태그 | `db/migrations/0140_create_document_folders_and_tags.sql`, document folder API, `MatterDocumentList` | 재구현 금지. `/files` rail과 filter에서 기존 계약 재사용 |
-| 대량 업로드 | `db/migrations/0138_create_bulk_upload_batches.sql`, stage API와 통합 테스트 | 재구현 금지. 문맥형 업로드 UI만 재배치 |
-| 조직 사용자·그룹 선택 | `org-directory` API, `OrgSubjectPicker` | 재구현 금지. 기존 선택기를 권한/리뷰 UI에서 재사용 |
-| 개인·Matter team·admin 공유 검색 | saved-search scope와 `/search/folders` | 재구현 금지. rail/drawer IA로 재배치 |
-| 문서 check-out, heartbeat, check-in, reviewer | document editing API와 action center | 재구현 금지. inspector는 요약과 detail 진입점만 제공 |
-| persisted work items·notifications | work/notifications API와 `/work`, `/notifications` | 재구현 금지. 상태 요약과 기존 route 연결만 허용 |
-| 외부 workspace·secure link | external module과 Matter sharing route | 기존 role/policy gate 뒤에서만 연결. 일반 row action 금지 |
-| legal hold·disposal·certificate | records service/worker/console | 기존 records workflow로만 연결. hard delete 버튼 금지 |
-| preview access session | preview module, preview session tests | 명시적 preview action에서 재사용. 선택 시 자동 생성 금지 |
-| OneDrive migration·Office closeout | `docs/release/onedrive-*` 계획과 gate | 기존 Gate receipt를 소비하며, UI에서 성공을 선행 주장하지 않음 |
-| 즐겨찾기/고정 | i18n label 외 persistence/API 근거 없음 | **별도 제품·데이터 계약 필요** |
-| 접근 요청 | `break-glass` API와 `docs/security/access-request-workflow.md` | self-service UI 재구현 금지. 기존 break-glass 경계 회귀만 수행 |
-| 다중 문서 변경 | bulk upload 외 move/tag/status batch 계약 근거 없음 | **별도 원자성·권한·receipt 계약 필요** |
-| 검색 hit→preview anchor | DMS-GA-3B `anchorId`, detail preview anchor contract | 재구현 금지. search inspector가 기존 bounded anchor를 보존하는지만 검증 |
+| 기능                                          | 현재 근거                                                                                            | 이번 계획의 처리                                                        |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Matter 폴더·태그                              | `db/migrations/0140_create_document_folders_and_tags.sql`, document folder API, `MatterDocumentList` | 재구현 금지. `/files` rail과 filter에서 기존 계약 재사용                |
+| 대량 업로드                                   | `db/migrations/0138_create_bulk_upload_batches.sql`, stage API와 통합 테스트                         | 재구현 금지. 문맥형 업로드 UI만 재배치                                  |
+| 조직 사용자·그룹 선택                         | `org-directory` API, `OrgSubjectPicker`                                                              | 재구현 금지. 기존 선택기를 권한/리뷰 UI에서 재사용                      |
+| 개인·Matter team·admin 공유 검색              | saved-search scope와 `/search/folders`                                                               | 재구현 금지. rail/drawer IA로 재배치                                    |
+| 문서 check-out, heartbeat, check-in, reviewer | document editing API와 action center                                                                 | 재구현 금지. inspector는 요약과 detail 진입점만 제공                    |
+| persisted work items·notifications            | work/notifications API와 `/work`, `/notifications`                                                   | 재구현 금지. 상태 요약과 기존 route 연결만 허용                         |
+| 외부 workspace·secure link                    | external module과 Matter sharing route                                                               | 기존 role/policy gate 뒤에서만 연결. 일반 row action 금지               |
+| legal hold·disposal·certificate               | records service/worker/console                                                                       | 기존 records workflow로만 연결. hard delete 버튼 금지                   |
+| preview access session                        | preview module, preview session tests                                                                | 명시적 preview action에서 재사용. 선택 시 자동 생성 금지                |
+| OneDrive migration·Office closeout            | `docs/release/onedrive-*` 계획과 gate                                                                | 기존 Gate receipt를 소비하며, UI에서 성공을 선행 주장하지 않음          |
+| 즐겨찾기/고정                                 | i18n label 외 persistence/API 근거 없음                                                              | **별도 제품·데이터 계약 필요**                                          |
+| 접근 요청                                     | `break-glass` API와 `docs/security/access-request-workflow.md`                                       | self-service UI 재구현 금지. 기존 break-glass 경계 회귀만 수행          |
+| 다중 문서 변경                                | bulk upload 외 move/tag/status batch 계약 근거 없음                                                  | **별도 원자성·권한·receipt 계약 필요**                                  |
+| 검색 hit→preview anchor                       | DMS-GA-3B `anchorId`, detail preview anchor contract                                                 | 재구현 금지. search inspector가 기존 bounded anchor를 보존하는지만 검증 |
 
 ### 1.1 current-main correction (supersedes obsolete proposed tracks)
 
@@ -72,11 +72,11 @@
 
 데스크톱은 세 영역으로 구성한다.
 
-| 영역 | semantic token | 기본 크기 | 책임 |
-|---|---|---:|---|
-| 탐색 rail | `--dms-rail-width` | `232px` | 전체 문서, 최근 항목, 저장 검색, Matter, Matter 선택 후 실제 폴더 |
-| 목록 작업면 | `--dms-list-min-width` | `minmax(520px, 1fr)` | query, filter chips, table/list, pagination, selection |
-| quick inspector | `--dms-inspector-width` | `360px` | 안전한 metadata, 명시적 preview/detail/action 진입 |
+| 영역            | semantic token          |            기본 크기 | 책임                                                              |
+| --------------- | ----------------------- | -------------------: | ----------------------------------------------------------------- |
+| 탐색 rail       | `--dms-rail-width`      |              `232px` | 전체 문서, 최근 항목, 저장 검색, Matter, Matter 선택 후 실제 폴더 |
+| 목록 작업면     | `--dms-list-min-width`  | `minmax(520px, 1fr)` | query, filter chips, table/list, pagination, selection            |
+| quick inspector | `--dms-inspector-width` |              `360px` | 안전한 metadata, 명시적 preview/detail/action 진입                |
 
 - `>=1280px`: 세 영역을 동시에 표시한다.
 - `768px~1279px`: rail은 접을 수 있고 inspector는 우측 drawer로 연다.
@@ -949,16 +949,16 @@ Module: `cross-cutting evidence`
 
 아래는 staffing estimate이며 승인이나 납기를 의미하지 않는다. 각 숫자는 개발자 1명 기준 engineering day이며 외부 계약·tenant consent·법무 검토 대기시간은 제외한다.
 
-| 실행 묶음 | 포함 Lane | 예상 | 착수 조건 | 종료 조건 |
-|---|---|---:|---|---|
-| B0 계약·등록 | G | 2~4일 | clean exact-main | canonical mapping receipt |
-| B1 Files workbench | F | 8~12일 | B0 | FILES-009 green |
-| B2 Search workbench | S | 7~11일 | B1 | SEARCH-008 Critical review |
-| B3 Matter/detail flow | X | 4~6일 | B1+B2 | FLOW-004 green |
-| B4 Core QA/repository evidence | Q-001~003 | 5~8일 | B1~B3 | local technical evidence + independent review |
-| O1 Pins | P | 5~8일 | product/privacy contract | PINS-005 |
-| O2 Bulk actions | B | 7~10일 | action/atomicity approval | BULK-005 |
-| D1 No-offline guard | O | 1~2일 | no-cache decision | security regression |
+| 실행 묶음                      | 포함 Lane |   예상 | 착수 조건                 | 종료 조건                                     |
+| ------------------------------ | --------- | -----: | ------------------------- | --------------------------------------------- |
+| B0 계약·등록                   | G         |  2~4일 | clean exact-main          | canonical mapping receipt                     |
+| B1 Files workbench             | F         | 8~12일 | B0                        | FILES-009 green                               |
+| B2 Search workbench            | S         | 7~11일 | B1                        | SEARCH-008 Critical review                    |
+| B3 Matter/detail flow          | X         |  4~6일 | B1+B2                     | FLOW-004 green                                |
+| B4 Core QA/repository evidence | Q-001~003 |  5~8일 | B1~B3                     | local technical evidence + independent review |
+| O1 Pins                        | P         |  5~8일 | product/privacy contract  | PINS-005                                      |
+| O2 Bulk actions                | B         | 7~10일 | action/atomicity approval | BULK-005                                      |
+| D1 No-offline guard            | O         |  1~2일 | no-cache decision         | security regression                           |
 
 - **Core only:** 약 `26~41일`
 - **Core + Pins·Bulk internal contract tracks:** 약 `38~59일`
@@ -996,3 +996,30 @@ Core UI는 다음이 모두 참일 때만 완료다.
 8. AI slop review가 pass이거나 남은 항목의 명시적 승인 사유가 있음.
 9. CI, external runtime receipt, independent review, merge, production enable이 각각 별도 Gate로 기록됨.
 10. optional/contract feature 실패가 core의 이미 통과한 Gate와 receipt를 덮어쓰지 않음.
+
+## 19. 2026-07-29 한국형 SaaS 문구 감사 후속
+
+기준 `origin/main@8dd29e6e1983b46ab367d9c5567bfb3f51b5f457`의
+`apps/web/src` 프로덕션 TypeScript/TSX 193개를 전수 추출하고 `/files`,
+`/search` 실제 화면을 대조한 결과를 `PACK-DMS-WB-07`로 등록한다.
+
+### DMS-WB-COPY-TUW-001~007
+
+1. 한국어 기본 용어는 `Matter`, `Matter 코드`, `정보 차단`, `긴급 접근`,
+   `문서`, `문서함`, `검색 폴더`로 통일한다.
+2. `매터`, 제품 객체를 뜻하는 단독 `사건`, `정보 장벽`, `Ethical wall`,
+   `Wall`, `break-glass`를 한국어 화면의 기본 라벨로 사용하지 않는다.
+3. UUID, hash, 내부 user/document/version/request reference를 일반 입력이나
+   기본 표시값으로 노출하지 않는다.
+4. 기존 permission-scoped Matter/document/org-directory API와 picker를
+   재사용한다. API/schema/database 계약을 바꾸지 않는다.
+5. 원시 enum은 저장값을 바꾸지 않고 표시 매핑만 적용한다.
+6. `/walls`는 전역 메뉴에서 제거한다. direct route의 admin guard와 정보
+   차단 정책 집행은 유지한다.
+7. `권한이 확인된`, `운영 노출 차단`, `명시적 작업`, `안전한 요약 정보`,
+   `동기화 헬스` 같은 사양 문체를 사용자 행동과 결과 중심 문구로 바꾼다.
+
+상세 Files/Verification/Edge/Stop 계약은
+`docs/execution/TUW_DMS_OSS_WORKBENCH.md`의 `PACK-DMS-WB-07`이 규범이다.
+구현 및 실제 화면 검증 결과는
+`docs/ui/dms-oss-workbench-korean-copy-closeout.md`에 기록한다.

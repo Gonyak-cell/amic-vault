@@ -237,7 +237,7 @@ export default function MatterDetailPage({
         description={
           matter
             ? [matter.matterCode, matter.clientDisplayName].filter(Boolean).join(' · ')
-            : '권한이 확인된 Matter 정보만 표시됩니다.'
+            : '접근 가능한 Matter 정보만 표시됩니다.'
         }
         actions={
           matter ? (
@@ -326,7 +326,11 @@ export default function MatterDetailPage({
       ) : null}
 
       {matter ? (
-        <MatterDashboardPanel matterId={matter.matterId} dashboard={dashboard} error={dashboardError} />
+        <MatterDashboardPanel
+          matterId={matter.matterId}
+          dashboard={dashboard}
+          error={dashboardError}
+        />
       ) : null}
 
       {matter ? (
@@ -495,16 +499,18 @@ function MatterDashboardPanel({
     {
       title: '쟁점',
       value: dashboard ? String(dashboard.issueSummary.openCount) : '...',
-      detail: dashboard
-        ? riskLabel(dashboard.issueSummary.highestRiskLevel)
-        : '집계 중',
+      detail: dashboard ? riskLabel(dashboard.issueSummary.highestRiskLevel) : '집계 중',
       href: '#matter-issues',
       icon: Scale,
     },
     {
       title: '기한',
       value: dashboard ? String(dashboard.upcomingKeyDates.length) : '...',
-      detail: firstDate ? `${firstDate.dueDate} · ${firstDate.title}` : dashboard ? '기한 없음' : '집계 중',
+      detail: firstDate
+        ? `${firstDate.dueDate} · ${firstDate.title}`
+        : dashboard
+          ? '기한 없음'
+          : '집계 중',
       href: '#matter-issues',
       icon: CalendarDays,
     },
@@ -701,7 +707,7 @@ function MatterRelationsPanel({
                 </p>
               ) : (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  매터명은 권한 확인 후 표시됩니다.
+                  Matter 이름은 권한 확인 후 표시됩니다.
                 </p>
               )}
             </div>

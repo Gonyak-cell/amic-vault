@@ -14,10 +14,7 @@ import { SectionCard } from '@/components/ui/section-card';
 import { dataStateStatusForApiError } from '@/lib/api/error-messages';
 import type { DataState } from '@/lib/data-state';
 import { useI18n, type Language } from '@/lib/i18n';
-import {
-  listMatterQueryFromSearchParams,
-  type MatterSearchParams,
-} from './matter-list-query';
+import { listMatterQueryFromSearchParams, type MatterSearchParams } from './matter-list-query';
 
 type MatterLoadState = DataState<MatterDto[]>['status'];
 
@@ -52,7 +49,7 @@ const mattersCopy: Record<
 > = {
   ko: {
     title: 'Matter 목록',
-    description: 'Matter 관리 시스템에서 동기화되고 접근 권한이 확인된 Matter만 표시됩니다.',
+    description: 'Matter 관리 시스템에서 동기화된 접근 가능한 Matter만 표시됩니다.',
     scoped: '권한으로 보호됨',
     matter: 'Matter',
     client: '고객',
@@ -63,13 +60,13 @@ const mattersCopy: Record<
     protected: '보호됨',
     empty: '표시할 Matter가 없습니다.',
     emptyDescription:
-      'Matter 관리 시스템에서 신규 Matter를 만들거나 Matter code 동기화가 완료되면 문서 보관함에 표시됩니다.',
+      'Matter 관리 시스템에서 신규 Matter를 만들거나 Matter 코드 동기화가 완료되면 문서 보관함에 표시됩니다.',
     openMatter: '열기',
     fileCabinet: '파일함',
     searchMatter: '검색',
     prepTitle: 'Matter 관리 시스템 연동 기준',
     prepDescription:
-      '문서 보관함은 Matter 관리 시스템에서 확정된 Matter code를 받아 문서함, 검색, 권한 흐름에 연결합니다.',
+      '문서 보관함은 Matter 관리 시스템에서 확정된 Matter 코드를 받아 문서함, 검색, 권한 흐름에 연결합니다.',
     newMatter: '새 Matter',
     clientFilterActive: '선택한 고객의 Matter만 표시합니다.',
     clearFilter: '전체 Matter 보기',
@@ -108,11 +105,7 @@ const mattersCopy: Record<
   },
 };
 
-export default function MattersPage({
-  searchParams = {},
-}: {
-  searchParams?: MatterSearchParams;
-}) {
+export default function MattersPage({ searchParams = {} }: { searchParams?: MatterSearchParams }) {
   const { language } = useI18n();
   const copy = mattersCopy[language];
   const [matters, setMatters] = useState<MatterDto[]>([]);
@@ -194,17 +187,17 @@ export default function MattersPage({
         </div>
       ) : null}
 
-      <SectionCard icon={<FolderKanban className="h-4 w-4" />} title={copy.title} meta={copy.scoped}>
+      <SectionCard
+        icon={<FolderKanban className="h-4 w-4" />}
+        title={copy.title}
+        meta={copy.scoped}
+      >
         <MatterListTable copy={copy} matters={matters} />
         {loadState === 'loading' ? (
           <EmptyState variant="api-unavailable" title={copy.loading} className="m-5" />
         ) : null}
         {loadState === 'empty' ? (
-          <EmptyState
-            title={copy.empty}
-            description={copy.emptyDescription}
-            className="m-5"
-          />
+          <EmptyState title={copy.empty} description={copy.emptyDescription} className="m-5" />
         ) : null}
         {loadState === 'error' ? (
           <EmptyState variant="api-error" title={copy.apiError} className="m-5" />

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { maskInternalReference } from '@/components/security/secure-ref';
 
 const taskLabels = {
   clause_analysis: '조항 분석',
@@ -15,6 +16,12 @@ const reviewStatusLabels = {
   pending: '검토 대기',
   accepted: '검토 완료',
 } as const satisfies Record<ContractAiReviewFindingDto['status'], string>;
+
+const severityLabels = {
+  info: '참고',
+  warning: '주의',
+  critical: '중요',
+} as const satisfies Record<ContractAiReviewFindingDto['severity'], string>;
 
 export interface ContractAiReviewPanelProps {
   ruleFindings: ContractRuleFindingDto[];
@@ -34,12 +41,12 @@ export function ContractAiReviewPanel({
   return (
     <SectionCard
       title="계약 1차 검토"
-      meta={`Rule violations ${failedRuleFindings.length} · AI opinions ${aiReviewFindings.length}`}
+      meta={`기준 위반 ${failedRuleFindings.length}건 · AI 소견 ${aiReviewFindings.length}건`}
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <section aria-label="Rule violations" className="grid gap-3">
+        <section aria-label="기준 위반" className="grid gap-3">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold">Rule violations</h3>
+            <h3 className="text-sm font-semibold">기준 위반</h3>
             <StatusBadge tone={failedRuleFindings.length > 0 ? 'warning' : 'success'}>
               {failedRuleFindings.length}
             </StatusBadge>
@@ -51,7 +58,7 @@ export function ContractAiReviewPanel({
               ))}
             </div>
           ) : (
-            <EmptyState title="표시할 rule violation이 없습니다." />
+            <EmptyState title="표시할 기준 위반이 없습니다." />
           )}
         </section>
 
@@ -93,8 +100,10 @@ function RuleViolationRow({ finding }: { finding: ContractRuleFindingDto }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge tone={severityTone(finding.severity)}>{finding.severity}</StatusBadge>
-          <StatusBadge tone="warning">{finding.status}</StatusBadge>
+          <StatusBadge tone={severityTone(finding.severity)}>
+            {severityLabels[finding.severity]}
+          </StatusBadge>
+          <StatusBadge tone="warning">위반</StatusBadge>
         </div>
       </div>
       <InlineRefs refs={finding.evidenceRefs} />
@@ -119,7 +128,9 @@ function AiOpinionRow({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <StatusBadge tone={severityTone(finding.severity)}>{finding.severity}</StatusBadge>
+            <StatusBadge tone={severityTone(finding.severity)}>
+              {severityLabels[finding.severity]}
+            </StatusBadge>
             <StatusBadge tone={accepted ? 'success' : 'neutral'}>
               {reviewStatusLabels[finding.status]}
             </StatusBadge>
@@ -154,9 +165,12 @@ function InlineRefs({ refs }: { refs: readonly string[] }) {
   return (
     <span className="flex max-w-[28rem] flex-wrap gap-1">
       {refs.map((ref) => (
-        <code key={ref} className="rounded border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          {ref}
-        </code>
+        <span
+          key={ref}
+          className="rounded border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+        >
+          {maskInternalReference(ref)}
+        </span>
       ))}
     </span>
   );

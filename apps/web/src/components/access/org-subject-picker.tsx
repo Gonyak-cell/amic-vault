@@ -20,7 +20,7 @@ const subjectTypeLabels = {
 
 const groupTypeLabels = {
   custom: '사용자 지정',
-  practice_group: 'Practice Group',
+  practice_group: '업무 그룹',
   team: '팀',
 } as const satisfies Record<NonNullable<OrgDirectorySubjectDto['groupType']>, string>;
 
@@ -48,7 +48,12 @@ function secondaryLabel(subject: OrgDirectorySubjectDto): string {
 }
 
 function subjectLabel(subject: OrgDirectorySubjectDto): string {
-  return subject.safeLabel || subject.displayName || subject.displayEmail || subjectTypeLabels[subject.subjectType];
+  return (
+    subject.safeLabel ||
+    subject.displayName ||
+    subject.displayEmail ||
+    subjectTypeLabels[subject.subjectType]
+  );
 }
 
 export function OrgSubjectPickerContent({
@@ -66,7 +71,7 @@ export function OrgSubjectPickerContent({
       <EmptyState
         variant="pre-search"
         title="사용자 또는 그룹을 검색해 주세요."
-        description="두 글자 이상 입력하면 권한이 확인된 항목만 표시됩니다."
+        description="두 글자 이상 입력하면 선택 가능한 사용자나 그룹이 표시됩니다."
       />
     );
   }

@@ -31,7 +31,7 @@ describe('NewMatterPage', () => {
     expect(html).toContain('템플릿 적용값');
     expect(html).toContain('접근 범위');
     expect(html).toContain('펌 전체 열람');
-    expect(html).toContain('Matter code');
+    expect(html).toContain('Matter 코드');
     expect(html).toContain('Matter 이름');
     expect(html).toContain('담당 변호사');
     expect(html).toContain('href="/matters"');
@@ -40,9 +40,7 @@ describe('NewMatterPage', () => {
   });
 
   it('builds a bounded createMatter payload with the selected lead lawyer', () => {
-    expect(
-      buildCreateMatterInput(validRestrictedForm, leadLawyerSubject),
-    ).toEqual({
+    expect(buildCreateMatterInput(validRestrictedForm, leadLawyerSubject)).toEqual({
       accessScope: 'restricted',
       clientId: '11111111-1111-4111-8111-111111111111',
       confidentialityLevel: 'standard',
@@ -74,14 +72,18 @@ describe('NewMatterPage', () => {
       matterType: 'advisory',
       practiceGroup: 'corporate',
     });
-    expect(redirect).toHaveBeenCalledWith('/matters/22222222-2222-4222-8222-222222222222?created=1');
+    expect(redirect).toHaveBeenCalledWith(
+      '/matters/22222222-2222-4222-8222-222222222222?created=1',
+    );
   });
 
   it('rejects incomplete form state before calling the API', async () => {
     const createMatter = vi.fn();
     const redirect = vi.fn();
 
-    await expect(submitCreateMatter(incompleteForm, null, createMatter, redirect)).rejects.toThrow();
+    await expect(
+      submitCreateMatter(incompleteForm, null, createMatter, redirect),
+    ).rejects.toThrow();
 
     expect(createMatter).not.toHaveBeenCalled();
     expect(redirect).not.toHaveBeenCalled();

@@ -65,7 +65,7 @@ export default function MatterDdPage({ params }: { params: { matterId: string } 
       <PageHeader
         breadcrumbs={['문서 보관', 'Matter', 'DD']}
         title="DD"
-        description="RFI · Traceability"
+        description="자료 요청 · 추적 관계"
       />
 
       <MatterWorkstreamTabs matterId={params.matterId} active="dd" />
@@ -74,7 +74,11 @@ export default function MatterDdPage({ params }: { params: { matterId: string } 
         <EmptyState variant="api-unavailable" title="DD 데이터를 불러오는 중입니다." />
       ) : null}
       {state.status === 'error' ? (
-        <EmptyState variant="api-error" title="DD 데이터를 표시할 수 없습니다." description={state.message} />
+        <EmptyState
+          variant="api-error"
+          title="DD 데이터를 표시할 수 없습니다."
+          description={state.message}
+        />
       ) : null}
       {state.status === 'ready' ? <DdMatterReadOnlyView data={state.data} /> : null}
     </PageShell>

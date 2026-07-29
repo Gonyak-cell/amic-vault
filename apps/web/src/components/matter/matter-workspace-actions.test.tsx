@@ -10,7 +10,7 @@ describe('MatterWorkspaceActions', () => {
     const matter = matterFixture();
     const html = renderToStaticMarkup(<MatterWorkspaceActions matter={matter} />);
 
-    expect(html).toContain('Matter code 기준 작업');
+    expect(html).toContain('Matter 코드 기준 작업');
     expect(html).toContain('파일함');
     expect(html).toContain('검색');
     expect(html).toContain('작업함');
@@ -18,7 +18,9 @@ describe('MatterWorkspaceActions', () => {
     expect(html).toContain('기록 보존');
     expect(html).toContain('감사 기록');
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007"');
-    expect(html).toContain('href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter"');
+    expect(html).toContain(
+      'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter"',
+    );
     expect(html).toContain('href="/work"');
     expect(html).toContain(`href="/matters/${matter.matterId}/sharing"`);
     expect(html).toContain('href="/records?tab=holds&amp;matterCode=AMIC-2026-0007"');

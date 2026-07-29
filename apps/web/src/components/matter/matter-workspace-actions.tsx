@@ -21,13 +21,13 @@ interface WorkspaceAction {
 export function MatterWorkspaceActions({ matter }: { matter: MatterDto }) {
   const actions: WorkspaceAction[] = [
     {
-      description: '이 Matter code로 문서함과 업로드 화면을 엽니다.',
+      description: '이 Matter 코드로 문서함과 업로드 화면을 엽니다.',
       href: matterFileCabinetUrl(matter),
       icon: <FileSearch className="h-4 w-4" />,
       label: '파일함',
     },
     {
-      description: '본문, 제목, 문서 정보 검색을 이 Matter code로 좁힙니다.',
+      description: '본문, 제목, 문서 정보 검색을 이 Matter 코드로 좁힙니다.',
       href: matterSearchUrl(matter),
       icon: <Search className="h-4 w-4" />,
       label: '검색',
@@ -59,7 +59,7 @@ export function MatterWorkspaceActions({ matter }: { matter: MatterDto }) {
   ];
 
   return (
-    <nav aria-label="Matter code 기준 작업" className="flex min-w-0 flex-wrap justify-end gap-2">
+    <nav aria-label="Matter 코드 기준 작업" className="flex min-w-0 flex-wrap justify-end gap-2">
       {actions.map((action) => (
         <Button
           asChild

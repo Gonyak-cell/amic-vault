@@ -25,7 +25,7 @@ describe('navigation visibility', () => {
     expect(labels).not.toContain('정보 차단');
   });
 
-  it('shows governed admin routes to firm admins without hidden routes', () => {
+  it('shows governed admin routes without exposing the information-barrier console', () => {
     const groups = getNavigationGroups('firm_admin', 'ko');
     const labels = groups.flatMap((group) => group.items.map((item) => item.label));
 
@@ -36,7 +36,7 @@ describe('navigation visibility', () => {
     expect(labels).toContain('작업함');
     expect(labels).toContain('알림');
     expect(labels).toContain('접근 기록');
-    expect(labels).toContain('정보 차단');
+    expect(labels).not.toContain('정보 차단');
     expect(labels).toContain('관리자 설정');
     expect(labels).toContain('Outlook');
     expect(labels).not.toContain('공유 요청');

@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { maskInternalReference } from '@/components/security/secure-ref';
 import {
   listClauseBankEntries,
   searchSimilarClauses,
@@ -85,13 +86,13 @@ export function ClauseBankBrowser() {
     <PageShell>
       <PageHeader
         breadcrumbs={['문서 보관', '계약']}
-        title="조항은행"
-        description="승인된 조항 메타데이터와 재사용 후보를 관리합니다."
+        title="조항 라이브러리"
+        description="승인된 조항 정보와 재사용 후보를 관리합니다."
       />
 
       <SectionCard
-        title="조항은행 항목"
-        meta="본문은 저장하지 않고 source 조항의 참조와 해시만 표시합니다."
+        title="조항 라이브러리 항목"
+        meta="본문은 저장하지 않고 원문 조항의 참조 정보와 해시만 표시합니다."
         actions={
           <label className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">상태</span>
@@ -110,17 +111,21 @@ export function ClauseBankBrowser() {
         }
       >
         {state.status === 'loading' ? (
-          <EmptyState variant="api-unavailable" title="조항은행을 불러오는 중입니다." />
+          <EmptyState variant="api-unavailable" title="조항 라이브러리를 불러오는 중입니다." />
         ) : null}
         {state.status === 'error' ? (
           <EmptyState
             variant="api-error"
-            title="조항은행을 표시할 수 없습니다."
+            title="조항 라이브러리를 표시할 수 없습니다."
             description={state.message}
           />
         ) : null}
         {state.status === 'ready' ? (
-          <ClauseBankTable entries={state.entries} busyEntryId={busyEntryId} onApprove={approveEntry} />
+          <ClauseBankTable
+            entries={state.entries}
+            busyEntryId={busyEntryId}
+            onApprove={approveEntry}
+          />
         ) : null}
       </SectionCard>
 
@@ -161,7 +166,11 @@ export function ClauseSearchPanel() {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="손해배상 책임 상한"
           />
-          <Button type="submit" size="sm" disabled={state.status === 'loading' || query.trim().length < 2}>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={state.status === 'loading' || query.trim().length < 2}
+          >
             <Search className="h-4 w-4" aria-hidden="true" />
             검색
           </Button>
@@ -173,7 +182,11 @@ export function ClauseSearchPanel() {
         <EmptyState variant="api-unavailable" title="유사 조항을 검색하는 중입니다." />
       ) : null}
       {state.status === 'error' ? (
-        <EmptyState variant="api-error" title="유사 조항을 표시할 수 없습니다." description={state.message} />
+        <EmptyState
+          variant="api-error"
+          title="유사 조항을 표시할 수 없습니다."
+          description={state.message}
+        />
       ) : null}
       {state.status === 'ready' ? <ClauseSearchResults results={state.results} /> : null}
     </SectionCard>
@@ -191,21 +204,25 @@ export function ClauseSearchResults({ results }: { results: ClauseSearchResultDt
         <caption className="sr-only">유사 조항 검색 결과</caption>
         <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
           <tr>
-            <TableHeader>Score</TableHeader>
-            <TableHeader>Kind</TableHeader>
-            <TableHeader>Clause</TableHeader>
-            <TableHeader>Tags</TableHeader>
-            <TableHeader>Source</TableHeader>
+            <TableHeader>유사도</TableHeader>
+            <TableHeader>유형</TableHeader>
+            <TableHeader>조항</TableHeader>
+            <TableHeader>태그</TableHeader>
+            <TableHeader>출처</TableHeader>
           </tr>
         </thead>
         <tbody>
           {results.map((result) => (
             <tr key={result.clauseId} className="border-t">
               <TableCell>{result.score.toFixed(3)}</TableCell>
-              <TableCell>{result.clauseKind}</TableCell>
+              <TableCell>{clauseKindLabel(result.clauseKind)}</TableCell>
               <TableCell className="font-medium">{result.clauseNumber}</TableCell>
-              <TableCell>{result.tags.length > 0 ? result.tags.join(', ') : '-'}</TableCell>
-              <TableCell>{result.approved ? result.citationRef : `clause:${result.clauseId}`}</TableCell>
+              <TableCell>
+                {result.tags.length > 0 ? result.tags.map(clauseTagLabel).join(', ') : '-'}
+              </TableCell>
+              <TableCell>
+                {maskInternalReference(result.approved ? result.citationRef : result.clauseId)}
+              </TableCell>
             </tr>
           ))}
         </tbody>
@@ -224,34 +241,40 @@ export function ClauseBankTable({
   onApprove: (entryId: string) => Promise<void>;
 }) {
   if (entries.length === 0) {
-    return <EmptyState title="표시할 조항은행 항목이 없습니다." />;
+    return <EmptyState title="표시할 조항 라이브러리 항목이 없습니다." />;
   }
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[860px] border-collapse text-sm">
-        <caption className="sr-only">전사 조항은행 목록</caption>
+        <caption className="sr-only">전사 조항 라이브러리 목록</caption>
         <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
           <tr>
             <TableHeader>상태</TableHeader>
-            <TableHeader>Kind</TableHeader>
-            <TableHeader>Clause</TableHeader>
-            <TableHeader>Tags</TableHeader>
-            <TableHeader>Source</TableHeader>
-            <TableHeader>Updated</TableHeader>
-            <TableHeader>Action</TableHeader>
+            <TableHeader>유형</TableHeader>
+            <TableHeader>조항</TableHeader>
+            <TableHeader>태그</TableHeader>
+            <TableHeader>출처</TableHeader>
+            <TableHeader>수정일</TableHeader>
+            <TableHeader>작업</TableHeader>
           </tr>
         </thead>
         <tbody>
           {entries.map((entry) => (
             <tr key={entry.entryId} className="border-t">
               <TableCell>
-                <StatusBadge tone={entryStatusTone(entry.status)}>{entryStatusLabel(entry.status)}</StatusBadge>
+                <StatusBadge tone={entryStatusTone(entry.status)}>
+                  {entryStatusLabel(entry.status)}
+                </StatusBadge>
               </TableCell>
-              <TableCell>{entry.clauseKind}</TableCell>
+              <TableCell>{clauseKindLabel(entry.clauseKind)}</TableCell>
               <TableCell className="font-medium">{entry.clauseNumber}</TableCell>
-              <TableCell>{entry.tags.length > 0 ? entry.tags.join(', ') : '-'}</TableCell>
-              <TableCell>{entry.sourceAccessible ? entry.citationRef : '권한 제한'}</TableCell>
+              <TableCell>
+                {entry.tags.length > 0 ? entry.tags.map(clauseTagLabel).join(', ') : '-'}
+              </TableCell>
+              <TableCell>
+                {entry.sourceAccessible ? maskInternalReference(entry.citationRef) : '권한 제한'}
+              </TableCell>
               <TableCell>{formatDate(entry.updatedAt)}</TableCell>
               <TableCell>
                 {entry.status === 'draft' ? (
@@ -280,7 +303,13 @@ function TableHeader({ children }: { children: React.ReactNode }) {
   return <th className="px-3 py-2 font-semibold">{children}</th>;
 }
 
-function TableCell({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+function TableCell({
+  children,
+  className = '',
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return <td className={`px-3 py-2 align-top ${className}`}>{children}</td>;
 }
 
@@ -294,6 +323,25 @@ function entryStatusLabel(status: ClauseBankEntryStatus): string {
   if (status === 'approved') return '승인됨';
   if (status === 'deprecated') return '폐기됨';
   return '승인 대기';
+}
+
+function clauseKindLabel(kind: string): string {
+  const labels: Record<string, string> = {
+    article: '조',
+    clause: '조항',
+    paragraph: '항',
+    section: '절',
+    sentence: '문장',
+  };
+  return labels[kind] ?? '기타';
+}
+
+function clauseTagLabel(tag: string): string {
+  const labels: Record<string, string> = {
+    governing_law: '준거법',
+    liability_cap: '책임 한도',
+  };
+  return labels[tag] ?? tag.replaceAll('_', ' ');
 }
 
 function formatDate(value: string): string {

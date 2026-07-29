@@ -25,10 +25,10 @@ describe('AccountLedgerAdminClient', () => {
   it('renders the account ledger assignment panel without exposing raw user references', () => {
     const html = renderToStaticMarkup(<AccountLedgerAdminClient />);
 
-    expect(html).toContain('계정 원장 ID');
-    expect(html).toContain('전역 유일 로그인 ID');
+    expect(html).toContain('로그인 계정 연결');
+    expect(html).toContain('사용자별 계정명');
     expect(html).toContain('사용자 또는 그룹 검색');
-    expect(html).toContain('원장 ID');
+    expect(html).toContain('로그인 계정명');
     expect(html).toContain('배정');
     expect(html).toContain('사용자 미선택');
     expect(html).not.toContain('user_id');

@@ -62,7 +62,7 @@ export function AiAnswerPanel({
         <div className="min-w-0">
           <h2 className="text-base font-semibold tracking-normal">AI에게 질문</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            {matterLabel ?? 'Matter 범위를 선택하면 권한 확인된 근거만 사용합니다.'}
+            {matterLabel ?? 'Matter 범위를 선택하면 접근 가능한 근거만 사용합니다.'}
           </p>
         </div>
         {response?.escalationRequired ? (
@@ -94,7 +94,9 @@ export function AiAnswerPanel({
           Matter 하나를 필터로 선택하거나 단일 Matter 결과에서 실행하세요.
         </p>
       ) : null}
-      {loading ? <p className="mt-3 text-sm text-muted-foreground">답변을 생성하고 있습니다.</p> : null}
+      {loading ? (
+        <p className="mt-3 text-sm text-muted-foreground">답변을 생성하고 있습니다.</p>
+      ) : null}
       {error ? <p className="mt-3 text-sm text-muted-foreground">{error}</p> : null}
 
       {response ? (

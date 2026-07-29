@@ -561,7 +561,7 @@ export function OutlookAddinClient({
           <CardHeader className="flex-row items-center justify-between gap-2 p-3">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-700" aria-hidden />
-              <CardTitle className="text-sm">Send</CardTitle>
+              <CardTitle className="text-sm">전송</CardTitle>
             </div>
             <Button
               type="button"
@@ -642,10 +642,13 @@ export function OutlookAddinClient({
                   />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{suggestion.matterName}</span>
-                    <span className="block text-xs text-muted-foreground">{suggestion.matterCode}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {suggestion.matterCode}
+                    </span>
                   </span>
                   <span className="rounded-sm bg-secondary px-1.5 py-0.5 text-xs text-primary">
-                    {matterSuggestionBandLabel(suggestion.confidenceBand)} {Math.round(suggestion.confidence)}
+                    {matterSuggestionBandLabel(suggestion.confidenceBand)}{' '}
+                    {Math.round(suggestion.confidence)}
                   </span>
                 </label>
               ))
@@ -796,7 +799,10 @@ export function OutlookAddinClient({
 function MessageSummary({ snapshot }: { snapshot: OutlookItemSnapshot }) {
   return (
     <dl className="grid grid-cols-2 gap-2">
-      <SummaryItem label="외부 참여자" value={snapshot.message.hasExternalParticipants ? '있음' : '없음'} />
+      <SummaryItem
+        label="외부 참여자"
+        value={snapshot.message.hasExternalParticipants ? '있음' : '없음'}
+      />
       <SummaryItem label="첨부" value={`${snapshot.attachmentSummary.count}개`} />
       <SummaryItem label="선택된 첨부" value={`${snapshot.attachmentSummary.selectedCount}개`} />
       {snapshot.message.receivedAt ? (

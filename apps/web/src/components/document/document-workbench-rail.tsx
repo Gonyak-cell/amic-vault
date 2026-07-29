@@ -67,16 +67,12 @@ export function DocumentWorkbenchRail({
         <Button asChild className="justify-start" size="sm" type="button" variant="ghost">
           <Link href="/search">
             <Search aria-hidden="true" className="h-4 w-4" />
-            저장 검색
+            저장된 검색
           </Link>
         </Button>
       </nav>
 
-      <SavedItemsSection
-        error={savedItemError}
-        items={savedItems}
-        loading={savedItemsLoading}
-      />
+      <SavedItemsSection error={savedItemError} items={savedItems} loading={savedItemsLoading} />
 
       <section className="grid gap-3 border-t pt-4" aria-labelledby="workbench-matter-title">
         <div>
@@ -84,7 +80,7 @@ export function DocumentWorkbenchRail({
             Matter
           </h2>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            권한이 확인된 Matter를 선택하면 해당 폴더만 표시합니다.
+            접근 가능한 Matter를 선택하면 해당 폴더만 표시합니다.
           </p>
         </div>
         <MatterCodePicker

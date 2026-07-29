@@ -30,7 +30,7 @@ describe('MattersPage', () => {
     expect(html.match(/새 Matter/g)).toHaveLength(1);
     expect(html).toContain('href="/matters/new"');
     expect(html.match(/href="\/matters\/new"/g)).toHaveLength(1);
-    expect(html).toContain('Matter 관리 시스템에서 확정된 Matter code');
+    expect(html).toContain('Matter 관리 시스템에서 확정된 Matter 코드');
     expect(html).not.toContain('파일 업로드');
     expect(html).not.toContain('href="/files"');
     expect(html).not.toMatch(/>18</);
@@ -66,22 +66,22 @@ describe('MattersPage', () => {
 
   it('renders Matter-first DMS actions for real matter rows without fake counts', () => {
     const matter = matterFixture({ confidentialityLevel: 'high', ethicalWallActive: true });
-    const html = renderToStaticMarkup(
-      <MatterListTable copy={matterListCopy} matters={[matter]} />,
-    );
+    const html = renderToStaticMarkup(<MatterListTable copy={matterListCopy} matters={[matter]} />);
 
     expect(html).toContain('계약 검토');
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('한빛전자');
     expect(html).toContain('높음');
-    expect(html).toContain('Wall');
+    expect(html).toContain('정보 차단');
     expect(html).toContain('파일함');
     expect(html).toContain('검색');
     expect(html).toContain('min-w-[1140px]');
     expect(html).toContain('whitespace-nowrap');
     expect(html).toContain('href="/matters/11111111-1111-4111-8111-111111111122"');
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007"');
-    expect(html).toContain('href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter"');
+    expect(html).toContain(
+      'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter"',
+    );
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007">파일함</a>');
     expect(html).toContain(
       'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter">검색</a>',
@@ -95,7 +95,9 @@ describe('MattersPage', () => {
     const matter = matterFixture();
 
     expect(matterFileCabinetUrl(matter)).toBe('/files?matterCode=AMIC-2026-0007');
-    expect(matterSearchUrl(matter)).toBe('/search?matterCode=AMIC-2026-0007&target=all&groupBy=matter');
+    expect(matterSearchUrl(matter)).toBe(
+      '/search?matterCode=AMIC-2026-0007&target=all&groupBy=matter',
+    );
     expect(matterFileCabinetUrl(matter)).not.toContain(matter.matterId);
     expect(matterSearchUrl(matter)).not.toContain(matter.matterId);
   });

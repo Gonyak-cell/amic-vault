@@ -39,7 +39,7 @@ describe('DocumentVaultList', () => {
     expect(html).toContain('태그');
     expect(html).toContain('정렬');
     expect(html).toContain('상세 검색');
-    expect(html).toContain('0개 선택');
+    expect(html).toContain('상세 조건 · 선택 없음');
     expect(html).toContain('min-w-[220px]');
     expect(html).toContain('전체 문서를 확인하는 중입니다.');
     expect(html).not.toContain('파일 정리');

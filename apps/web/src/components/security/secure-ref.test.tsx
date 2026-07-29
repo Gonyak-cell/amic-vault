@@ -19,7 +19,7 @@ describe('SecureRef', () => {
     expect(html).not.toContain('11111111-1111');
   });
 
-  it('reveals the full ref only when explicitly allowed', () => {
+  it('reveals only a masked operational reference when explicitly allowed', () => {
     const html = renderToStaticMarkup(
       <dl>
         <SecureRef label="세션 확인 정보" reveal value={internalRef} />
@@ -28,7 +28,8 @@ describe('SecureRef', () => {
 
     expect(html).toContain('<code');
     expect(html).toContain('font-mono');
-    expect(html).toContain(internalRef);
+    expect(html).toContain('참조 ••••111111aa');
+    expect(html).not.toContain(internalRef);
   });
 
   it('uses the empty copy when no ref exists', () => {

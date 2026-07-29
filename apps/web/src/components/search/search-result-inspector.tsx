@@ -41,7 +41,7 @@ export function SearchResultInspector({
         className="h-full rounded-none border-0"
         empty={
           <p className="text-sm leading-6 text-muted-foreground">
-            결과를 선택하면 권한이 확인된 요약 정보와 명시적 작업을 표시합니다.
+            결과를 선택하면 문서 요약과 사용할 수 있는 작업이 표시됩니다.
           </p>
         }
         title="검색 결과 정보"
@@ -52,7 +52,9 @@ export function SearchResultInspector({
   const authority = String(result.resultKind) === 'authority' || Boolean(result.authorityId);
   const title = result.displayName || result.title || '제목을 표시할 수 없습니다.';
   const matterMeta = matterLabel(result);
-  const documentHref = authority ? result.sourceUrl : documentSearchHitUrlForSearchResult(result, target);
+  const documentHref = authority
+    ? result.sourceUrl
+    : documentSearchHitUrlForSearchResult(result, target);
   return (
     <DetailInspector
       actions={
@@ -94,7 +96,11 @@ export function SearchResultInspector({
         </>
       }
       className="h-full rounded-none border-0"
-      status={<StatusBadge tone={authority ? 'neutral' : 'success'}>{authority ? '공개자료' : '선택됨'}</StatusBadge>}
+      status={
+        <StatusBadge tone={authority ? 'neutral' : 'success'}>
+          {authority ? '공개자료' : '선택됨'}
+        </StatusBadge>
+      }
       title={title}
       {...(matterMeta ? { meta: matterMeta } : {})}
     >
@@ -102,8 +108,14 @@ export function SearchResultInspector({
         <DetailInspectorSection title="요약">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
             <DetailInspectorField label="Matter" value={matterLabel(result) ?? '표시 정보 없음'} />
-            <DetailInspectorField label="고객" value={result.clientDisplayName ?? '표시 정보 없음'} />
-            <DetailInspectorField label="유형" value={result.documentType ?? (authority ? '판례·법령' : '표시 정보 없음')} />
+            <DetailInspectorField
+              label="고객"
+              value={result.clientDisplayName ?? '표시 정보 없음'}
+            />
+            <DetailInspectorField
+              label="유형"
+              value={result.documentType ?? (authority ? '판례·법령' : '표시 정보 없음')}
+            />
             <DetailInspectorField label="업데이트" value={formatDate(result.updatedAt)} />
           </div>
         </DetailInspectorSection>

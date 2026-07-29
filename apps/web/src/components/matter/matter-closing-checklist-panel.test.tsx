@@ -1,7 +1,11 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { MatterClosingBinderDto, MatterClosingChecklistDto, MatterDto } from '@amic-vault/shared';
+import type {
+  MatterClosingBinderDto,
+  MatterClosingChecklistDto,
+  MatterDto,
+} from '@amic-vault/shared';
 import { MatterClosingChecklistPanelView } from './matter-closing-checklist-panel';
 
 const matter = {
@@ -104,9 +108,10 @@ describe('MatterClosingChecklistPanelView', () => {
       />,
     );
 
-    expect(html).toContain('Closing 체크리스트');
+    expect(html).toContain('종결 체크리스트');
     expect(html).toContain('활성 보존 제한이 남아 있습니다.');
-    expect(html).toContain('근거: legal_hold:active');
+    expect(html).toContain('근거: 참조 ••••ldactive');
+    expect(html).not.toContain('legal_hold:active');
     expect(html).toContain('예외 사유');
     expect(html).toContain('종료 확정');
   });
@@ -156,10 +161,10 @@ describe('MatterClosingChecklistPanelView', () => {
       />,
     );
 
-    expect(html).toContain('Closing Binder');
+    expect(html).toContain('종결 문서철');
     expect(html).toContain('체결본');
     expect(html).toContain('Execution Copy Agreement');
-    expect(html).toContain('Archive 1');
+    expect(html).toContain('보관 1건');
     expect(html).toContain('format=json');
     expect(html).toContain('format=csv');
   });

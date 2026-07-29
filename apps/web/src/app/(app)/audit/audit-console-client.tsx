@@ -12,26 +12,19 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { exportAuditEventsCsv, getAuditAnchorStatus, listAuditEvents } from '@/lib/api/audit';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { auditActionLabel } from '@/lib/audit-labels';
 import { useI18n } from '@/lib/i18n';
 
 interface FilterState {
-  actorId: string;
   action: string;
   result: string;
-  targetType: string;
-  targetId: string;
-  matterId: string;
   from: string;
   to: string;
 }
 
 const emptyFilters: FilterState = {
-  actorId: '',
   action: '',
   result: '',
-  targetType: '',
-  targetId: '',
-  matterId: '',
   from: '',
   to: '',
 };
@@ -42,12 +35,9 @@ export function AuditConsoleClient() {
     language === 'ko'
       ? {
           title: '활동 기록',
-          description:
-            '권한이 확인된 활동 기록만 조회합니다. 상세 조건은 고급 영역에서만 사용합니다.',
+          description: '접근 가능한 활동 기록을 기간, 활동, 결과 기준으로 조회합니다.',
           filterTitle: '활동 기록 필터',
           filterMeta: '운영 데이터 기준',
-          advancedFilters: '고급 감사 조건',
-          actor: '수행자',
           action: '활동',
           allActions: '모든 활동',
           result: '결과',
@@ -55,9 +45,6 @@ export function AuditConsoleClient() {
           success: '성공',
           denied: '접근 제한',
           failure: '실패',
-          targetType: '대상 유형',
-          targetId: '대상 확인 정보',
-          matterId: 'Matter 확인 정보',
           from: '시작일',
           to: '종료일',
           search: '검색',
@@ -71,19 +58,16 @@ export function AuditConsoleClient() {
           anchorUnavailable: '확인 실패',
           latestAnchor: '최근 앵커',
           anchoredEvents: '이벤트',
-          sequenceRange: 'Seq',
-          storageReceipt: '보관 영수증',
+          sequenceRange: '기록 순번',
+          storageReceipt: '보관 확인',
           stored: '있음',
           notStored: '없음',
         }
       : {
           title: 'Activity log',
-          description:
-            'Only permission-checked audit events are displayed. Internal reference filters stay in the advanced area.',
+          description: 'Review accessible activity by date, activity, and result.',
           filterTitle: 'Activity filters',
           filterMeta: 'Operational data',
-          advancedFilters: 'Advanced reference filters',
-          actor: 'Actor ref',
           action: 'Activity',
           allActions: 'All activity',
           result: 'Result',
@@ -91,9 +75,6 @@ export function AuditConsoleClient() {
           success: 'Success',
           denied: 'Access restricted',
           failure: 'Failure',
-          targetType: 'Target type',
-          targetId: 'Target ref',
-          matterId: 'Matter ref',
           from: 'From',
           to: 'To',
           search: 'Search activity',
@@ -236,7 +217,7 @@ export function AuditConsoleClient() {
               <option value="">{copy.allActions}</option>
               {auditActions.map((action) => (
                 <option key={action} value={action}>
-                  {formatAction(action)}
+                  {auditActionLabel(action, language)}
                 </option>
               ))}
             </select>
@@ -256,14 +237,6 @@ export function AuditConsoleClient() {
             </select>
           </FilterField>
 
-          <FilterField htmlFor="audit-target-type-filter" label={copy.targetType}>
-            <Input
-              id="audit-target-type-filter"
-              value={filters.targetType}
-              onChange={(event) => setFilters({ ...filters, targetType: event.target.value })}
-            />
-          </FilterField>
-
           <FilterField htmlFor="audit-from-filter" label={copy.from}>
             <Input
               id="audit-from-filter"
@@ -281,35 +254,6 @@ export function AuditConsoleClient() {
               onChange={(event) => setFilters({ ...filters, to: event.target.value })}
             />
           </FilterField>
-
-          <details className="rounded-md border bg-muted/20 p-3 sm:col-span-full">
-            <summary className="cursor-pointer text-sm font-medium text-foreground">
-              {copy.advancedFilters}
-            </summary>
-            <div className="mt-3 grid gap-3 lg:grid-cols-3">
-              <FilterField htmlFor="audit-actor-ref-filter" label={copy.actor}>
-                <Input
-                  id="audit-actor-ref-filter"
-                  value={filters.actorId}
-                  onChange={(event) => setFilters({ ...filters, actorId: event.target.value })}
-                />
-              </FilterField>
-              <FilterField htmlFor="audit-target-ref-filter" label={copy.targetId}>
-                <Input
-                  id="audit-target-ref-filter"
-                  value={filters.targetId}
-                  onChange={(event) => setFilters({ ...filters, targetId: event.target.value })}
-                />
-              </FilterField>
-              <FilterField htmlFor="audit-matter-ref-filter" label={copy.matterId}>
-                <Input
-                  id="audit-matter-ref-filter"
-                  value={filters.matterId}
-                  onChange={(event) => setFilters({ ...filters, matterId: event.target.value })}
-                />
-              </FilterField>
-            </div>
-          </details>
         </FilterBar>
       </form>
       <AuditAnchorPanel
@@ -410,9 +354,7 @@ function AuditAnchorPanel({
         <AuditAnchorFact label={copy.anchoredEvents} value={String(latest?.eventCount ?? '-')} />
         <AuditAnchorFact
           label={copy.sequenceRange}
-          value={
-            latest?.seqStart && latest.seqEnd ? `${latest.seqStart}-${latest.seqEnd}` : '-'
-          }
+          value={latest?.seqStart && latest.seqEnd ? `${latest.seqStart}-${latest.seqEnd}` : '-'}
         />
         <AuditAnchorFact
           label={copy.storageReceipt}
@@ -432,23 +374,10 @@ function AuditAnchorFact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatAction(value: string): string {
-  return value
-    .toLowerCase()
-    .split('_')
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(' ');
-}
-
 function queryFromFilters(filters: FilterState) {
   return {
-    actorId: filters.actorId.trim() || undefined,
     action: (filters.action.trim() as AuditAction) || undefined,
     result: (filters.result.trim() as 'success' | 'denied' | 'failure') || undefined,
-    targetType: filters.targetType.trim() || undefined,
-    targetId: filters.targetId.trim() || undefined,
-    matterId: filters.matterId.trim() || undefined,
     from: filters.from.trim() || undefined,
     to: filters.to.trim() || undefined,
   };

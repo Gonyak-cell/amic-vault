@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { auditActionLabel } from '@/lib/audit-labels';
 import { useI18n } from '@/lib/i18n';
 
 export interface AuditEventTableProps {
@@ -88,7 +89,9 @@ export function AuditEventTable({
             onSelect={onSelectEvent ? () => onSelectEvent(event) : undefined}
           >
             <DataTableCell className="font-mono text-xs">{event.createdAt}</DataTableCell>
-            <DataTableCell className="font-medium">{formatAction(event.action)}</DataTableCell>
+            <DataTableCell className="font-medium">
+              {auditActionLabel(event.action, language)}
+            </DataTableCell>
             <DataTableCell className="text-xs">
               {event.actorType === 'system'
                 ? copy.systemActor
@@ -129,13 +132,4 @@ function labelForResult(
   if (result === 'success') return copy.success;
   if (result === 'denied') return copy.denied;
   return copy.failure;
-}
-
-function formatAction(value: string): string {
-  return value
-    .toLowerCase()
-    .split('_')
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(' ');
 }

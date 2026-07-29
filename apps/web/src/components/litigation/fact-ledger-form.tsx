@@ -117,7 +117,7 @@ export function FactLedgerForm({
         },
       });
     } catch {
-      setError('Fact를 등록할 수 없습니다.');
+      setError('사실관계를 등록할 수 없습니다.');
     } finally {
       setBusy(false);
     }
@@ -134,7 +134,7 @@ export function FactLedgerForm({
         onSubmitted: onChanged,
       });
     } catch {
-      setError('Fact 상태를 변경할 수 없습니다.');
+      setError('사실관계 상태를 변경할 수 없습니다.');
     } finally {
       setBusy(false);
     }
@@ -142,14 +142,14 @@ export function FactLedgerForm({
 
   return (
     <section className="grid gap-3 rounded-md border p-4">
-      <h2 className="text-base font-semibold">Fact Ledger</h2>
+      <h2 className="text-base font-semibold">사실관계 원장</h2>
       <form className="grid gap-3 lg:grid-cols-[132px_1fr_148px_148px_auto]" onSubmit={submit}>
         <input
           className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={state.factCode}
           disabled={busy}
           placeholder="사실 코드"
-          aria-label="Fact 코드"
+          aria-label="사실관계 코드"
           onChange={(event) =>
             setState((current) => ({ ...current, factCode: event.target.value }))
           }

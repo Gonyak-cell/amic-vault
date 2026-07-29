@@ -52,7 +52,8 @@ describe('AppShell', () => {
     expect(html).toContain('정책 관리');
     expect(html).not.toContain('거버넌스');
     expect(html).toContain('접근 기록');
-    expect(html).toContain('정보 차단');
+    expect(html).not.toContain('정보 차단');
+    expect(html).not.toContain('href="/walls"');
     expect(html).toContain('관리자 설정');
     expect(html).toContain('href="/clients"');
     expect(html).toContain('고객');

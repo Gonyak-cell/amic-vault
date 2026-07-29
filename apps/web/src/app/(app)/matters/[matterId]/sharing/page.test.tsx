@@ -17,7 +17,11 @@ import {
   isExternalDlpWarningRequired,
   externalDlpOverrideReasonCode,
 } from '@/components/external/link-issuance-dialog';
-import { ExternalSharingClient, type ExternalSharingApi } from './sharing-client';
+import {
+  ExternalSharingClient,
+  hashRecipientEmail,
+  type ExternalSharingApi,
+} from './sharing-client';
 
 const matterId = '11111111-1111-4111-8111-111111111122';
 const workspaceId = '11111111-1111-4111-8111-111111111123';
@@ -45,8 +49,10 @@ describe('Matter sharing page', () => {
     expect(html).toContain('링크');
     expect(html).toContain('Q&amp;A 인박스');
     expect(html).toContain('Clean Room');
-    expect(html).toContain('Recipient Ref');
-    expect(html).toContain(documentId);
+    expect(html).toContain('홍길동');
+    expect(html).not.toContain('Recipient Ref');
+    expect(html).not.toContain(documentId);
+    expect(html).not.toContain(hash);
     expect(html).toContain('회수');
     expect(html).not.toContain('x'.repeat(43));
   });
@@ -110,7 +116,7 @@ describe('Matter sharing page', () => {
     const user = await api.createUser({
       workspaceId: workspace.workspaceId,
       emailHash: hash,
-      displayRef: 'Recipient Ref',
+      displayRef: '홍길동',
     });
     const link = await api.createLink({
       workspaceId: workspace.workspaceId,
@@ -128,6 +134,12 @@ describe('Matter sharing page', () => {
     expect(link.link.documentId).toBe(documentId);
     expect(revoked.status).toBe('revoked');
   });
+
+  it('normalizes and hashes recipient email locally before API submission', async () => {
+    await expect(hashRecipientEmail(' Test@Example.COM ')).resolves.toBe(
+      '973dfe463ec85785f5f95af5ba3906eedb2d931c24e69824a89ea65dba4e813b',
+    );
+  });
 });
 
 function apiFixture(): ExternalSharingApi {
@@ -139,7 +151,11 @@ function apiFixture(): ExternalSharingApi {
     getMatter: async () => matterFixture(),
     listQa: async () => ({ messages: [questionFixture()] }),
     listWorkspaces: async () => ({ workspaces: [workspaceFixture()] }),
-    reviewAnswer: async () => ({ ...answerFixture(), status: 'published', reviewedAt: '2026-06-01T00:05:00.000Z' }),
+    reviewAnswer: async () => ({
+      ...answerFixture(),
+      status: 'published',
+      reviewedAt: '2026-06-01T00:05:00.000Z',
+    }),
     revokeLink: async () => ({ ...linkFixture(), status: 'revoked' }),
   };
 }
@@ -189,7 +205,7 @@ function userFixture(): ExternalUserDto {
   return {
     externalUserId,
     emailHash: hash,
-    displayRef: 'Recipient Ref',
+    displayRef: '홍길동',
     status: 'active',
     workspaceId,
     createdAt: '2026-06-01T00:00:00.000Z',

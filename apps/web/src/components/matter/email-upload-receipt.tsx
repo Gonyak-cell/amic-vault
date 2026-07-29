@@ -68,7 +68,9 @@ export function EmailUploadReceipt({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate font-medium">{option.matterCode}</span>
-                  {option.currentMatter ? <StatusBadge tone="neutral">현재 Matter</StatusBadge> : null}
+                  {option.currentMatter ? (
+                    <StatusBadge tone="neutral">현재 Matter</StatusBadge>
+                  ) : null}
                   {option.confidenceBand ? (
                     <StatusBadge tone={suggestionBandTone(option.confidenceBand)}>
                       {suggestionBandLabel(option.confidenceBand)}
@@ -176,7 +178,7 @@ export function emailParseStatusLabel(result: UploadEmailToMatterResponseDto): s
   if (result.email.parser === 'msg' || result.email.parseStatus === 'pending_unsupported') {
     return 'MSG 파싱 대기';
   }
-  if (result.email.parseStatus === 'failed') return '메타데이터 확인 필요';
+  if (result.email.parseStatus === 'failed') return '이메일 정보 확인 필요';
   return null;
 }
 

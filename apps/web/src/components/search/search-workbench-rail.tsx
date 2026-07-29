@@ -12,10 +12,7 @@ import type {
 import { SavedItemsSection } from '@/components/saved-item/saved-items-section';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
-import {
-  privateSavedSearchUrl,
-  savedSearchSummary,
-} from './search-save-panel';
+import { privateSavedSearchUrl, savedSearchSummary } from './search-save-panel';
 
 export type SearchRecentFilesState =
   | { status: 'loading' }
@@ -43,7 +40,7 @@ export interface SearchWorkbenchRailProps {
 const scopeLabels = {
   personal: '개인',
   'matter-team': 'Matter 팀',
-  'admin-shared': '관리자 공유',
+  'admin-shared': '조직과 공유',
 } as const;
 
 export function SearchWorkbenchRail({
@@ -67,9 +64,15 @@ export function SearchWorkbenchRail({
       <div className="border-b p-3">
         <Button className="w-full justify-start" onClick={onSave} size="sm" type="button">
           <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
-          현재 검색 저장
+          검색 조건 저장
         </Button>
-        <Button asChild className="mt-2 w-full justify-start" size="sm" type="button" variant="ghost">
+        <Button
+          asChild
+          className="mt-2 w-full justify-start"
+          size="sm"
+          type="button"
+          variant="ghost"
+        >
           <Link href="/search/folders">
             <FolderSearch className="h-4 w-4" aria-hidden="true" />
             검색 폴더 관리
@@ -89,7 +92,9 @@ export function SearchWorkbenchRail({
           return (
             <section className="border-b px-3 py-3" key={scope}>
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-xs font-semibold text-muted-foreground">{scopeLabels[scope]}</h2>
+                <h2 className="text-xs font-semibold text-muted-foreground">
+                  {scopeLabels[scope]}
+                </h2>
                 {items.length > 0 ? <StatusBadge tone="neutral">{items.length}</StatusBadge> : null}
               </div>
               {items.length > 0 ? (
@@ -102,7 +107,9 @@ export function SearchWorkbenchRail({
                         onClick={() => onOpen(savedSearch)}
                         type="button"
                       >
-                        <span className="block truncate text-sm font-semibold">{savedSearch.name}</span>
+                        <span className="block truncate text-sm font-semibold">
+                          {savedSearch.name}
+                        </span>
                         <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                           {savedSearchSummary(savedSearch.query)}
                         </span>
@@ -116,9 +123,7 @@ export function SearchWorkbenchRail({
                                 : '즐겨찾기 추가'
                             }`}
                             aria-pressed={savedSearchIsFavorite(savedSearch.savedSearchId)}
-                            disabled={
-                              busy || savedSearchToggleBusy(savedSearch.savedSearchId)
-                            }
+                            disabled={busy || savedSearchToggleBusy(savedSearch.savedSearchId)}
                             onClick={() => onToggleSavedSearch(savedSearch)}
                             size="sm"
                             type="button"
@@ -212,7 +217,10 @@ function RecentFiles({ state }: { state: SearchRecentFilesState }) {
           ))}
         </ul>
       ) : null}
-      <Link className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline" href="/files">
+      <Link
+        className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline"
+        href="/files"
+      >
         문서함 열기
       </Link>
     </section>

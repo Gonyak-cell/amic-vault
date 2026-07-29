@@ -60,13 +60,14 @@ describe('ContractAiReviewPanel', () => {
     );
 
     expect(html).toContain('계약 1차 검토');
-    expect(html).toContain('Rule violations');
+    expect(html).toContain('기준 위반');
     expect(html).toContain('rule.finding.missing_governing_law');
     expect(html).toContain('AI 소견');
     expect(html).toContain('리스크 추출');
     expect(html).toContain('ai.contract.risk.indemnity_scope');
     expect(html).toContain('손해배상 범위가 상대방 초안');
-    expect(html).toContain('claim:11111111-1111-4111-8111-111111111235');
+    expect(html).toContain('참조 ••••11111235');
+    expect(html).not.toContain('claim:11111111-1111-4111-8111-111111111235');
     expect(html).toContain('검토 완료');
     expect(html).not.toContain('disabled=""');
   });
@@ -76,7 +77,7 @@ describe('ContractAiReviewPanel', () => {
       <ContractAiReviewPanel aiReviewFindings={[]} ruleFindings={[]} />,
     );
 
-    expect(html).toContain('표시할 rule violation이 없습니다.');
+    expect(html).toContain('표시할 기준 위반이 없습니다.');
     expect(html).toContain('AI 소견이 없습니다.');
   });
 });

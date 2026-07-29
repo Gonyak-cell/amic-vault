@@ -11,7 +11,6 @@ import {
   MailCheck,
   Search,
   Settings,
-  Shield,
   type LucideIcon,
 } from 'lucide-react';
 import type { UserRole } from '@amic-vault/shared';
@@ -84,11 +83,6 @@ const routeNavigation = {
     group: 'Audit',
     icon: History,
     labelKey: 'nav.audit',
-  },
-  '/walls': {
-    group: 'Security',
-    icon: Shield,
-    labelKey: 'nav.walls',
   },
   '/admin': {
     group: 'Admin',

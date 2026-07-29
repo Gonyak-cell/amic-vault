@@ -108,9 +108,11 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
       <PageHeader
         breadcrumbs={['문서 보관', 'Matter', title]}
         title={title}
-        description="권한이 확인된 팀원과 접근 설정만 표시됩니다."
+        description="Matter 팀원과 접근 설정을 표시합니다."
       />
-      {listError && !loaded ? <EmptyState variant="api-error" title="팀 정보를 표시할 수 없습니다." /> : null}
+      {listError && !loaded ? (
+        <EmptyState variant="api-error" title="팀 정보를 표시할 수 없습니다." />
+      ) : null}
       {canManage ? (
         <AddMemberDialog
           disabled={!loaded || Boolean(busyUserId) || addBusy}

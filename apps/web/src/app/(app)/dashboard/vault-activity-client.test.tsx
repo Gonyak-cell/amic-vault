@@ -7,7 +7,7 @@ describe('VaultActivityClient', () => {
   it('renders a real-data-only dashboard without mock activity details', () => {
     const html = renderToStaticMarkup(<VaultActivityClient />);
 
-    expect(html).toContain('권한이 확인된 실제 파일과 활동만 표시됩니다.');
+    expect(html).toContain('접근 가능한 문서와 최근 활동을 표시합니다.');
     expect(html).toContain('문서 업무 바로가기');
     expect(html).toContain('Matter 문서 업로드');
     expect(html).toContain('전체 문서함');
@@ -34,7 +34,7 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('문서 정리 준비');
     expect(html).toContain('연동 상태');
     expect(html).toContain('운영 데이터 연결 상태');
-    expect(html).toContain('운영 데이터 연결 대기 중입니다.');
+    expect(html).toContain('데이터를 불러오는 중입니다.');
     expect(html).toContain('실제 운영 데이터에서 발생한 작업만 표시됩니다.');
     expect(html).not.toContain('계약 검토 자료실');
     expect(html).not.toContain('새 파일이 추가됨');

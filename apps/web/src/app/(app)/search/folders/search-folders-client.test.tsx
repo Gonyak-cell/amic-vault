@@ -1,10 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import {
-  SearchFoldersContent,
-  searchUrlForSavedQuery,
-} from './search-folders-client';
+import { SearchFoldersContent, searchUrlForSavedQuery } from './search-folders-client';
 
 describe('SearchFoldersContent', () => {
   it('renders saved searches as search folders without exposing raw folder ids', () => {
@@ -45,9 +42,9 @@ describe('SearchFoldersContent', () => {
 
     expect(html).toContain('내 검색 폴더');
     expect(html).toContain('NDA 본문 폴더');
-    expect(html).toContain('관리자 공유');
+    expect(html).toContain('조직과 공유');
     expect(html).toContain('7회');
-    expect(html).toContain('Matter code');
+    expect(html).toContain('Matter 코드');
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('고객');
     expect(html).toContain('AMIC');

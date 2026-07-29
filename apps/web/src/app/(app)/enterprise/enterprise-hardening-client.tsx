@@ -208,7 +208,7 @@ const enterpriseCopy: Record<
     mfa: '추가 인증',
     mfaMeta: '세션 보안 정책',
     byok: '고객 관리 키',
-    byokMeta: '키 확인 상태',
+    byokMeta: '암호화 키 검토 상태',
     siem: '보안 관제',
     siemMeta: '감사 이벤트 내보내기',
     backup: '백업',

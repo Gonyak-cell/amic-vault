@@ -75,7 +75,7 @@ export default function MatterLitigationPage({ params }: { params: { matterId: s
       <PageHeader
         breadcrumbs={['문서 보관', 'Matter', '송무']}
         title="송무"
-        description="Fact Ledger · Case map"
+        description="사실관계 원장 · 사건 지도"
       />
 
       <MatterWorkstreamTabs matterId={params.matterId} active="litigation" />

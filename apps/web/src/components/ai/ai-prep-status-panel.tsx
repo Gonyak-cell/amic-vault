@@ -28,7 +28,7 @@ const statusLabel: Record<AiPrepDocumentReadinessStatus, string> = {
 
 const statusHelp: Record<AiPrepDocumentReadinessStatus, string> = {
   not_ready: '이 버전은 아직 파일 정리가 시작되지 않았습니다.',
-  pending: '권한 확인 후 파일 정리가 진행 중입니다.',
+  pending: '문서 정리가 진행 중입니다.',
   ready: '파일 정리 결과가 준비되었습니다.',
   partial: '일부 파일 정리 결과만 준비되었습니다.',
   blocked: '권한 또는 정보 차단 정책으로 파일 정리가 제한되었습니다.',
@@ -144,7 +144,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
       aria-label="파일 정리 상태"
       icon={<FileText className="h-4 w-4" />}
       title="파일 정리"
-      meta="권한 확인된 파일 정보만 표시"
+      meta="접근 가능한 문서 정보"
       actions={
         <StatusBadge tone={documentStatusTone(status.readinessStatus)}>
           {statusLabel[status.readinessStatus]}
@@ -190,7 +190,7 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                     <p className="text-sm text-muted-foreground">{content.text}</p>
                     <p className="text-xs text-muted-foreground">
                       {content.sourceRefs.length > 0
-                        ? '권한 확인된 파일 정보로 정리됨'
+                        ? '문서 정보 정리 완료'
                         : '표시 가능한 근거 없음'}
                     </p>
                   </div>

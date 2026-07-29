@@ -28,6 +28,7 @@ import type {
   ReviewExternalAnswerRequestDto,
 } from '@amic-vault/shared';
 import { LinkIssuanceDialog } from '@/components/external/link-issuance-dialog';
+import { maskInternalReference } from '@/components/security/secure-ref';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
@@ -102,6 +103,27 @@ const qaVisibilityLabels = {
   asker_only: '질문자 한정',
   workspace: '워크스페이스 전체',
 } as const;
+
+const linkStatusLabels = {
+  active: '사용 중',
+  expired: '만료됨',
+  revoked: '회수됨',
+} as const satisfies Record<ExternalLinkDto['status'], string>;
+
+const dlpWarningStatusLabels = {
+  accepted: 'DLP 경고 확인',
+  not_required: 'DLP 확인 완료',
+  required: 'DLP 확인 필요',
+} as const satisfies Record<ExternalLinkDto['dlpWarningStatus'], string>;
+
+export async function hashRecipientEmail(email: string): Promise<string> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const digest = await globalThis.crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(normalizedEmail),
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
 
 function futureLocalDateTime(days: number): string {
   const date = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
@@ -185,7 +207,9 @@ export function ExternalSharingClient({
 }) {
   const [matter, setMatter] = useState<MatterDto | null>(initialMatter);
   const [workspaces, setWorkspaces] = useState<ExternalManagementWorkspaceDto[]>(initialWorkspaces);
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(initialWorkspaces[0]?.workspaceId ?? '');
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(
+    initialWorkspaces[0]?.workspaceId ?? '',
+  );
   const [qaMessages, setQaMessages] = useState<ExternalQaMessageDto[]>([]);
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [answerScopes, setAnswerScopes] = useState<Record<string, AnswerVisibilityScope>>({});
@@ -195,11 +219,14 @@ export function ExternalSharingClient({
   const [workspaceCode, setWorkspaceCode] = useState('');
   const [workspaceDisplayRef, setWorkspaceDisplayRef] = useState('');
   const [workspaceExpiresAt, setWorkspaceExpiresAt] = useState(futureLocalDateTime(14));
-  const [emailHash, setEmailHash] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [displayRef, setDisplayRef] = useState('');
 
   const selectedWorkspace = useMemo(
-    () => workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ?? workspaces[0] ?? null,
+    () =>
+      workspaces.find((workspace) => workspace.workspaceId === selectedWorkspaceId) ??
+      workspaces[0] ??
+      null,
     [selectedWorkspaceId, workspaces],
   );
   const matterOption = matter ? toMatterCodeOption(matter, matterAppSourceMode()) : null;
@@ -208,7 +235,10 @@ export function ExternalSharingClient({
     const grouped = new Map<string, ExternalQaMessageDto[]>();
     for (const message of qaMessages) {
       if (message.direction !== 'internal_answer' || !message.parentMessageId) continue;
-      grouped.set(message.parentMessageId, [...(grouped.get(message.parentMessageId) ?? []), message]);
+      grouped.set(message.parentMessageId, [
+        ...(grouped.get(message.parentMessageId) ?? []),
+        message,
+      ]);
     }
     return grouped;
   }, [qaMessages]);
@@ -293,17 +323,17 @@ export function ExternalSharingClient({
 
   async function submitUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || !selectedWorkspace || !emailHash.trim()) return;
+    if (busy || !selectedWorkspace || !recipientEmail.trim()) return;
     setBusy(true);
     setErrorMessage(null);
     try {
       const user = await api.createUser({
         workspaceId: selectedWorkspace.workspaceId,
-        emailHash: emailHash.trim().toLowerCase(),
+        emailHash: await hashRecipientEmail(recipientEmail),
         ...(displayRef.trim() ? { displayRef: displayRef.trim() } : {}),
       });
       setWorkspaces((current) => addUserToWorkspace(current, user));
-      setEmailHash('');
+      setRecipientEmail('');
       setDisplayRef('');
     } catch (caught) {
       setErrorMessage(safeApiErrorMessage(caught));
@@ -373,14 +403,22 @@ export function ExternalSharingClient({
           ? { description: [matter.matterCode, matter.safeLabel ?? matter.matterName].join(' · ') }
           : {})}
         actions={
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={refreshWorkspaces}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={refreshWorkspaces}
+          >
             <RefreshCw className="h-4 w-4" />
             새로고침
           </Button>
         }
       />
 
-      {loadState === 'loading' ? <EmptyState variant="api-unavailable" title="외부 공유를 불러오는 중입니다." /> : null}
+      {loadState === 'loading' ? (
+        <EmptyState variant="api-unavailable" title="외부 공유를 불러오는 중입니다." />
+      ) : null}
       {loadState === 'error' ? (
         <EmptyState
           variant="api-error"
@@ -391,19 +429,23 @@ export function ExternalSharingClient({
 
       {loadState !== 'error' ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(18rem,22rem)_1fr]">
-          <SectionCard icon={<Share2 className="h-4 w-4" />} title="워크스페이스" meta="Matter 외부 공유">
+          <SectionCard
+            icon={<Share2 className="h-4 w-4" />}
+            title="워크스페이스"
+            meta="Matter 외부 공유"
+          >
             <form className="grid gap-3" onSubmit={submitWorkspace}>
               <Input
                 aria-label="워크스페이스 코드"
                 disabled={busy}
-                placeholder="EXT-ROOM"
+                placeholder="예: 고객자료실"
                 value={workspaceCode}
                 onChange={(event) => setWorkspaceCode(event.target.value)}
               />
               <Input
                 aria-label="워크스페이스 표시명"
                 disabled={busy}
-                placeholder="Client Clean Room"
+                placeholder="예: 계약 검토 자료실"
                 value={workspaceDisplayRef}
                 onChange={(event) => setWorkspaceDisplayRef(event.target.value)}
               />
@@ -414,7 +456,10 @@ export function ExternalSharingClient({
                 value={workspaceExpiresAt}
                 onChange={(event) => setWorkspaceExpiresAt(event.target.value)}
               />
-              <Button type="submit" disabled={busy || !workspaceCode.trim() || !workspaceDisplayRef.trim()}>
+              <Button
+                type="submit"
+                disabled={busy || !workspaceCode.trim() || !workspaceDisplayRef.trim()}
+              >
                 <Share2 className="h-4 w-4" />
                 워크스페이스 생성
               </Button>
@@ -426,15 +471,21 @@ export function ExternalSharingClient({
                   key={workspace.workspaceId}
                   type="button"
                   className={`rounded-md border px-3 py-2 text-left text-sm ${
-                    selectedWorkspace?.workspaceId === workspace.workspaceId ? 'border-primary bg-primary/5' : 'bg-background'
+                    selectedWorkspace?.workspaceId === workspace.workspaceId
+                      ? 'border-primary bg-primary/5'
+                      : 'bg-background'
                   }`}
                   onClick={() => setSelectedWorkspaceId(workspace.workspaceId)}
                 >
                   <span className="block truncate font-medium">{workspace.displayRef}</span>
-                  <span className="mt-1 block text-xs text-muted-foreground">{workspace.workspaceCode}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {workspace.workspaceCode}
+                  </span>
                 </button>
               ))}
-              {workspaces.length === 0 ? <p className="text-sm text-muted-foreground">등록된 워크스페이스가 없습니다.</p> : null}
+              {workspaces.length === 0 ? (
+                <p className="text-sm text-muted-foreground">등록된 워크스페이스가 없습니다.</p>
+              ) : null}
             </div>
           </SectionCard>
 
@@ -444,30 +495,40 @@ export function ExternalSharingClient({
               title="외부 사용자"
               meta={selectedWorkspace?.displayRef ?? '워크스페이스 선택'}
             >
-              <form className="grid gap-3 md:grid-cols-[minmax(18rem,1fr)_minmax(12rem,1fr)_auto]" onSubmit={submitUser}>
+              <form
+                className="grid gap-3 md:grid-cols-[minmax(18rem,1fr)_minmax(12rem,1fr)_auto]"
+                onSubmit={submitUser}
+              >
                 <Input
-                  aria-label="수신자 email hash"
+                  aria-label="수신자 이메일"
                   disabled={busy || !selectedWorkspace}
-                  placeholder="64자 email hash"
-                  value={emailHash}
-                  onChange={(event) => setEmailHash(event.target.value)}
+                  placeholder="name@example.com"
+                  type="email"
+                  value={recipientEmail}
+                  onChange={(event) => setRecipientEmail(event.target.value)}
                 />
                 <Input
                   aria-label="수신자 표시명"
                   disabled={busy || !selectedWorkspace}
-                  placeholder="Recipient Ref"
+                  placeholder="예: 홍길동"
                   value={displayRef}
                   onChange={(event) => setDisplayRef(event.target.value)}
                 />
-                <Button type="submit" disabled={busy || !selectedWorkspace || !emailHash.trim()}>
+                <Button
+                  type="submit"
+                  disabled={busy || !selectedWorkspace || !recipientEmail.trim()}
+                >
                   <UserPlus className="h-4 w-4" />
                   초대
                 </Button>
               </form>
               <div className="mt-3 flex flex-wrap gap-2">
                 {(selectedWorkspace?.users ?? []).map((user) => (
-                  <StatusBadge key={user.externalUserId} tone={user.status === 'active' ? 'success' : 'neutral'}>
-                    {user.displayRef ?? user.emailHash.slice(0, 12)}
+                  <StatusBadge
+                    key={user.externalUserId}
+                    tone={user.status === 'active' ? 'success' : 'neutral'}
+                  >
+                    {user.displayRef ?? '이름 미등록'}
                   </StatusBadge>
                 ))}
               </div>
@@ -479,14 +540,24 @@ export function ExternalSharingClient({
                 matterOption={matterOption}
                 workspace={selectedWorkspace}
                 onCreateLink={api.createLink}
-                onCreated={(created) => setWorkspaces((current) => addLinkToWorkspace(current, created.link))}
+                onCreated={(created) =>
+                  setWorkspaces((current) => addLinkToWorkspace(current, created.link))
+                }
               />
               <div className="mt-4 grid gap-2">
                 {(selectedWorkspace?.links ?? []).map((item) => (
-                  <div key={item.linkId} className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2">
+                  <div
+                    key={item.linkId}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2"
+                  >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{item.documentId}</p>
-                      <p className="text-xs text-muted-foreground">{item.status} · {item.dlpWarningStatus}</p>
+                      <p className="truncate text-sm font-medium">
+                        문서 링크 · {maskInternalReference(item.linkId)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {linkStatusLabels[item.status]} ·{' '}
+                        {dlpWarningStatusLabels[item.dlpWarningStatus]}
+                      </p>
                     </div>
                     <Button
                       type="button"
@@ -511,21 +582,45 @@ export function ExternalSharingClient({
                       <StatusBadge tone="neutral">질문</StatusBadge>
                     </div>
                     {(answersByParent.get(message.messageId) ?? []).map((answer) => (
-                      <div key={answer.messageId} className="grid gap-2 rounded-md border bg-muted/30 px-3 py-2">
+                      <div
+                        key={answer.messageId}
+                        className="grid gap-2 rounded-md border bg-muted/30 px-3 py-2"
+                      >
                         <div className="flex flex-wrap items-center gap-2">
-                          <StatusBadge tone={answer.status === 'published' ? 'success' : answer.status === 'rejected' ? 'blocked' : 'warning'}>
+                          <StatusBadge
+                            tone={
+                              answer.status === 'published'
+                                ? 'success'
+                                : answer.status === 'rejected'
+                                  ? 'blocked'
+                                  : 'warning'
+                            }
+                          >
                             {qaStatusLabels[answer.status]}
                           </StatusBadge>
-                          <StatusBadge tone="neutral">{qaVisibilityLabels[answer.visibilityScope]}</StatusBadge>
+                          <StatusBadge tone="neutral">
+                            {qaVisibilityLabels[answer.visibilityScope]}
+                          </StatusBadge>
                         </div>
                         <p className="text-sm text-muted-foreground">{answer.messageText}</p>
                         {answer.status === 'pending_approval' ? (
                           <div className="flex flex-wrap gap-2">
-                            <Button type="button" size="sm" disabled={busy} onClick={() => reviewAnswer(answer, 'approve')}>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => reviewAnswer(answer, 'approve')}
+                            >
                               <CheckCircle2 className="h-4 w-4" />
                               승인
                             </Button>
-                            <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => reviewAnswer(answer, 'reject')}>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => reviewAnswer(answer, 'reject')}
+                            >
                               <XCircle className="h-4 w-4" />
                               반려
                             </Button>
@@ -571,7 +666,9 @@ export function ExternalSharingClient({
                     </div>
                   </div>
                 ))}
-                {questions.length === 0 ? <p className="text-sm text-muted-foreground">대기 중인 질문이 없습니다.</p> : null}
+                {questions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">대기 중인 질문이 없습니다.</p>
+                ) : null}
               </div>
             </SectionCard>
           </div>

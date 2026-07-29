@@ -43,7 +43,7 @@ const addMemberCopy: Record<Language, AddMemberCopy> = {
   ko: {
     userRef: '구성원 계정',
     title: '구성원 추가',
-    description: '권한이 확인된 조직 디렉터리에서 표시 가능한 사용자만 선택할 수 있습니다.',
+    description: '조직 디렉터리에서 선택 가능한 사용자만 표시됩니다.',
     selected: '선택된 구성원',
     advancedTitle: '관리자용 사용자 직접 입력',
     advancedDescription: '조직 디렉터리에서 찾을 수 없고 승인된 경우에만 사용합니다.',
@@ -65,10 +65,12 @@ const addMemberCopy: Record<Language, AddMemberCopy> = {
   en: {
     userRef: 'Approved user reference',
     title: 'Add member',
-    description: 'Only display-safe users from the permission-scoped organization directory can be selected.',
+    description:
+      'Only display-safe users from the permission-scoped organization directory can be selected.',
     selected: 'Selected member',
     advancedTitle: 'Advanced user reference input',
-    advancedDescription: 'Only approved access administrators can enter an internal user reference directly.',
+    advancedDescription:
+      'Only approved access administrators can enter an internal user reference directly.',
     role: 'Role',
     access: 'Access',
     add: 'Add member',

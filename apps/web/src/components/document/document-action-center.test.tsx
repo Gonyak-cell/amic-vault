@@ -535,7 +535,7 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('2건');
     expect(html).toContain('Side Letter');
     expect(html).toContain('Due Diligence Memo');
-    expect(html).toContain('동일 Matter에서 권한이 확인된 문서');
+    expect(html).toContain('동일 Matter의 관련 문서');
     expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111202"');
     expect(html).toContain('관련 이메일');
     expect(html).toContain('closing-checklist.pdf');
@@ -599,9 +599,7 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('조항 리스크');
     expect(html).toContain('금지 조항 가능성이 있는 문구입니다.');
     expect(html).toContain('인용 1');
-    expect(html).toContain(
-      'href="/documents/11111111-1111-4111-8111-111111111201?chunk=1"',
-    );
+    expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111201?chunk=1"');
     expect(html).not.toContain(clauseAnalysis.sessionId);
     expect(html).not.toContain(clauseAnalysis.evidencePackId);
   });
@@ -624,9 +622,7 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('요청사항과 기한');
     expect(html).toContain('금요일까지 계약서 회신 요청이 확인됩니다.');
     expect(html).toContain('기한 확인: 금요일 회신 기한');
-    expect(html).toContain(
-      'href="/documents/11111111-1111-4111-8111-111111111204?chunk=1"',
-    );
+    expect(html).toContain('href="/documents/11111111-1111-4111-8111-111111111204?chunk=1"');
     expect(html).not.toContain(emailThreadSummary.sessionId);
     expect(html).not.toContain(emailThreadSummary.evidencePackId);
   });
@@ -686,7 +682,7 @@ describe('DocumentActionCenter', () => {
       <DocumentActionCenter disableInitialLoad documentId={document.documentId} />,
     );
 
-    expect(html).toContain('표시 가능한 제목 없음');
+    expect(html).toContain('제목 없음');
     expect(html).not.toContain(document.documentId);
     expect(html).not.toContain(document.matterId);
   });
@@ -729,19 +725,23 @@ describe('DocumentActionCenter', () => {
         document,
         editIntent: { source: 'link' },
         editPackage: {
-          baseFileUrl: '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/base-file',
+          baseFileUrl:
+            '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/base-file',
           baseVersionId: currentVersion.versionId,
           baseVersionNo: 2,
           canOpenInVaultEditor: true,
-          checkInUrl: '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/check-in',
+          checkInUrl:
+            '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/check-in',
           documentId: document.documentId,
           editSessionId: activeEditSession.editSessionId,
           expiresAt: activeEditSession.expiresAt,
           filename: 'draft.md',
           mimeType: 'text/markdown',
           mode: 'vault_text',
-          nativeDraftUrl: '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/native-draft',
-          saveSubversionUrl: '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/subversions',
+          nativeDraftUrl:
+            '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/native-draft',
+          saveSubversionUrl:
+            '/v1/documents/11111111-1111-4111-8111-111111111201/edit-sessions/11111111-1111-4111-8111-111111111801/subversions',
           sha256: 'text-hash',
           sizeBytes: 32,
         },
@@ -769,10 +769,9 @@ describe('DocumentActionCenter', () => {
   });
 
   it('derives related Matter documents without echoing the current document row', () => {
-    expect(relatedMatterDocuments(relatedDocuments, document.documentId).map((item) => item.title)).toEqual([
-      'Side Letter',
-      'Due Diligence Memo',
-    ]);
+    expect(
+      relatedMatterDocuments(relatedDocuments, document.documentId).map((item) => item.title),
+    ).toEqual(['Side Letter', 'Due Diligence Memo']);
     expect(relatedMatterDocuments(relatedDocuments, document.documentId, 1)).toHaveLength(1);
   });
 
@@ -815,8 +814,8 @@ describe('DocumentActionCenter', () => {
     expect(html).toContain('검색 결과 문맥');
     expect(html).toContain('본문');
     expect(html).toContain('1 / 2');
-    expect(html).toContain('hit 1/2');
-    expect(html).toContain('다음 hit');
+    expect(html).toContain('검색 결과 1/2');
+    expect(html).toContain('다음 검색 결과');
     expect(html).toContain(
       'href="/documents/11111111-1111-4111-8111-111111111201?from=search&amp;target=body&amp;hit=2&amp;hitCount=2"',
     );

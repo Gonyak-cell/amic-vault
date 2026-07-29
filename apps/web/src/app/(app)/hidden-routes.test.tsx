@@ -32,7 +32,7 @@ describe('hidden production routes', () => {
       ),
     ].join('\n');
 
-    expect(html).toContain('운영 노출 차단');
+    expect(html).toContain('사용 제한');
     expect(html).toContain('이 화면은 표시할 수 없습니다.');
   });
 

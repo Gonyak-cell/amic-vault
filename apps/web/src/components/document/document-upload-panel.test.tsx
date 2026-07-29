@@ -64,7 +64,7 @@ describe('DocumentUploadPanel', () => {
       <DocumentUploadPanel selectedMatter={null} sourceMode="matter_app_api" />,
     );
 
-    expect(html).toContain('Matter code를 먼저 선택해 주세요.');
+    expect(html).toContain('Matter 코드를 먼저 선택해 주세요.');
     expect(html).not.toContain('type="file"');
     expect(html).not.toContain('Matter ID');
   });
@@ -126,7 +126,10 @@ describe('DocumentUploadPanel', () => {
   });
 
   it('keeps folder drag/drop and batch sourceRelativePaths wired in the upload surface', () => {
-    const source = readFileSync(fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'), 'utf8');
+    const source = readFileSync(
+      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
+      'utf8',
+    );
 
     expect(source).toContain('webkitdirectory');
     expect(source).toContain('webkitGetAsEntry');
@@ -268,9 +271,9 @@ describe('DocumentUploadPanel', () => {
     );
     expect(bulkUploadStatusMessage(0, 2)).toBe('2개 업로드 실패. 실패 항목을 확인해 주세요.');
     expect(bulkUploadStatusMessage(0, 0, 1)).toBe('1개 보안 검사 대기 중입니다.');
-    expect(
-      quarantinedIntakeStatusMessage(),
-    ).toBe('보안 검사가 완료될 때까지 문서함에 표시되지 않습니다.');
+    expect(quarantinedIntakeStatusMessage()).toBe(
+      '보안 검사가 완료될 때까지 문서함에 표시되지 않습니다.',
+    );
   });
 
   it('summarizes server batch status and renders retry controls', () => {
@@ -289,9 +292,7 @@ describe('DocumentUploadPanel', () => {
       items: [],
     };
 
-    expect(batchUploadStatusMessage(batch)).toBe(
-      '1개 완료, 1개 실패, 1개 중복 확인 필요.',
-    );
+    expect(batchUploadStatusMessage(batch)).toBe('1개 완료, 1개 실패, 1개 중복 확인 필요.');
 
     const html = renderToStaticMarkup(
       <UploadQueueReceipt

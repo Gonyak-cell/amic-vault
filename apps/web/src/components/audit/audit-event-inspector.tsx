@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { auditActionLabel } from '@/lib/audit-labels';
 import { useI18n } from '@/lib/i18n';
 
 export interface AuditEventInspectorProps {
@@ -86,7 +87,7 @@ export function AuditEventInspector({ event }: AuditEventInspectorProps) {
   return (
     <SectionCard icon={<FileText className="h-4 w-4" />} title={copy.title} meta={copy.meta}>
       <dl className="grid gap-3 text-sm">
-        <Value label={copy.action} value={formatAction(event.action)} />
+        <Value label={copy.action} value={auditActionLabel(event.action, language)} />
         <div className="min-w-0">
           <dt className="text-muted-foreground">{copy.result}</dt>
           <dd className="mt-1">
@@ -96,7 +97,10 @@ export function AuditEventInspector({ event }: AuditEventInspectorProps) {
           </dd>
         </div>
         <Value label={copy.actor} value={labelForActor(event, copy)} />
-        <Value label={copy.target} value={event.safeLabel ?? event.targetDisplayName ?? event.targetType} />
+        <Value
+          label={copy.target}
+          value={event.safeLabel ?? event.targetDisplayName ?? event.targetType}
+        />
         <Value label={copy.time} value={event.createdAt} />
       </dl>
 
@@ -172,10 +176,7 @@ function Value({ label, value }: { label: string; value: string }) {
   );
 }
 
-function labelForActor(
-  event: AuditEventDto,
-  copy: { systemActor: string; userActor: string },
-) {
+function labelForActor(event: AuditEventDto, copy: { systemActor: string; userActor: string }) {
   if (event.actorType === 'system') return copy.systemActor;
   return event.actorDisplayName ?? event.actorDisplayEmail ?? copy.userActor;
 }
@@ -193,13 +194,4 @@ function labelForResult(
   if (result === 'success') return copy.success;
   if (result === 'denied') return copy.denied;
   return copy.failure;
-}
-
-function formatAction(value: string): string {
-  return value
-    .toLowerCase()
-    .split('_')
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(' ');
 }

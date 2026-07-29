@@ -8,13 +8,13 @@ describe('NotificationsClient', () => {
     const html = renderToStaticMarkup(<NotificationsClient />);
 
     expect(html).toContain('알림');
-    expect(html).toContain('권한이 확인된 실제 운영 이벤트와 상태 알림만 표시됩니다.');
+    expect(html).toContain('접근 가능한 활동과 상태 알림을 표시합니다.');
     expect(html).toContain('알림 조치 콘솔');
     expect(html).toContain('전체 구분');
     expect(html).toContain('전체 상태');
     expect(html).toContain('주의 알림 우선');
     expect(html).toContain('알림 연결 대기 중입니다.');
-    expect(html).toContain('운영 데이터 연결 대기 중입니다.');
+    expect(html).toContain('데이터를 불러오는 중입니다.');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');
     expect(html).not.toContain('18:42');

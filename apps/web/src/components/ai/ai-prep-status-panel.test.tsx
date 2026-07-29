@@ -11,7 +11,7 @@ describe('AiPrepStatusPanel', () => {
     expect(html).toContain('파일 정리');
     expect(html).toContain('파일 개요');
     expect(html).toContain('파일 유형 PDF, 기준일 2026-06-15.');
-    expect(html).toContain('권한 확인된 파일 정보로 정리됨');
+    expect(html).toContain('문서 정보 정리 완료');
     expect(html).not.toContain('chunk:11111111-1111-4111-8111-111111111118');
     expect(html).toContain('파일 개요 유용함 표시');
     expect(html).toContain('근거 부족 표시');

@@ -48,8 +48,9 @@ export const matterAppSourceLabels = {
 } as const satisfies Record<MatterAppSourceMode, string>;
 
 export const matterAppSourceDescriptions = {
-  unconfigured: 'Matter 관리 시스템에서 확인된 Matter code를 사용할 수 있을 때 업로드할 수 있습니다.',
-  matter_app_api: 'Matter 관리 시스템에서 확인된 Matter code 기준으로 문서 작업을 진행합니다.',
+  unconfigured:
+    'Matter 관리 시스템에서 확인된 Matter 코드를 사용할 수 있을 때 업로드할 수 있습니다.',
+  matter_app_api: 'Matter 관리 시스템에서 확인된 Matter 코드 기준으로 문서 작업을 진행합니다.',
   matter_app_event_projection: '동기화된 Matter 정보 기준으로 문서 작업을 진행합니다.',
   vault_projection_only: '운영 연결 전 확인용 목록입니다. 실제 업로드에는 사용하지 않습니다.',
 } as const satisfies Record<MatterAppSourceMode, string>;
@@ -75,7 +76,9 @@ export function isMatterAppSourceConfigured(
 ): boolean {
   if (mode === 'unconfigured') return false;
   if (mode === 'matter_app_api' || mode === 'matter_app_event_projection') {
-    return envFlagEnabled(options.sourceConfigured ?? process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED);
+    return envFlagEnabled(
+      options.sourceConfigured ?? process.env.NEXT_PUBLIC_MATTER_APP_SOURCE_CONFIGURED,
+    );
   }
   return (
     !((options.nodeEnv ?? process.env.NODE_ENV) === 'production') &&
@@ -164,7 +167,8 @@ export function matterAppSourceStatus(
     sourceConfigured,
     runtimeReady,
     sourceContractReady,
-    sourceAvailable: mode !== 'unconfigured' && (mode !== 'vault_projection_only' || !productionRuntime),
+    sourceAvailable:
+      mode !== 'unconfigured' && (mode !== 'vault_projection_only' || !productionRuntime),
     uploadAuthoritative: isMatterUploadSourceMode(mode),
     productionRuntime,
     projectionFallbackAllowed,
@@ -219,7 +223,12 @@ export function filterMatterCodeOptions(
   if (!normalizedQuery) return [...options];
   if (isVaultInternalReferenceLike(normalizedQuery)) return [];
   return options.filter((option) =>
-    [option.matterCode, option.matterName, option.clientDisplayName ?? '', option.practiceGroup ?? '']
+    [
+      option.matterCode,
+      option.matterName,
+      option.clientDisplayName ?? '',
+      option.practiceGroup ?? '',
+    ]
       .join(' ')
       .toLocaleLowerCase()
       .includes(normalizedQuery),

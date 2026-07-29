@@ -62,7 +62,7 @@ function EmailTimelineRow({ email }: { email: EmailMatterFilingDto }) {
   return (
     <div className="grid gap-2 px-4 py-3 text-sm sm:grid-cols-[1fr_auto]">
       <div className="min-w-0">
-        <p className="truncate font-medium">{email.subject ?? '표시 가능한 제목 없음'}</p>
+        <p className="truncate font-medium">{email.subject ?? '제목 없음'}</p>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>문서 {email.documentIds.length}건</span>
           <span>관련 이메일 {email.thread.relatedEmailCount}건</span>
@@ -124,7 +124,7 @@ export function MatterEmailTimeline({
     <SectionCard
       icon={<Mail className="h-4 w-4" />}
       title="보관된 이메일"
-      meta="권한이 확인된 이메일만 표시"
+      meta="접근 가능한 이메일"
     >
       {groups.length > 0 ? (
         <ul className="divide-y overflow-hidden rounded-md border">
@@ -134,7 +134,7 @@ export function MatterEmailTimeline({
               <li key={threadId ?? thread.rootMessageHash}>
                 <details open>
                   <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
-                    {thread.items[0]?.subject ?? '표시 가능한 제목 없음'}
+                    {thread.items[0]?.subject ?? '제목 없음'}
                     <span className="ml-2 text-xs font-normal text-muted-foreground">
                       이메일 {thread.filedEmailCount}건 · 문서 {thread.documentIds.length}건
                     </span>

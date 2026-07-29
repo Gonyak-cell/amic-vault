@@ -23,7 +23,7 @@ const forbiddenPatterns = [
   {
     name: 'unsafe id slice formatter',
     pattern:
-      /\b(documentId|matterId|clientId|userId|tenantId|workspaceId)\b[^;\n]*\.slice\s*\(\s*0\s*,/i,
+      /\b(?:document\.|matter\.|client\.|user\.|tenant\.|workspace\.)?(documentId|matterId|clientId|userId|tenantId|workspaceId)\s*\.slice\s*\(\s*0\s*,/i,
   },
   {
     name: 'unsafe id short hash formatter',
@@ -33,14 +33,20 @@ const forbiddenPatterns = [
   { name: 'workspace id visible copy', pattern: /\bworkspace ID\b|워크스페이스 ID/i },
   { name: 'tenant id visible copy', pattern: /\btenant ID\b|테넌트 ID/i },
   { name: 'document id visible copy', pattern: /\bdocument ID\b|문서 ID/i },
-  { name: 'raw uuid literal', pattern: /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i },
+  {
+    name: 'raw uuid literal',
+    pattern: /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i,
+  },
   { name: 'theme selector copy', pattern: /디자인 테마|design theme/i },
   { name: 'raw prompt copy', pattern: /raw prompt|prompt 원문/i },
   { name: 'raw source copy', pattern: /raw source|source text|source 원문/i },
   { name: 'model response copy', pattern: /model response|model-response|모델 응답/i },
   { name: 'external model copy', pattern: /external model|외부 모델/i },
   { name: 'legal analysis copy', pattern: /legal analysis|법률 분석/i },
-  { name: 'document summary copy', pattern: /document summary|summary generation|문서 요약/i },
+  {
+    name: 'generated document summary claim',
+    pattern: /document summary generation|summary generation|AI 문서 요약 생성/i,
+  },
   {
     name: 'fake operational copy',
     pattern:
@@ -161,7 +167,10 @@ const uploadBrowseFlowFiles = [
   {
     path: 'apps/web/src/app/(app)/files/page.tsx',
     patterns: [
-      { name: 'Matter Code picker workbench rail on files route', pattern: /DocumentWorkbenchRail/ },
+      {
+        name: 'Matter Code picker workbench rail on files route',
+        pattern: /DocumentWorkbenchRail/,
+      },
       { name: 'matter-scoped upload drawer on files route', pattern: /DocumentUploadDrawer/ },
       {
         name: 'matter-scoped document workbench on files route',
@@ -185,7 +194,7 @@ const uploadBrowseFlowFiles = [
       },
       { name: 'backend-backed document set contract', pattern: /승인된 문서 세트/ },
       { name: 'matter-scoped browse copy', pattern: /Matter별 문서 목록/ },
-      { name: 'Matter code upload copy', pattern: /Matter code 확인 후 업로드/ },
+      { name: 'Matter code upload copy', pattern: /Matter 코드 확인 후 업로드/ },
     ],
   },
   {
@@ -228,7 +237,7 @@ const uploadBrowseFlowFiles = [
     patterns: [
       {
         name: 'selected matter required before upload',
-        pattern: /Matter code를 먼저 선택해 주세요/,
+        pattern: /Matter 코드를 먼저 선택해 주세요/,
       },
       { name: 'upload source readiness gate', pattern: /isMatterUploadSourceMode/ },
       { name: 'server-side upload preflight call', pattern: /createUploadPreflight/ },
@@ -289,7 +298,7 @@ const uploadBrowseFlowFiles = [
     patterns: [
       {
         name: 'selected matter required before list',
-        pattern: /Matter code를 선택하면 파일 목록이 표시됩니다/,
+        pattern: /Matter 코드를 선택하면 파일 목록이 표시됩니다/,
       },
       {
         name: 'matter-scoped list call',
@@ -573,7 +582,7 @@ const enterpriseSearchFiles = [
   {
     path: 'apps/web/src/components/search/search-advanced-controls.tsx',
     patterns: [
-      { name: 'Matter code filter UI', pattern: /Matter code/ },
+      { name: 'Matter code filter UI', pattern: /Matter 코드/ },
       { name: 'Matter name filter UI', pattern: /Matter 이름/ },
       { name: 'document type filter UI', pattern: /문서 유형/ },
       { name: 'approved taxonomy filter options', pattern: /approvedDocumentTypeOptions/ },
@@ -634,7 +643,10 @@ const governanceWorkflowOpsFiles = [
       { name: 'document workflow ops panel', pattern: /DocumentWorkflowOpsPanel/ },
       { name: 'matter workflow ops panel', pattern: /MatterWorkflowOpsPanel/ },
       { name: 'file organization prep scope copy', pattern: /파일 정리 준비 범위/ },
-      { name: 'real-state-only task copy', pattern: /실제 문서·Matter 상태에서 발생한 작업만 표시/ },
+      {
+        name: 'real-state-only task copy',
+        pattern: /실제 문서·Matter 상태에서 발생한 작업만 표시/,
+      },
     ],
   },
   {
@@ -735,7 +747,7 @@ const governanceWorkflowOpsFiles = [
       { name: 'notifications source filter', pattern: /notification-source-filter/ },
       { name: 'notifications status filter', pattern: /notification-status-filter/ },
       { name: 'notifications attention sort', pattern: /주의 알림 우선/ },
-      { name: 'real notification copy', pattern: /실제 운영 이벤트와 상태 알림만 표시/ },
+      { name: 'real notification copy', pattern: /실제 운영 이벤트에서 발생한 알림만/ },
     ],
   },
   {
@@ -938,7 +950,10 @@ const adminIntegrationsFiles = [
       { name: 'search index operations panel', pattern: /AdminSearchOperationsPanel/ },
       { name: 'search admin health client', pattern: /getSearchAdminHealth/ },
       { name: 'search health operations panel', pattern: /검색 상태/ },
-      { name: 'search health safe aggregate copy', pattern: /검색 색인, 추출\/OCR, 검색 기록 집계/ },
+      {
+        name: 'search health safe aggregate copy',
+        pattern: /검색 색인, 추출\/OCR, 검색 기록 집계/,
+      },
       { name: 'tenant reindex API client', pattern: /requestTenantSearchReindex/ },
       { name: 'reindex audit-only status copy', pattern: /감사 기록[\s\S]*대기열\s+등록 수/ },
       {
@@ -1025,7 +1040,7 @@ const adminIntegrationsFiles = [
     path: 'apps/web/src/app/(app)/integrations/matter-app/page.tsx',
     patterns: [
       { name: 'Matter app status page title', pattern: /Matter 관리 시스템 연결 상태/ },
-      { name: 'Matter code source section', pattern: /Matter code 기준 정보/ },
+      { name: 'Matter code source section', pattern: /Matter 코드 기준 정보/ },
       { name: 'upload condition status', pattern: /업로드 조건/ },
       { name: 'free-floating upload blocked', pattern: /Matter 미선택 업로드/ },
       { name: 'projection fallback policy', pattern: /문서 보관함 기준 표시/ },
@@ -1114,7 +1129,7 @@ const outlookFilingEvidenceFiles = [
   {
     path: 'apps/web/src/components/matter/matter-email-timeline.tsx',
     patterns: [
-      { name: 'filed email safe title fallback', pattern: /표시 가능한 제목 없음/ },
+      { name: 'filed email safe title fallback', pattern: /제목 없음/ },
       { name: 'permitted document links', pattern: /href=\{`\/documents\/\$\{documentId\}`\}/ },
       { name: 'safe document link labels', pattern: /문서 \{index \+ 1\} 열기/ },
     ],
@@ -1154,16 +1169,26 @@ const officeOneDriveAdrGateFiles = [
     path: 'docs/adr/ADR-017-office-onedrive-flow.md',
     patterns: [
       { name: 'ADR-017 planning gate status', pattern: /Status: Accepted for planning gate only/ },
-      { name: 'no connected claim before contract', pattern: /must not claim OneDrive is\s+connected/i },
-      { name: 'no Office open save claim before contract', pattern: /Office open\/save is available/i },
-      { name: 'no coauthoring live edit claim before contract', pattern: /coauthoring is available[\s\S]*live edit is\s+available/i },
+      {
+        name: 'no connected claim before contract',
+        pattern: /must not claim OneDrive is\s+connected/i,
+      },
+      {
+        name: 'no Office open save claim before contract',
+        pattern: /Office open\/save is available/i,
+      },
+      {
+        name: 'no coauthoring live edit claim before contract',
+        pattern: /coauthoring is available[\s\S]*live edit is\s+available/i,
+      },
       {
         name: 'required runtime contract axes',
         pattern: /auth[\s\S]*storage[\s\S]*version[\s\S]*audit[\s\S]*callback[\s\S]*rollback/i,
       },
       {
         name: 'route remains hidden until API ready',
-        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*showInNavigation: false/i,
+        pattern:
+          /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*showInNavigation: false/i,
       },
       { name: 'no hard delete rollback invariant', pattern: /no hard\s+delete/i },
     ],
@@ -1173,7 +1198,8 @@ const officeOneDriveAdrGateFiles = [
     patterns: [
       {
         name: 'OneDrive hidden until API ready policy',
-        pattern: /route: '\/integrations\/onedrive'[\s\S]*production: 'hidden_until_api_ready'[\s\S]*showInNavigation: false/,
+        pattern:
+          /route: '\/integrations\/onedrive'[\s\S]*production: 'hidden_until_api_ready'[\s\S]*showInNavigation: false/,
       },
     ],
   },
@@ -1182,8 +1208,14 @@ const officeOneDriveAdrGateFiles = [
     patterns: [
       { name: 'OneDrive gated copy', pattern: /승인 전 숨김/ },
       { name: 'Office contract gated copy', pattern: /승인 필요/ },
-      { name: 'OneDrive gated card', pattern: /title="OneDrive"[\s\S]*status="승인 전 숨김"[\s\S]*tone="warning"/ },
-      { name: 'Office gated card', pattern: /title="Office 열기\/저장"[\s\S]*status="승인 필요"[\s\S]*tone="warning"/ },
+      {
+        name: 'OneDrive gated card',
+        pattern: /title="OneDrive"[\s\S]*status="승인 전 숨김"[\s\S]*tone="warning"/,
+      },
+      {
+        name: 'Office gated card',
+        pattern: /title="Office 열기\/저장"[\s\S]*status="승인 필요"[\s\S]*tone="warning"/,
+      },
     ],
   },
   {
@@ -1192,11 +1224,18 @@ const officeOneDriveAdrGateFiles = [
       { name: 'Office OneDrive rollback section', pattern: /Office\/OneDrive Gate Rollback/ },
       {
         name: 'rollback route hiding',
-        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*showInNavigation: false/,
+        pattern:
+          /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*showInNavigation: false/,
       },
-      { name: 'rollback callback job rejection', pattern: /Reject Microsoft callback, sync, or save-back jobs/i },
+      {
+        name: 'rollback callback job rejection',
+        pattern: /Reject Microsoft callback, sync, or save-back jobs/i,
+      },
       { name: 'rollback token disablement', pattern: /token material/i },
-      { name: 'rollback immutable audit preservation', pattern: /Preserve immutable originals[\s\S]*audit append-only/i },
+      {
+        name: 'rollback immutable audit preservation',
+        pattern: /Preserve immutable originals[\s\S]*audit append-only/i,
+      },
     ],
   },
   {
@@ -1204,11 +1243,13 @@ const officeOneDriveAdrGateFiles = [
     patterns: [
       {
         name: 'production inventory ADR contract',
-        pattern: /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*auth\/storage\/version\/audit\/callback\/rollback/i,
+        pattern:
+          /\/integrations\/onedrive[\s\S]*hidden_until_api_ready[\s\S]*auth\/storage\/version\/audit\/callback\/rollback/i,
       },
       {
         name: 'production invariant excludes edit claims',
-        pattern: /Office\/OneDrive production UI[\s\S]*connected[\s\S]*open\/save[\s\S]*coauthoring[\s\S]*live edit[\s\S]*lock[\s\S]*sync success/i,
+        pattern:
+          /Office\/OneDrive production UI[\s\S]*connected[\s\S]*open\/save[\s\S]*coauthoring[\s\S]*live edit[\s\S]*lock[\s\S]*sync success/i,
       },
     ],
   },
@@ -1227,14 +1268,18 @@ const dmsRollbackRunbookFiles = [
   {
     path: 'docs/release/rollback-runbook.md',
     patterns: [
-      { name: 'DMS-GA-702 drill section', pattern: /Enterprise DMS Rollback Drill[\s\S]*DMS-GA-702/ },
+      {
+        name: 'DMS-GA-702 drill section',
+        pattern: /Enterprise DMS Rollback Drill[\s\S]*DMS-GA-702/,
+      },
       {
         name: 'rollback owner external refs boundary',
         pattern: /Rollback owner must be assigned[\s\S]*external drill[\s\S]*incident ref/i,
       },
       {
         name: 'no hard delete audit invariant',
-        pattern: /No Enterprise DMS rollback step may hard delete[\s\S]*Audit history remains append-only/i,
+        pattern:
+          /No Enterprise DMS rollback step may hard delete[\s\S]*Audit history remains append-only/i,
       },
       {
         name: 'route visibility rollback control',
@@ -1246,7 +1291,8 @@ const dmsRollbackRunbookFiles = [
       },
       {
         name: 'worker flag rollback control',
-        pattern: /DMS-RB-003[\s\S]*RB-DMS-003-WORKER-FLAGS[\s\S]*AI_PREP_ENABLED=false[\s\S]*AI_SUMMARY_GEMMA_ENABLED=false/i,
+        pattern:
+          /DMS-RB-003[\s\S]*RB-DMS-003-WORKER-FLAGS[\s\S]*AI_PREP_ENABLED=false[\s\S]*AI_SUMMARY_GEMMA_ENABLED=false/i,
       },
       {
         name: 'database audit rollback control',
@@ -1258,7 +1304,8 @@ const dmsRollbackRunbookFiles = [
       },
       {
         name: 'monitor trigger rollback control',
-        pattern: /DMS-RB-006[\s\S]*RB-DMS-006-MONITOR-TRIGGERS[\s\S]*MON-DMS-001[\s\S]*MON-DMS-008/i,
+        pattern:
+          /DMS-RB-006[\s\S]*RB-DMS-006-MONITOR-TRIGGERS[\s\S]*MON-DMS-001[\s\S]*MON-DMS-008/i,
       },
       {
         name: 'Office OneDrive rollback control',
@@ -1575,7 +1622,10 @@ const responsiveAccessibilityFiles = [
       { name: 'table horizontal overflow containment', pattern: /overflow-x-auto/ },
       { name: 'table screen-reader caption', pattern: /caption className="sr-only"/ },
       { name: 'selectable row keyboard access', pattern: /tabIndex={selectable \? 0 : undefined}/ },
-      { name: 'selectable row active state', pattern: /aria-selected={selectable \? selected : undefined}/ },
+      {
+        name: 'selectable row active state',
+        pattern: /aria-selected={selectable \? selected : undefined}/,
+      },
     ],
   },
   {
@@ -1933,7 +1983,9 @@ function checkOfficeOneDriveAdrGate() {
     if (file.path === 'apps/web/src/app/(app)/integrations/page.tsx') {
       assertIntegrationCardHasNoHref(source, 'OneDrive');
       assertIntegrationCardHasNoHref(source, 'Office 열기/저장');
-      if (/OneDrive 연결됨|Office 연결됨|공동편집 가능|실시간 편집 가능|동기화 실행 중/.test(source)) {
+      if (
+        /OneDrive 연결됨|Office 연결됨|공동편집 가능|실시간 편집 가능|동기화 실행 중/.test(source)
+      ) {
         fail(`${file.path} must not claim connected OneDrive/Office edit or sync states`);
       }
     }

@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { maskInternalReference } from '@/components/security/secure-ref';
 import {
   documentStatusLabels,
   documentStatusTransitionTargets,
@@ -80,13 +81,13 @@ export function ContractMatterReadOnlyView({
     <div className="grid gap-4">
       <MetricStrip
         items={[
-          { label: 'Rule findings', value: data.findings.length },
-          { label: 'Fail', value: failedFindings },
-          { label: 'AI opinions', value: data.aiReviewFindings.length },
-          { label: 'Unsupported', value: data.unsupportedRuleCount },
-          { label: 'Issues', value: data.issues.length },
-          { label: 'Documents', value: data.documents.length },
-          { label: 'Clauses', value: data.clauses.length },
+          { label: '규칙 검토', value: data.findings.length },
+          { label: '위반', value: failedFindings },
+          { label: 'AI 검토 의견', value: data.aiReviewFindings.length },
+          { label: '미지원 규칙', value: data.unsupportedRuleCount },
+          { label: '협상 쟁점', value: data.issues.length },
+          { label: '문서', value: data.documents.length },
+          { label: '조항', value: data.clauses.length },
         ]}
       />
 
@@ -109,16 +110,16 @@ export function ContractMatterReadOnlyView({
         updatingIssueId={updatingIssueId}
       />
 
-      <SectionCard title="Rule findings" meta="계약 playbook 결과">
+      <SectionCard title="규칙 검토 결과" meta="계약 검토 기준">
         {data.findings.length > 0 ? (
-          <TableShell caption="계약 rule finding 목록">
+          <TableShell caption="계약 규칙 검토 결과 목록">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <TableHeader>Finding</TableHeader>
-                <TableHeader>Rule</TableHeader>
-                <TableHeader>Severity</TableHeader>
-                <TableHeader>Status</TableHeader>
-                <TableHeader>Evidence</TableHeader>
+                <TableHeader>검토 항목</TableHeader>
+                <TableHeader>규칙</TableHeader>
+                <TableHeader>중요도</TableHeader>
+                <TableHeader>상태</TableHeader>
+                <TableHeader>근거</TableHeader>
               </tr>
             </thead>
             <tbody>
@@ -127,13 +128,19 @@ export function ContractMatterReadOnlyView({
                   <TableCell className="font-medium">{finding.findingCode}</TableCell>
                   <TableCell>
                     {finding.ruleKey}
-                    <span className="ml-2 text-xs text-muted-foreground">v{finding.ruleVersion}</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      v{finding.ruleVersion}
+                    </span>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge tone={severityTone(finding.severity)}>{finding.severity}</StatusBadge>
+                    <StatusBadge tone={severityTone(finding.severity)}>
+                      {displayDomainValue(finding.severity)}
+                    </StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge tone={statusTone(finding.status)}>{finding.status}</StatusBadge>
+                    <StatusBadge tone={statusTone(finding.status)}>
+                      {displayDomainValue(finding.status)}
+                    </StatusBadge>
                   </TableCell>
                   <TableCell>
                     <InlineRefs refs={finding.evidenceRefs} />
@@ -143,28 +150,28 @@ export function ContractMatterReadOnlyView({
             </tbody>
           </TableShell>
         ) : (
-          <EmptyState title="Rule finding이 없습니다." />
+          <EmptyState title="규칙 검토 결과가 없습니다." />
         )}
       </SectionCard>
 
-      <SectionCard title="Clause bank" meta="문서 조항 색인">
+      <SectionCard title="조항 라이브러리" meta="문서 조항 색인">
         {data.clauses.length > 0 ? (
           <TableShell caption="계약 조항 은행">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <TableHeader>Clause</TableHeader>
-                <TableHeader>Kind</TableHeader>
-                <TableHeader>Defined terms</TableHeader>
-                <TableHeader>Conflicts</TableHeader>
-                <TableHeader>Redline</TableHeader>
-                <TableHeader>Citation</TableHeader>
+                <TableHeader>조항</TableHeader>
+                <TableHeader>유형</TableHeader>
+                <TableHeader>정의어</TableHeader>
+                <TableHeader>충돌</TableHeader>
+                <TableHeader>수정안</TableHeader>
+                <TableHeader>인용 근거</TableHeader>
               </tr>
             </thead>
             <tbody>
               {data.clauses.map((clause) => (
                 <tr key={clause.clauseId} className="border-t">
                   <TableCell className="font-medium">{clause.clauseNumber}</TableCell>
-                  <TableCell>{clause.clauseKind}</TableCell>
+                  <TableCell>{displayDomainValue(clause.clauseKind)}</TableCell>
                   <TableCell>{clause.definedTermCount}</TableCell>
                   <TableCell>{clause.conflictCount}</TableCell>
                   <TableCell>{clause.redlineChangeCount}</TableCell>
@@ -297,9 +304,9 @@ export function DdMatterReadOnlyView({ data }: { data: DdMatterReadOnlyData }) {
       <MetricStrip
         items={[
           { label: 'RFI', value: data.traceability.rfiCount },
-          { label: 'Mappings', value: data.traceability.mappingCount },
-          { label: 'Issues', value: data.traceability.issueCount },
-          { label: 'Risks', value: data.traceability.riskCount },
+          { label: '자료 연결', value: data.traceability.mappingCount },
+          { label: '쟁점', value: data.traceability.issueCount },
+          { label: '위험', value: data.traceability.riskCount },
         ]}
       />
 
@@ -308,12 +315,12 @@ export function DdMatterReadOnlyView({ data }: { data: DdMatterReadOnlyData }) {
           <TableShell caption="DD RFI 목록">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <TableHeader>Code</TableHeader>
-                <TableHeader>Title</TableHeader>
-                <TableHeader>Category</TableHeader>
-                <TableHeader>Status</TableHeader>
-                <TableHeader>Priority</TableHeader>
-                <TableHeader>Due</TableHeader>
+                <TableHeader>코드</TableHeader>
+                <TableHeader>제목</TableHeader>
+                <TableHeader>분류</TableHeader>
+                <TableHeader>상태</TableHeader>
+                <TableHeader>우선순위</TableHeader>
+                <TableHeader>기한</TableHeader>
               </tr>
             </thead>
             <tbody>
@@ -321,14 +328,18 @@ export function DdMatterReadOnlyView({ data }: { data: DdMatterReadOnlyData }) {
                 <tr key={rfi.rfiId} className="border-t">
                   <TableCell className="font-medium">{rfi.rfiCode}</TableCell>
                   <TableCell>{rfi.title}</TableCell>
-                  <TableCell>{rfi.category}</TableCell>
+                  <TableCell>{displayDomainValue(rfi.category)}</TableCell>
                   <TableCell>
-                    <StatusBadge tone={statusTone(rfi.status)}>{rfi.status}</StatusBadge>
+                    <StatusBadge tone={statusTone(rfi.status)}>
+                      {displayDomainValue(rfi.status)}
+                    </StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge tone={severityTone(rfi.priority)}>{rfi.priority}</StatusBadge>
+                    <StatusBadge tone={severityTone(rfi.priority)}>
+                      {displayDomainValue(rfi.priority)}
+                    </StatusBadge>
                   </TableCell>
-                  <TableCell>{rfi.dueDate ?? (rfi.overdue ? 'overdue' : '-')}</TableCell>
+                  <TableCell>{rfi.dueDate ?? (rfi.overdue ? '기한 지남' : '-')}</TableCell>
                 </tr>
               ))}
             </tbody>
@@ -343,10 +354,10 @@ export function DdMatterReadOnlyView({ data }: { data: DdMatterReadOnlyData }) {
           <TableShell caption="DD 자료실 매핑">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <TableHeader>Label</TableHeader>
-                <TableHeader>Section</TableHeader>
-                <TableHeader>Status</TableHeader>
-                <TableHeader>Document</TableHeader>
+                <TableHeader>표시명</TableHeader>
+                <TableHeader>구역</TableHeader>
+                <TableHeader>상태</TableHeader>
+                <TableHeader>문서</TableHeader>
               </tr>
             </thead>
             <tbody>
@@ -356,10 +367,12 @@ export function DdMatterReadOnlyView({ data }: { data: DdMatterReadOnlyData }) {
                   <TableCell>{mapping.sectionPath}</TableCell>
                   <TableCell>
                     <StatusBadge tone={statusTone(mapping.mappingStatus)}>
-                      {mapping.mappingStatus}
+                      {displayDomainValue(mapping.mappingStatus)}
                     </StatusBadge>
                   </TableCell>
-                  <TableCell>{mapping.documentId ?? '-'}</TableCell>
+                  <TableCell>
+                    {mapping.documentId ? maskInternalReference(mapping.documentId) : '-'}
+                  </TableCell>
                 </tr>
               ))}
             </tbody>
@@ -369,22 +382,25 @@ export function DdMatterReadOnlyView({ data }: { data: DdMatterReadOnlyData }) {
         )}
       </SectionCard>
 
-      <SectionCard title="Traceability" meta="RFI · issue · risk 연결">
+      <SectionCard title="추적 관계" meta="RFI · 쟁점 · 위험 연결">
         {data.traceability.traces.length > 0 ? (
-          <TableShell caption="DD traceability 목록">
+          <TableShell caption="DD 추적 관계 목록">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
                 <TableHeader>RFI</TableHeader>
-                <TableHeader>Mapping</TableHeader>
-                <TableHeader>Issue</TableHeader>
-                <TableHeader>Risk</TableHeader>
-                <TableHeader>Status refs</TableHeader>
-                <TableHeader>Citations</TableHeader>
+                <TableHeader>자료 연결</TableHeader>
+                <TableHeader>쟁점</TableHeader>
+                <TableHeader>위험</TableHeader>
+                <TableHeader>연결 상태</TableHeader>
+                <TableHeader>인용 근거</TableHeader>
               </tr>
             </thead>
             <tbody>
               {data.traceability.traces.map((trace, index) => (
-                <tr key={`${trace.rfiId ?? 'rfi'}:${trace.mappingId ?? 'mapping'}:${index}`} className="border-t">
+                <tr
+                  key={`${trace.rfiId ?? 'rfi'}:${trace.mappingId ?? 'mapping'}:${index}`}
+                  className="border-t"
+                >
                   <TableCell>{shortId(trace.rfiId)}</TableCell>
                   <TableCell>{shortId(trace.mappingId)}</TableCell>
                   <TableCell>{shortId(trace.issueId)}</TableCell>
@@ -400,40 +416,40 @@ export function DdMatterReadOnlyView({ data }: { data: DdMatterReadOnlyData }) {
             </tbody>
           </TableShell>
         ) : (
-          <EmptyState title="Traceability 항목이 없습니다." />
+          <EmptyState title="추적 관계가 없습니다." />
         )}
       </SectionCard>
 
-      <SectionCard title="Issue · Risk" meta="보고 항목">
+      <SectionCard title="쟁점 · 위험" meta="검토 항목">
         {data.issues.length + data.risks.length > 0 ? (
           <div className="grid gap-3 lg:grid-cols-2">
             <RecordList
-              caption="DD issue 목록"
-              emptyTitle="Issue가 없습니다."
+              caption="DD 쟁점 목록"
+              emptyTitle="쟁점이 없습니다."
               items={data.issues.map((issue) => ({
                 id: issue.issueId,
                 label: issue.issueCode,
                 title: issue.title,
-                status: issue.status,
+                status: displayDomainValue(issue.status),
                 tone: severityTone(issue.severity),
                 refs: issue.citationRefs,
               }))}
             />
             <RecordList
-              caption="DD risk 목록"
-              emptyTitle="Risk가 없습니다."
+              caption="DD 위험 목록"
+              emptyTitle="위험이 없습니다."
               items={data.risks.map((risk) => ({
                 id: risk.riskId,
                 label: risk.riskCode,
-                title: risk.category,
-                status: risk.status,
+                title: displayDomainValue(risk.category),
+                status: displayDomainValue(risk.status),
                 tone: severityTone(risk.severity),
                 refs: risk.citationRefs,
               }))}
             />
           </div>
         ) : (
-          <EmptyState title="Issue 또는 Risk가 없습니다." />
+          <EmptyState title="쟁점 또는 위험이 없습니다." />
         )}
       </SectionCard>
     </div>
@@ -445,24 +461,24 @@ export function LitigationMatterReadOnlyView({ data }: { data: LitigationMatterR
     <div className="grid gap-4">
       <MetricStrip
         items={[
-          { label: 'Evidence', value: data.caseMap.evidenceCount },
-          { label: 'Facts', value: data.caseMap.factCount },
-          { label: 'Issues', value: data.caseMap.issueCount },
-          { label: 'Hearings', value: data.hearings.length },
+          { label: '증거', value: data.caseMap.evidenceCount },
+          { label: '사실관계', value: data.caseMap.factCount },
+          { label: '쟁점', value: data.caseMap.issueCount },
+          { label: '기일', value: data.hearings.length },
         ]}
       />
 
-      <SectionCard title="Fact Ledger" meta="주장 사실">
+      <SectionCard title="사실관계 원장" meta="주장 사실">
         {data.facts.length > 0 ? (
-          <TableShell caption="송무 Fact Ledger">
+          <TableShell caption="송무 사실관계 원장">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <TableHeader>Fact</TableHeader>
-                <TableHeader>Summary</TableHeader>
-                <TableHeader>Date</TableHeader>
-                <TableHeader>Status</TableHeader>
-                <TableHeader>Materiality</TableHeader>
-                <TableHeader>Citations</TableHeader>
+                <TableHeader>사실관계</TableHeader>
+                <TableHeader>요약</TableHeader>
+                <TableHeader>일자</TableHeader>
+                <TableHeader>상태</TableHeader>
+                <TableHeader>중요도</TableHeader>
+                <TableHeader>인용 근거</TableHeader>
               </tr>
             </thead>
             <tbody>
@@ -472,10 +488,14 @@ export function LitigationMatterReadOnlyView({ data }: { data: LitigationMatterR
                   <TableCell>{fact.factSummary}</TableCell>
                   <TableCell>{fact.factDate ?? '-'}</TableCell>
                   <TableCell>
-                    <StatusBadge tone={statusTone(fact.status)}>{fact.status}</StatusBadge>
+                    <StatusBadge tone={statusTone(fact.status)}>
+                      {displayDomainValue(fact.status)}
+                    </StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge tone={severityTone(fact.materiality)}>{fact.materiality}</StatusBadge>
+                    <StatusBadge tone={severityTone(fact.materiality)}>
+                      {displayDomainValue(fact.materiality)}
+                    </StatusBadge>
                   </TableCell>
                   <TableCell>
                     <InlineRefs refs={fact.citationRefs} />
@@ -485,26 +505,29 @@ export function LitigationMatterReadOnlyView({ data }: { data: LitigationMatterR
             </tbody>
           </TableShell>
         ) : (
-          <EmptyState title="Fact Ledger 항목이 없습니다." />
+          <EmptyState title="사실관계가 없습니다." />
         )}
       </SectionCard>
 
-      <SectionCard title="Case map" meta="증거 · Fact · 쟁점 · 서면 연결">
+      <SectionCard title="사건 관계도" meta="증거 · 사실관계 · 쟁점 · 서면 연결">
         {data.caseMap.caseMap.length > 0 ? (
-          <TableShell caption="송무 case map">
+          <TableShell caption="송무 사건 관계도">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <TableHeader>Evidence</TableHeader>
-                <TableHeader>Fact</TableHeader>
-                <TableHeader>Issue</TableHeader>
-                <TableHeader>Pleading</TableHeader>
-                <TableHeader>Status refs</TableHeader>
-                <TableHeader>Citations</TableHeader>
+                <TableHeader>증거</TableHeader>
+                <TableHeader>사실관계</TableHeader>
+                <TableHeader>쟁점</TableHeader>
+                <TableHeader>소송서면</TableHeader>
+                <TableHeader>연결 상태</TableHeader>
+                <TableHeader>인용 근거</TableHeader>
               </tr>
             </thead>
             <tbody>
               {data.caseMap.caseMap.map((item, index) => (
-                <tr key={`${item.evidenceId ?? 'evidence'}:${item.factId ?? 'fact'}:${index}`} className="border-t">
+                <tr
+                  key={`${item.evidenceId ?? 'evidence'}:${item.factId ?? 'fact'}:${index}`}
+                  className="border-t"
+                >
                   <TableCell>{shortId(item.evidenceId)}</TableCell>
                   <TableCell>{shortId(item.factId)}</TableCell>
                   <TableCell>{shortId(item.issueId)}</TableCell>
@@ -520,32 +543,32 @@ export function LitigationMatterReadOnlyView({ data }: { data: LitigationMatterR
             </tbody>
           </TableShell>
         ) : (
-          <EmptyState title="Case map 항목이 없습니다." />
+          <EmptyState title="사건 관계가 없습니다." />
         )}
       </SectionCard>
 
-      <SectionCard title="Evidence · Pleadings" meta="증거와 내부 서면">
+      <SectionCard title="증거 · 소송서면" meta="증거와 내부 서면">
         <div className="grid gap-3 lg:grid-cols-2">
           <RecordList
-            caption="송무 evidence 목록"
-            emptyTitle="Evidence가 없습니다."
+            caption="송무 증거 목록"
+            emptyTitle="증거가 없습니다."
             items={data.evidence.map((item) => ({
               id: item.evidenceId,
               label: item.evidenceCode,
               title: item.exhibitLabel ?? item.evidenceType,
-              status: item.custodyStatus,
+              status: displayDomainValue(item.custodyStatus),
               tone: statusTone(item.admittedStatus),
               refs: item.documentId ? [`document:${item.documentId}`] : [],
             }))}
           />
           <RecordList
-            caption="송무 pleading 목록"
-            emptyTitle="Pleading이 없습니다."
+            caption="송무 소송서면 목록"
+            emptyTitle="소송서면이 없습니다."
             items={data.pleadings.map((item) => ({
               id: item.pleadingId,
               label: item.pleadingCode,
-              title: item.pleadingType,
-              status: item.filingStatus,
+              title: displayDomainValue(item.pleadingType),
+              status: displayDomainValue(item.filingStatus),
               tone: statusTone(item.filingStatus),
               refs: item.citationRefs,
             }))}
@@ -553,9 +576,9 @@ export function LitigationMatterReadOnlyView({ data }: { data: LitigationMatterR
         </div>
       </SectionCard>
 
-      <SectionCard title="Hearings" meta="기일과 내부 마감">
+      <SectionCard title="기일" meta="기일과 내부 마감">
         <RecordList
-          caption="송무 hearing 목록"
+          caption="송무 기일 목록"
           emptyTitle="기일이 없습니다."
           items={data.hearings.map((item) => ({
             id: item.hearingId,
@@ -563,23 +586,23 @@ export function LitigationMatterReadOnlyView({ data }: { data: LitigationMatterR
             title: item.internalDeadline
               ? `${item.scheduledAt.slice(0, 10)} · 내부 ${item.internalDeadline}`
               : item.scheduledAt.slice(0, 10),
-            status: item.status,
+            status: displayDomainValue(item.status),
             tone: statusTone(item.status),
             refs: item.pleadingId ? [`pleading:${item.pleadingId}`] : [],
           }))}
         />
       </SectionCard>
 
-      <SectionCard title="Issues" meta="쟁점 구조">
+      <SectionCard title="쟁점" meta="쟁점 구조">
         {data.issues.length > 0 ? (
-          <TableShell caption="송무 issue 목록">
+          <TableShell caption="송무 쟁점 목록">
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <TableHeader>Issue</TableHeader>
-                <TableHeader>Label</TableHeader>
-                <TableHeader>Type</TableHeader>
-                <TableHeader>Status</TableHeader>
-                <TableHeader>Position</TableHeader>
+                <TableHeader>쟁점</TableHeader>
+                <TableHeader>표시명</TableHeader>
+                <TableHeader>유형</TableHeader>
+                <TableHeader>상태</TableHeader>
+                <TableHeader>입장</TableHeader>
               </tr>
             </thead>
             <tbody>
@@ -587,9 +610,11 @@ export function LitigationMatterReadOnlyView({ data }: { data: LitigationMatterR
                 <tr key={issue.issueId} className="border-t">
                   <TableCell className="font-medium">{issue.issueCode}</TableCell>
                   <TableCell>{issue.label}</TableCell>
-                  <TableCell>{issue.issueType}</TableCell>
+                  <TableCell>{displayDomainValue(issue.issueType)}</TableCell>
                   <TableCell>
-                    <StatusBadge tone={statusTone(issue.status)}>{issue.status}</StatusBadge>
+                    <StatusBadge tone={statusTone(issue.status)}>
+                      {displayDomainValue(issue.status)}
+                    </StatusBadge>
                   </TableCell>
                   <TableCell>{issue.position}</TableCell>
                 </tr>
@@ -597,7 +622,7 @@ export function LitigationMatterReadOnlyView({ data }: { data: LitigationMatterR
             </tbody>
           </TableShell>
         ) : (
-          <EmptyState title="Issue가 없습니다." />
+          <EmptyState title="쟁점이 없습니다." />
         )}
       </SectionCard>
     </div>
@@ -617,13 +642,7 @@ function MetricStrip({ items }: { items: readonly { label: string; value: number
   );
 }
 
-function TableShell({
-  caption,
-  children,
-}: {
-  caption: string;
-  children: React.ReactNode;
-}) {
+function TableShell({ caption, children }: { caption: string; children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto rounded-md border">
       <table className="w-full min-w-[760px] border-collapse text-sm">
@@ -638,14 +657,10 @@ function TableHeader({ children }: { children: React.ReactNode }) {
   return <th className="px-4 py-3 font-medium">{children}</th>;
 }
 
-function TableCell({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <td className={['px-4 py-3 align-top', className].filter(Boolean).join(' ')}>{children}</td>;
+function TableCell({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <td className={['px-4 py-3 align-top', className].filter(Boolean).join(' ')}>{children}</td>
+  );
 }
 
 function InlineRefs({ refs }: { refs: readonly string[] }) {
@@ -654,8 +669,11 @@ function InlineRefs({ refs }: { refs: readonly string[] }) {
   return (
     <span className="flex max-w-[28rem] flex-wrap gap-1">
       {refs.map((ref) => (
-        <code key={ref} className="rounded border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
-          {ref}
+        <code
+          key={ref}
+          className="rounded border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+        >
+          {maskInternalReference(ref)}
         </code>
       ))}
     </span>
@@ -736,5 +754,43 @@ function statusTone(value: string): StatusBadgeTone {
 
 function shortId(value: string | null): string {
   if (!value) return '-';
-  return value.length > 12 ? value.slice(0, 8) : value;
+  return maskInternalReference(value);
+}
+
+const domainValueLabels: Readonly<Record<string, string>> = {
+  admitted: '채택',
+  archived: '보관됨',
+  challenged: '다툼 있음',
+  closed: '종결',
+  collected: '수집됨',
+  complete: '완료',
+  critical: '매우 높음',
+  disputed: '다툼 있음',
+  excluded: '제외',
+  fail: '위반',
+  filed: '제출됨',
+  filed_recorded: '제출 기록됨',
+  final: '최종',
+  high: '높음',
+  info: '안내',
+  low: '낮음',
+  mapped: '연결됨',
+  medium: '보통',
+  mitigated: '조치됨',
+  missing: '누락',
+  open: '진행 중',
+  pass: '충족',
+  pending: '대기',
+  pending_approval: '승인 대기',
+  required: '필수',
+  supported: '지원',
+  supplement_requested: '보완 요청',
+  unknown: '미확인',
+  verified: '확인됨',
+  warning: '주의',
+  weak: '근거 부족',
+};
+
+function displayDomainValue(value: string): string {
+  return domainValueLabels[value] ?? '기타';
 }

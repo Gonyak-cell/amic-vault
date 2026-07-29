@@ -37,8 +37,10 @@ import type {
   GraphNodeReviewAction,
   KnowledgeCandidateReviewAction,
   MatterWikiReviewAction,
+  OrgDirectorySubjectDto,
 } from '@amic-vault/shared';
 import type { DataState } from '@/lib/data-state';
+import { OrgSubjectPicker } from '@/components/access/org-subject-picker';
 
 type WorkSourceFilter = 'all' | DmsWorkQueueItem['source'];
 type WorkKindFilter = 'all' | NonNullable<DmsWorkQueueItem['kind']>;
@@ -84,7 +86,7 @@ const kindFilterLabels = {
   knowledge_candidate_review: '지식은행 후보',
   wiki_page_review: '위키 페이지',
   ai_candidate_review: 'AI 후보 검토',
-  graph_fact_review: 'AI Fact 검토',
+  graph_fact_review: 'AI 사실관계 검토',
 } as const satisfies Record<WorkKindFilter, string>;
 
 const assigneeFilterLabels = {
@@ -293,7 +295,7 @@ export function WorkQueueContent({
       <PageHeader
         breadcrumbs={['문서 보관', '작업함']}
         title="작업함"
-        description="권한과 운영 상태가 확인된 작업만 표시됩니다."
+        description="담당 업무와 검토가 필요한 항목을 표시합니다."
         actions={
           <StatusBadge tone={actionItems.length > 0 ? 'warning' : 'success'}>
             실제 상태 기반
@@ -715,7 +717,7 @@ function GraphFactReviewPanel({
   return (
     <SectionCard
       icon={<Bot className="h-4 w-4" />}
-      title="AI Fact 검토"
+      title="AI 사실관계 검토"
       meta={`${reviewItems.length}건`}
     >
       <ul className="grid gap-2">
@@ -725,7 +727,9 @@ function GraphFactReviewPanel({
             <li key={item.itemKey} className="rounded-md border bg-background px-3 py-2">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
-                  <div className="text-[13px] font-medium text-foreground">{item.title}</div>
+                  <div className="text-[13px] font-medium text-foreground">
+                    {item.title.replace('AI Fact', 'AI 사실관계')}
+                  </div>
                   <div className="mt-1 text-[12px] leading-5 text-muted-foreground">
                     {item.description}
                   </div>
@@ -787,22 +791,18 @@ function WorkReassignmentPanel({
   items: DmsWorkQueueItem[];
   onReassign?: ReassignHandler | undefined;
 }) {
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<Record<string, OrgDirectorySubjectDto | null>>({});
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const actionableItems = items.filter(
     (item) => item.status === 'open' || item.status === 'in_progress',
   );
   if (actionableItems.length === 0) return null;
   return (
-    <SectionCard
-      icon={<Users className="h-4 w-4" />}
-      title="담당자 재배정"
-      meta="권한 확인 후 반영"
-    >
+    <SectionCard icon={<Users className="h-4 w-4" />} title="담당자 재배정" meta="검토 후 반영">
       <ul className="grid gap-2">
         {actionableItems.slice(0, 5).map((item) => {
-          const draft = drafts[item.itemKey] ?? '';
-          const disabled = !onReassign || draft.trim().length === 0 || pendingKey === item.itemKey;
+          const draft = drafts[item.itemKey] ?? null;
+          const disabled = !onReassign || !draft || pendingKey === item.itemKey;
           return (
             <li key={item.itemKey} className="rounded-md border bg-background px-3 py-2">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
@@ -813,31 +813,28 @@ function WorkReassignmentPanel({
                   </div>
                 </div>
                 <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(220px,1fr)_auto]">
-                  <FilterField htmlFor={`assignee-${item.itemKey}`} label="새 담당자 ID">
-                    <input
-                      id={`assignee-${item.itemKey}`}
-                      className={selectClassName}
-                      value={draft}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [item.itemKey]: event.target.value,
-                        }))
+                  <div className="min-w-0">
+                    <p className="mb-1.5 text-sm font-medium text-foreground">새 담당자</p>
+                    <OrgSubjectPicker
+                      onSubjectSelected={(subject) =>
+                        setDrafts((current) => ({ ...current, [item.itemKey]: subject }))
                       }
+                      purpose="user-admin"
+                      selectedSubject={draft}
+                      subjectType="user"
                     />
-                  </FilterField>
+                  </div>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
                     disabled={disabled}
                     onClick={async () => {
-                      const assignedToUserId = draft.trim();
-                      if (!onReassign || assignedToUserId.length === 0) return;
+                      if (!onReassign || !draft) return;
                       setPendingKey(item.itemKey);
                       try {
-                        await onReassign(item.itemKey, assignedToUserId);
-                        setDrafts((current) => ({ ...current, [item.itemKey]: '' }));
+                        await onReassign(item.itemKey, draft.subjectId);
+                        setDrafts((current) => ({ ...current, [item.itemKey]: null }));
                       } finally {
                         setPendingKey(null);
                       }
@@ -906,7 +903,7 @@ function SourceStateBody<T>({ emptyTitle, state }: { emptyTitle: string; state: 
       />
     );
   }
-  return <EmptyState variant="api-unavailable" title="운영 데이터 연결 대기 중입니다." />;
+  return <EmptyState variant="api-unavailable" title="데이터를 불러오는 중입니다." />;
 }
 
 function sourceMeta<T>(state: DataState<T[]>): string {

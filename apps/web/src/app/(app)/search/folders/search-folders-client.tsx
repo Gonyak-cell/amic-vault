@@ -107,7 +107,10 @@ export function SearchFoldersContent({
       }
     >
       {error ? (
-        <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive" role="alert">
+        <p
+          className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}
@@ -141,12 +144,7 @@ export function SearchFoldersContent({
               </dl>
               <div className="mt-3 flex flex-wrap gap-2">
                 {onOpen ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => onOpen(folder)}
-                  >
+                  <Button type="button" size="sm" disabled={busy} onClick={() => onOpen(folder)}>
                     <RotateCcw className="h-4 w-4" />
                     열기
                   </Button>
@@ -265,7 +263,7 @@ const confidentialityLabels = {
 const privilegeLabels = {
   none: '특권 없음',
   privileged: '변호사-의뢰인 특권',
-  work_product: '작업 산출물',
+  work_product: '변호사 업무상 작성자료',
   joint_privilege: '공동 특권',
 } as const satisfies Record<DocumentPrivilegeStatus, string>;
 
@@ -291,7 +289,7 @@ const recordsStatusLabels = {
 function searchFolderContextItems(query: SearchQueryDto): Array<{ label: string; value: string }> {
   const filters = query.filters;
   const items: Array<{ label: string; value: string }> = [];
-  if (filters?.matterCode) items.push({ label: 'Matter code', value: filters.matterCode });
+  if (filters?.matterCode) items.push({ label: 'Matter 코드', value: filters.matterCode });
   if (filters?.matterName) items.push({ label: 'Matter', value: filters.matterName });
   if (filters?.clientName) items.push({ label: '고객', value: filters.clientName });
   if (filters?.title) items.push({ label: '제목', value: filters.title });
@@ -326,7 +324,7 @@ function searchFolderTargetLabel(query: SearchQueryDto): string {
 
 function searchFolderScopeLabel(scope: SearchFolderScope): string {
   if (scope === 'matter-team') return 'Matter 팀 공유';
-  if (scope === 'admin-shared') return '관리자 공유';
+  if (scope === 'admin-shared') return '조직과 공유';
   return '개인';
 }
 
