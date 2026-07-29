@@ -72,11 +72,7 @@ export default function MatterLitigationPage({ params }: { params: { matterId: s
 
   return (
     <PageShell>
-      <PageHeader
-        breadcrumbs={['문서 보관', 'Matter', '송무']}
-        title="송무"
-        description="사실관계 원장 · 사건 지도"
-      />
+      <PageHeader breadcrumbs={['문서 보관', 'Matter', '송무']} title="송무" />
 
       <MatterWorkstreamTabs matterId={params.matterId} active="litigation" />
 

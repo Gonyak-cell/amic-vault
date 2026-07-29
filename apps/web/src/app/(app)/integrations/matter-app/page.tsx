@@ -62,7 +62,6 @@ export default function MatterAppIntegrationPage() {
       <PageHeader
         breadcrumbs={['문서 보관', t('integrations.page.title'), 'Matter 관리 시스템']}
         title="Matter 관리 시스템 연결 상태"
-        description="Matter 코드 기준 정보와 업로드 가능 여부를 확인합니다. 연결 전에는 파일 업로드가 가능 상태로 표시되지 않습니다."
         actions={
           <Button asChild variant="outline">
             <Link href="/files">업로드 화면 보기</Link>

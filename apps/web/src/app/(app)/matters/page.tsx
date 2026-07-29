@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { MatterDto } from '@amic-vault/shared';
-import { FileSearch, FolderKanban, FolderPlus, ShieldCheck } from 'lucide-react';
+import { FolderKanban, FolderPlus, ShieldCheck } from 'lucide-react';
 import { listMatters } from '@/lib/api-client';
 import { MatterListTable } from '@/components/matter/matter-list-table';
 import { Button } from '@/components/ui/button';
@@ -22,8 +22,6 @@ const mattersCopy: Record<
   Language,
   {
     title: string;
-    description: string;
-    scoped: string;
     matter: string;
     client: string;
     type: string;
@@ -37,7 +35,6 @@ const mattersCopy: Record<
     fileCabinet: string;
     searchMatter: string;
     prepTitle: string;
-    prepDescription: string;
     newMatter: string;
     clientFilterActive: string;
     clearFilter: string;
@@ -49,8 +46,6 @@ const mattersCopy: Record<
 > = {
   ko: {
     title: 'Matter 목록',
-    description: 'Matter 관리 시스템에서 동기화된 접근 가능한 Matter만 표시됩니다.',
-    scoped: '권한으로 보호됨',
     matter: 'Matter',
     client: '고객',
     type: '유형',
@@ -65,8 +60,6 @@ const mattersCopy: Record<
     fileCabinet: '파일함',
     searchMatter: '검색',
     prepTitle: 'Matter 관리 시스템 연동 기준',
-    prepDescription:
-      '문서 보관함은 Matter 관리 시스템에서 확정된 Matter 코드를 받아 문서함, 검색, 권한 흐름에 연결합니다.',
     newMatter: '새 Matter',
     clientFilterActive: '선택한 고객의 Matter만 표시합니다.',
     clearFilter: '전체 Matter 보기',
@@ -77,8 +70,6 @@ const mattersCopy: Record<
   },
   en: {
     title: 'Matter list',
-    description: 'Only matters confirmed by access permissions are shown.',
-    scoped: 'Workspace permissions applied',
     matter: 'Matter',
     client: 'Client',
     type: 'Type',
@@ -93,8 +84,6 @@ const mattersCopy: Record<
     fileCabinet: 'Files',
     searchMatter: 'Search',
     prepTitle: 'Matter app source of truth',
-    prepDescription:
-      'Vault receives confirmed Matter codes from the Matter app and connects them to the document vault, search, and permission flows.',
     newMatter: 'New Matter',
     clientFilterActive: 'Showing matters for the selected client.',
     clearFilter: 'View all matters',
@@ -140,34 +129,22 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
       <PageHeader
         breadcrumbs={['문서 보관', copy.matter]}
         title={copy.title}
-        description={copy.description}
         actions={
-          <>
-            <Button asChild>
-              <Link href="/matters/new">
-                <FolderPlus className="h-4 w-4" />
-                {copy.newMatter}
-              </Link>
-            </Button>
-            <div className="inline-flex h-10 items-center gap-2 rounded-md border bg-card px-4 text-sm font-semibold">
-              <FileSearch className="h-4 w-4" />
-              {copy.scoped}
-            </div>
-          </>
+          <Button asChild>
+            <Link href="/matters/new">
+              <FolderPlus className="h-4 w-4" />
+              {copy.newMatter}
+            </Link>
+          </Button>
         }
       />
 
       <div className="rounded-md border bg-card px-4 py-3">
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
           </span>
-          <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
-            <p className="shrink-0 text-sm font-semibold text-foreground">{copy.prepTitle}</p>
-            <p className="min-w-0 truncate whitespace-nowrap text-sm leading-6 text-muted-foreground">
-              {copy.prepDescription}
-            </p>
-          </div>
+          <p className="min-w-0 truncate text-sm font-semibold text-foreground">{copy.prepTitle}</p>
         </div>
       </div>
 
@@ -189,11 +166,7 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
         </div>
       ) : null}
 
-      <SectionCard
-        icon={<FolderKanban className="h-4 w-4" />}
-        title={copy.title}
-        meta={copy.scoped}
-      >
+      <SectionCard icon={<FolderKanban className="h-4 w-4" />} title={copy.title}>
         <MatterListTable copy={copy} matters={matters} />
         {loadState === 'loading' ? (
           <EmptyState variant="api-unavailable" title={copy.loading} className="m-5" />

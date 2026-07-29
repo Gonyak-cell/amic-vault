@@ -18,7 +18,6 @@ export default function IntegrationsPage() {
       <PageHeader
         breadcrumbs={['문서 보관', t('integrations.page.title')]}
         title={t('integrations.page.title')}
-        description={t('integrations.page.description')}
       />
       <SectionCard
         icon={<Plug className="h-4 w-4" />}

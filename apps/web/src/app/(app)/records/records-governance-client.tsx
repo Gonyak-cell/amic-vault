@@ -73,7 +73,6 @@ const recordsCopy: Record<
     refreshTitle: string;
     refresh: string;
     pageTitle: string;
-    pageDescription: string;
     title: string;
     policyMeta: string;
     holdMeta: string;
@@ -175,7 +174,6 @@ const recordsCopy: Record<
     refreshTitle: '보존 정보 새로고침',
     refresh: '새로고침',
     pageTitle: '기록 보존',
-    pageDescription: '보존 정책, 삭제 금지, 보관, 삭제 요청을 정책 관리 기준으로 운영합니다.',
     title: '보존 정책 관리',
     policyMeta: '승인된 정책 값만 저장합니다.',
     holdMeta: 'Matter 코드와 파일 표시명을 기준으로 보존 조치를 적용합니다.',
@@ -276,8 +274,6 @@ const recordsCopy: Record<
     refreshTitle: 'Refresh retention data',
     refresh: 'Refresh',
     pageTitle: 'Records governance',
-    pageDescription:
-      'Manage retention policies, legal holds, archive, and disposal operations from approved data.',
     title: 'Retention settings',
     policyMeta: 'Save approved policy values only.',
     holdMeta: 'Apply retention protection from Matter code and file display labels.',
@@ -539,7 +535,6 @@ export function RecordsGovernanceClient() {
     <PageShell>
       <PageHeader
         title={copy.pageTitle}
-        description={copy.pageDescription}
         actions={
           <Button onClick={refreshAll} disabled={busy} title={copy.refreshTitle} type="button">
             <ListTree className="h-4 w-4" />

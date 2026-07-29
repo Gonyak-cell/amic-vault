@@ -29,7 +29,7 @@ export function RouteVisibilityGuard({
 }) {
   const { t } = useI18n();
   const policy = useMemo(() => findRouteVisibilityPolicy(route), [route]);
-  const displayArea = areaKey ? t(areaKey) : area ?? t('route.blocked.defaultArea');
+  const displayArea = areaKey ? t(areaKey) : (area ?? t('route.blocked.defaultArea'));
   const [state, setState] = useState<GuardState>({ status: 'loading' });
 
   useEffect(() => {
@@ -55,21 +55,12 @@ export function RouteVisibilityGuard({
   if (state.status === 'allowed') return children;
 
   if (state.status === 'blocked') {
-    return (
-      <RouteBlockedState
-        area={displayArea}
-        reason={t('route.blocked.adminReason')}
-      />
-    );
+    return <RouteBlockedState area={displayArea} reason={t('route.blocked.adminReason')} />;
   }
 
   return (
     <PageShell>
-      <PageHeader
-        breadcrumbs={['문서 보관', displayArea]}
-        title={displayArea}
-        description={t('route.loading.description')}
-      />
+      <PageHeader breadcrumbs={['문서 보관', displayArea]} title={displayArea} />
       <SectionCard title={t('route.loading.cardTitle')} meta={t('route.loading.cardMeta')}>
         <EmptyState
           variant="api-unavailable"

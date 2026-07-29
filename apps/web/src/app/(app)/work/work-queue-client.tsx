@@ -295,7 +295,6 @@ export function WorkQueueContent({
       <PageHeader
         breadcrumbs={['문서 보관', '작업함']}
         title="작업함"
-        description="담당 업무와 검토가 필요한 항목을 표시합니다."
         actions={
           <StatusBadge tone={actionItems.length > 0 ? 'warning' : 'success'}>
             실제 상태 기반

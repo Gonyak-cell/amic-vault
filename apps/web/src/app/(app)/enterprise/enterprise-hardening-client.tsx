@@ -83,7 +83,6 @@ const enterpriseCopy: Record<
   Language,
   {
     pageTitle: string;
-    pageDescription: string;
     refreshTitle: string;
     refresh: string;
     readiness: string;
@@ -197,8 +196,6 @@ const enterpriseCopy: Record<
 > = {
   ko: {
     pageTitle: '관리자 설정',
-    pageDescription:
-      '통합 로그인, 추가 인증, 고객 관리 키, 감사 내보내기, 백업, 규정 준수 상태를 확인된 운영 데이터 기준으로 확인합니다.',
     refreshTitle: '관리자 설정 새로고침',
     refresh: '새로고침',
     readiness: '준비 상태',
@@ -311,8 +308,6 @@ const enterpriseCopy: Record<
   },
   en: {
     pageTitle: 'Admin settings',
-    pageDescription:
-      'Review SSO, MFA, customer-managed keys, audit exports, backups, and compliance from operational data.',
     refreshTitle: 'Refresh admin settings',
     refresh: 'Refresh',
     readiness: 'Readiness',
@@ -616,7 +611,6 @@ export function EnterpriseHardeningClient({ children }: { children?: React.React
     <PageShell>
       <PageHeader
         title={copy.pageTitle}
-        description={copy.pageDescription}
         actions={
           <Button onClick={refreshAll} disabled={busy} title={copy.refreshTitle} type="button">
             <Building2 className="h-4 w-4" />

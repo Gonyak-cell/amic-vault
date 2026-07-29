@@ -33,7 +33,6 @@ const wallCopy: Record<
   Language,
   {
     title: string;
-    description: string;
     searchCard: string;
     searchMeta: string;
     matterFilter: string;
@@ -57,7 +56,6 @@ const wallCopy: Record<
 > = {
   ko: {
     title: '정보 차단',
-    description: '접근 가능한 정보 차단 규칙과 구성원 차단 상태만 표시합니다.',
     searchCard: '정보 차단 규칙 조회',
     searchMeta: '운영 데이터 기준',
     matterFilter: 'Matter 코드',
@@ -83,8 +81,6 @@ const wallCopy: Record<
   },
   en: {
     title: 'Information barriers',
-    description:
-      'Displays permission-checked information barriers and membership blocking status only.',
     searchCard: 'Information barrier lookup',
     searchMeta: 'Operational data',
     matterFilter: 'Matter code',
@@ -228,7 +224,7 @@ export function WallAdminClient() {
 
   return (
     <PageShell>
-      <PageHeader title={copy.title} description={copy.description} />
+      <PageHeader title={copy.title} />
 
       <form onSubmit={submitFilter}>
         <FilterBar

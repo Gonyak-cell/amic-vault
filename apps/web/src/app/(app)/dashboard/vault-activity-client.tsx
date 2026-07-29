@@ -100,11 +100,7 @@ export function VaultActivityContent({
 }) {
   return (
     <PageShell>
-      <PageHeader
-        breadcrumbs={['문서 보관', '홈']}
-        title="홈"
-        description="접근 가능한 문서와 최근 활동을 표시합니다."
-      />
+      <PageHeader breadcrumbs={['문서 보관', '홈']} title="홈" />
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">

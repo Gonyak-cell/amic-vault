@@ -125,10 +125,6 @@ const translations = {
   'profile.loading': { ko: '계정 정보 불러오는 중', en: 'Loading account details' },
   'profile.error': { ko: '계정 정보를 표시할 수 없습니다', en: 'Account details unavailable' },
   'route.blocked.defaultArea': { ko: '제한된 화면', en: 'Restricted screen' },
-  'route.blocked.description': {
-    ko: '현재 계정에서 사용할 수 있는 메뉴만 표시됩니다.',
-    en: 'Only screens confirmed by permissions and operational policy are shown.',
-  },
   'route.blocked.title': {
     ko: '이 화면은 표시할 수 없습니다.',
     en: 'This screen cannot be displayed.',
@@ -142,10 +138,6 @@ const translations = {
   'route.blocked.adminReason': {
     ko: '관리자 계정에서만 사용할 수 있는 화면입니다.',
     en: 'This screen is shown only after admin permissions and operating policy are confirmed.',
-  },
-  'route.loading.description': {
-    ko: '사용 가능한 화면을 확인하고 있습니다.',
-    en: 'The screen appears after permissions and operating policy are checked.',
   },
   'route.loading.cardTitle': { ko: '접근 상태 확인', en: 'Checking access state' },
   'route.loading.cardMeta': { ko: '권한 확인 중', en: 'Permission check in progress' },
@@ -163,10 +155,6 @@ const translations = {
   'route.area.admin': { ko: '관리자 설정', en: 'Admin settings' },
   'route.area.adminSecurity': { ko: '보안 설정', en: 'Security settings' },
   'files.page.title': { ko: '문서함', en: 'Document vault' },
-  'files.page.description': {
-    ko: '접근 가능한 문서를 찾고 Matter별로 업로드합니다.',
-    en: 'Review authorized documents and matter-scoped upload flow in one place.',
-  },
   'files.section.title': { ko: '전체 문서', en: 'All documents' },
   'files.section.meta': { ko: '접근 가능한 문서', en: 'Permission scoped' },
   'files.empty.title': {
@@ -174,10 +162,6 @@ const translations = {
     en: 'The file list cannot be displayed.',
   },
   'integrations.page.title': { ko: '연동 관리', en: 'Integrations' },
-  'integrations.page.description': {
-    ko: '사용 중인 서비스의 연결 상태를 확인합니다.',
-    en: 'Only integrations confirmed by status APIs are shown.',
-  },
   'integrations.section.title': { ko: '연동 상태', en: 'Integration status' },
   'integrations.section.meta': { ko: '연결 상태', en: 'Operational data not connected' },
   'search.title': { ko: '문서 검색', en: 'Document search' },
@@ -251,10 +235,6 @@ const translations = {
     en: 'No display title available',
   },
   'outlook.page.title': { ko: 'Outlook 연동', en: 'Outlook integration' },
-  'outlook.page.description': {
-    ko: 'Office 작업 창과 별도로, 관리자용 연결 상태만 표시합니다.',
-    en: 'Shows admin connection status separately from the Office task pane.',
-  },
   'outlook.section.statusTitle': { ko: 'Outlook 운영 상태', en: 'Outlook operational status' },
   'outlook.section.statusMeta': { ko: '상태 확인 기준', en: 'Status API source' },
   'outlook.loading.title': {
@@ -364,18 +344,9 @@ const translations = {
   'outlook.reason.unknownRing': { ko: '알 수 없는 적용 범위', en: 'Unknown availability scope' },
   'matter.term': { ko: 'Matter', en: 'Matter' },
   'matter.list.title': { ko: 'Matter 목록', en: 'Matter list' },
-  'matter.list.description': {
-    ko: 'Matter 관리 시스템에서 동기화된 접근 가능한 Matter만 표시됩니다.',
-    en: 'Only matters confirmed by access permissions are shown.',
-  },
-  'matter.list.scoped': { ko: '권한으로 보호됨', en: 'Permissions applied' },
   'matter.list.empty': { ko: '표시할 Matter가 없습니다.', en: 'No matters to show.' },
   'matter.list.loading': { ko: 'Matter 목록을 불러오는 중입니다.', en: 'Loading matters.' },
   'matter.detail.fallbackTitle': { ko: 'Matter', en: 'Matter' },
-  'matter.detail.descriptionLoading': {
-    ko: '접근 가능한 Matter 정보만 표시됩니다.',
-    en: 'Only matter details confirmed by access permissions are shown.',
-  },
   'matter.detail.errorTitle': {
     ko: 'Matter를 표시할 수 없습니다.',
     en: 'Unable to display matter.',

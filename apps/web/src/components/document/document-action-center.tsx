@@ -2717,7 +2717,6 @@ export function DocumentActionCenter({
       <PageHeader
         breadcrumbs={['문서 보관', '파일']}
         title={document?.title || '제목 없음'}
-        description="접근 가능한 문서 정보를 표시합니다."
         actions={
           <div className="flex max-w-full flex-wrap justify-end gap-2">
             <Button

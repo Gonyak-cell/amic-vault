@@ -234,11 +234,6 @@ export default function MatterDetailPage({
       <PageHeader
         breadcrumbs={['문서 보관', 'Matter']}
         title={matter?.matterName ?? 'Matter'}
-        description={
-          matter
-            ? [matter.matterCode, matter.clientDisplayName].filter(Boolean).join(' · ')
-            : '접근 가능한 Matter 정보만 표시됩니다.'
-        }
         actions={
           matter ? (
             <div className="flex max-w-full flex-wrap items-center justify-end gap-2">

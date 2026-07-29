@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils';
 export interface PageHeaderProps extends React.HTMLAttributes<HTMLElement> {
   breadcrumbs?: readonly string[];
   title: string;
-  description?: string;
   actions?: React.ReactNode;
   navigation?: React.ReactNode;
 }
@@ -14,7 +13,6 @@ export function PageHeader({
   actions,
   breadcrumbs = ['문서 보관'],
   className,
-  description,
   navigation,
   title,
   ...props
@@ -41,16 +39,9 @@ export function PageHeader({
               </React.Fragment>
             ))}
           </nav>
-          <div className="mt-2 flex min-w-0 items-baseline gap-x-3 overflow-hidden">
-            <h1 className="max-w-full shrink-0 truncate text-xl font-semibold leading-[1.35] tracking-normal text-foreground">
-              {title}
-            </h1>
-            {description ? (
-              <p className="min-w-0 flex-1 truncate whitespace-nowrap text-sm leading-6 text-muted-foreground">
-                {description}
-              </p>
-            ) : null}
-          </div>
+          <h1 className="mt-2 max-w-full truncate text-xl font-semibold leading-[1.35] tracking-normal text-foreground">
+            {title}
+          </h1>
         </div>
         {actions ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>

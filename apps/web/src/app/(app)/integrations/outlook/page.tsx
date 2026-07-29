@@ -19,7 +19,6 @@ export default function OutlookIntegrationPage() {
       <PageHeader
         breadcrumbs={['문서 보관', t('integrations.page.title'), t('outlook.page.title')]}
         title={t('outlook.page.title')}
-        description={t('outlook.page.description')}
       />
       <SectionCard
         icon={<MailCheck className="h-4 w-4" />}

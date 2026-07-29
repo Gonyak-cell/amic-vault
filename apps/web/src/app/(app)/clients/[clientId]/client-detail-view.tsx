@@ -82,7 +82,6 @@ export function ClientDetailView({
       <PageHeader
         breadcrumbs={['문서 보관', '고객', title]}
         title={title}
-        description="고객 원장과 관련 Matter"
         actions={
           <>
             <Button asChild variant="outline">

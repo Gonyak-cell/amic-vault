@@ -20,12 +20,11 @@ describe('layout primitives', () => {
     expect(html).toContain('문서함');
   });
 
-  it('marks the active breadcrumb and wraps header actions on smaller viewports', () => {
+  it('marks the active breadcrumb and keeps page headers title-only', () => {
     const html = renderToStaticMarkup(
       <PageHeader
         actions={<Button type="button">새 문서</Button>}
         breadcrumbs={['Vault', '문서함']}
-        description="접근 가능한 문서만 표시합니다."
         title="문서함"
       />,
     );
@@ -34,11 +33,7 @@ describe('layout primitives', () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('flex-wrap');
     expect(html).toContain('md:flex-row');
-    expect(html).toContain('items-baseline');
-    expect(html).toContain('gap-x-3');
-    expect(html).toContain('overflow-hidden');
-    expect(html).toContain('truncate whitespace-nowrap');
-    expect(html).not.toContain('mt-1.5');
+    expect(html).toContain('mt-2 max-w-full truncate');
     expect(html).toContain('새 문서');
   });
 

@@ -116,7 +116,6 @@ export default function ClientsPage() {
       <PageHeader
         breadcrumbs={['문서 보관', '고객']}
         title="고객"
-        description="Matter 생성 고객 원장"
         actions={
           <Button type="button" variant="outline" onClick={refreshClients}>
             <RefreshCw className="h-4 w-4" />

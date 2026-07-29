@@ -38,7 +38,6 @@ type SubmitState = 'idle' | 'submitting' | 'invalid' | 'error';
 
 type NewMatterCopy = {
   title: string;
-  description: string;
   back: string;
   formTitle: string;
   formMeta: string;
@@ -78,7 +77,6 @@ type NewMatterCopy = {
 const newMatterCopy: Record<Language, NewMatterCopy> = {
   ko: {
     title: '새 Matter',
-    description: '고객, 사건 유형, 담당자를 지정해 Matter를 생성합니다.',
     back: 'Matter 목록',
     formTitle: 'Matter 기본 정보',
     formMeta: '검토 제안 상태로 생성',
@@ -136,7 +134,6 @@ const newMatterCopy: Record<Language, NewMatterCopy> = {
   },
   en: {
     title: 'New matter',
-    description: 'Create a matter with a client, matter type, and lead lawyer.',
     back: 'Matter list',
     formTitle: 'Matter basics',
     formMeta: 'Created as proposed',
@@ -282,7 +279,6 @@ export default function NewMatterPage() {
       <PageHeader
         breadcrumbs={['문서 보관', 'Matter', copy.title]}
         title={copy.title}
-        description={copy.description}
         actions={
           <Button asChild variant="outline">
             <Link href="/matters">

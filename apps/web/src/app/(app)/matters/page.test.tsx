@@ -17,7 +17,7 @@ vi.mock('@/lib/api-client', () => ({
 }));
 
 describe('MattersPage', () => {
-  it('surfaces Matter app registration without turning the Matter list into upload flow', () => {
+  it('keeps Matter headers title-only without turning the list into upload flow', () => {
     const html = renderToStaticMarkup(
       <LanguageProvider>
         <MattersPage />
@@ -30,9 +30,8 @@ describe('MattersPage', () => {
     expect(html.match(/새 Matter/g)).toHaveLength(1);
     expect(html).toContain('href="/matters/new"');
     expect(html.match(/href="\/matters\/new"/g)).toHaveLength(1);
-    expect(html).toContain('Matter 관리 시스템에서 확정된 Matter 코드');
-    expect(html).toContain('items-baseline gap-x-2 overflow-hidden');
-    expect(html).toContain('truncate whitespace-nowrap text-sm leading-6');
+    expect(html).not.toContain('Matter 관리 시스템에서 동기화된');
+    expect(html).not.toContain('Matter 관리 시스템에서 확정된 Matter 코드');
     expect(html).not.toContain('파일 업로드');
     expect(html).not.toContain('href="/files"');
     expect(html).not.toMatch(/>18</);

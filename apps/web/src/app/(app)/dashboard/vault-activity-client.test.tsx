@@ -7,7 +7,6 @@ describe('VaultActivityClient', () => {
   it('renders a real-data-only dashboard without mock activity details', () => {
     const html = renderToStaticMarkup(<VaultActivityClient />);
 
-    expect(html).toContain('접근 가능한 문서와 최근 활동을 표시합니다.');
     expect(html).toContain('items-baseline gap-x-2 overflow-hidden');
     expect(html).toContain('truncate whitespace-nowrap text-[13px] leading-6');
     expect(html).toContain('문서 업무 바로가기');

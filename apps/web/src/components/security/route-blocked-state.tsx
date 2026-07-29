@@ -20,16 +20,12 @@ export function RouteBlockedState({
   reasonKey?: TranslationKey;
 }) {
   const { t } = useI18n();
-  const displayArea = areaKey ? t(areaKey) : area ?? t('route.blocked.defaultArea');
-  const displayReason = reasonKey ? t(reasonKey) : reason ?? t('route.blocked.defaultReason');
+  const displayArea = areaKey ? t(areaKey) : (area ?? t('route.blocked.defaultArea'));
+  const displayReason = reasonKey ? t(reasonKey) : (reason ?? t('route.blocked.defaultReason'));
 
   return (
     <PageShell>
-      <PageHeader
-        breadcrumbs={['문서 보관', displayArea]}
-        title={displayArea}
-        description={t('route.blocked.description')}
-      />
+      <PageHeader breadcrumbs={['문서 보관', displayArea]} title={displayArea} />
       <SectionCard
         icon={<ShieldAlert className="h-4 w-4" />}
         title={t('route.blocked.cardTitle')}

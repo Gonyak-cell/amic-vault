@@ -105,11 +105,7 @@ export default function MatterTeamPage({ params }: { params: { matterId: string 
 
   return (
     <PageShell>
-      <PageHeader
-        breadcrumbs={['문서 보관', 'Matter', title]}
-        title={title}
-        description="Matter 팀원과 접근 설정을 표시합니다."
-      />
+      <PageHeader breadcrumbs={['문서 보관', 'Matter', title]} title={title} />
       {listError && !loaded ? (
         <EmptyState variant="api-error" title="팀 정보를 표시할 수 없습니다." />
       ) : null}
