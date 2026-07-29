@@ -37,17 +37,22 @@ export function FilterBar({
         {hasHeader ? (
           <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
             {hasIntro ? (
-              <div className="min-w-0 space-y-1">
+              <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
                 {title ? (
-                  <h2 className="text-[15px] font-semibold tracking-normal text-foreground">
+                  <h2 className="shrink-0 text-[15px] font-semibold tracking-normal text-foreground">
                     {title}
                   </h2>
                 ) : null}
                 {description ? (
-                  <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+                  <p className="min-w-0 flex-1 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
+                    {description}
+                  </p>
                 ) : null}
                 {resultsSummary ? (
-                  <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
+                  <div
+                    aria-live="polite"
+                    className="shrink-0 text-xs leading-5 text-muted-foreground"
+                  >
                     {resultsSummary}
                   </div>
                 ) : null}

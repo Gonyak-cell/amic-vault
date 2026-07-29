@@ -298,9 +298,9 @@ export default function NewMatterPage() {
           <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">{copy.nextStepTitle}</p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+            <p className="shrink-0 text-sm font-semibold text-foreground">{copy.nextStepTitle}</p>
+            <p className="min-w-0 truncate whitespace-nowrap text-sm leading-6 text-muted-foreground">
               {copy.nextStepDescription}
             </p>
           </div>
@@ -464,9 +464,11 @@ export default function NewMatterPage() {
           </section>
 
           <section className="grid gap-3 rounded-md border bg-muted/20 p-4">
-            <div className="space-y-1">
-              <h2 className="text-sm font-medium tracking-normal">{copy.leadLawyer}</h2>
-              <p className="text-sm leading-6 text-muted-foreground">{copy.leadLawyerOptional}</p>
+            <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+              <h2 className="shrink-0 text-sm font-medium tracking-normal">{copy.leadLawyer}</h2>
+              <p className="min-w-0 truncate whitespace-nowrap text-sm leading-6 text-muted-foreground">
+                {copy.leadLawyerOptional}
+              </p>
             </div>
             <OrgSubjectPicker
               onSubjectSelected={setSelectedLead}

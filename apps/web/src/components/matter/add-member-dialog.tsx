@@ -139,9 +139,11 @@ export function AddMemberDialog({
   return (
     <section className="rounded-md border bg-card p-4">
       <form className="grid gap-4" onSubmit={submit}>
-        <div className="space-y-1">
-          <h2 className="text-sm font-medium tracking-normal">{copy.title}</h2>
-          <p className="text-sm leading-6 text-muted-foreground">{copy.description}</p>
+        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+          <h2 className="shrink-0 text-sm font-medium tracking-normal">{copy.title}</h2>
+          <p className="min-w-0 truncate whitespace-nowrap text-sm leading-6 text-muted-foreground">
+            {copy.description}
+          </p>
         </div>
         <OrgSubjectPicker
           matterId={matterId}

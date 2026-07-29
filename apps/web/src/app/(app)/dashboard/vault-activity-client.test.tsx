@@ -8,6 +8,8 @@ describe('VaultActivityClient', () => {
     const html = renderToStaticMarkup(<VaultActivityClient />);
 
     expect(html).toContain('접근 가능한 문서와 최근 활동을 표시합니다.');
+    expect(html).toContain('items-baseline gap-x-2 overflow-hidden');
+    expect(html).toContain('truncate whitespace-nowrap text-[13px] leading-6');
     expect(html).toContain('문서 업무 바로가기');
     expect(html).toContain('Matter 문서 업로드');
     expect(html).toContain('전체 문서함');

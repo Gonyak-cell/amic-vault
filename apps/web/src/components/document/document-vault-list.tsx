@@ -663,11 +663,11 @@ export function DocumentVaultList({
     <form aria-label="문서함 필터" className="border-b pb-4" onSubmit={applyFilters}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-          <div className="min-w-0 space-y-1">
-            <h2 className="text-[15px] font-semibold tracking-normal text-foreground">
+          <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+            <h2 className="shrink-0 text-[15px] font-semibold tracking-normal text-foreground">
               문서함 검색
             </h2>
-            <p className="text-xs leading-5 text-muted-foreground">
+            <p className="min-w-0 flex-1 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
               접근 가능한 문서를 문서명과 Matter 코드 기준으로 찾습니다.
             </p>
             <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">

@@ -651,9 +651,9 @@ export function UploadQueueReceipt({
 }) {
   return (
     <div className="rounded-md border bg-background">
-      <div className="border-b px-3 py-2">
-        <p className="text-sm font-semibold">업로드 진행 상태</p>
-        <p className="mt-1 text-xs text-muted-foreground">
+      <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden border-b px-3 py-2">
+        <p className="shrink-0 text-sm font-semibold">업로드 진행 상태</p>
+        <p className="min-w-0 truncate whitespace-nowrap text-xs text-muted-foreground">
           업로드된 문서는 문서 상세에서 프로필, 버전, 처리 상태를 이어서 확인할 수 있습니다.
         </p>
       </div>

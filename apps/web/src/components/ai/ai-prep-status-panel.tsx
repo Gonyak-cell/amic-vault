@@ -185,10 +185,14 @@ export function AiPrepStatusPanel({ status }: { status: AiPrepDocumentStatusDto 
                 </div>
 
                 {content ? (
-                  <div className="mt-3 space-y-2">
-                    <h3 className="text-sm font-semibold tracking-normal">{content.heading}</h3>
-                    <p className="text-sm text-muted-foreground">{content.text}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <div className="mt-3 flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+                    <h3 className="shrink-0 text-sm font-semibold tracking-normal">
+                      {content.heading}
+                    </h3>
+                    <p className="min-w-0 flex-1 truncate whitespace-nowrap text-sm text-muted-foreground">
+                      {content.text}
+                    </p>
+                    <p className="shrink-0 text-xs text-muted-foreground">
                       {content.sourceRefs.length > 0
                         ? '문서 정보 정리 완료'
                         : '표시 가능한 근거 없음'}

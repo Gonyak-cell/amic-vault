@@ -67,9 +67,9 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
   return (
     <section aria-label="Matter 파일 정리 상태" className="space-y-3 rounded-md border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold tracking-normal">파일 정리 상태</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+          <h2 className="shrink-0 text-base font-semibold tracking-normal">파일 정리 상태</h2>
+          <p className="min-w-0 truncate whitespace-nowrap text-sm text-muted-foreground">
             접근 가능한 문서의 정리 상태를 표시합니다.
           </p>
         </div>

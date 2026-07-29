@@ -82,9 +82,13 @@ function MatterTemplateDocumentSets({
   return (
     <div className="mt-3 rounded-md border bg-muted/30 p-3">
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-foreground">승인된 문서 세트</p>
-          <p className="mt-1 truncate text-[12px] text-muted-foreground">{template.displayName}</p>
+        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+          <p className="shrink-0 truncate text-sm font-semibold text-foreground">
+            승인된 문서 세트
+          </p>
+          <p className="min-w-0 truncate text-[12px] text-muted-foreground">
+            {template.displayName}
+          </p>
         </div>
         <StatusBadge tone="success">승인됨</StatusBadge>
       </div>

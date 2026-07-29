@@ -25,6 +25,7 @@ describe('layout primitives', () => {
       <PageHeader
         actions={<Button type="button">새 문서</Button>}
         breadcrumbs={['Vault', '문서함']}
+        description="접근 가능한 문서만 표시합니다."
         title="문서함"
       />,
     );
@@ -33,12 +34,21 @@ describe('layout primitives', () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('flex-wrap');
     expect(html).toContain('md:flex-row');
+    expect(html).toContain('items-baseline');
+    expect(html).toContain('gap-x-3');
+    expect(html).toContain('overflow-hidden');
+    expect(html).toContain('truncate whitespace-nowrap');
+    expect(html).not.toContain('mt-1.5');
     expect(html).toContain('새 문서');
   });
 
-  it('wraps section actions while preserving compact card anatomy', () => {
+  it('keeps section title and metadata in one compact header row', () => {
     const html = renderToStaticMarkup(
-      <SectionCard actions={<Button type="button">재시도</Button>} title="처리 상태">
+      <SectionCard
+        actions={<Button type="button">재시도</Button>}
+        meta="실제 상태 기반"
+        title="처리 상태"
+      >
         본문 추출 대기
       </SectionCard>,
     );
@@ -47,6 +57,9 @@ describe('layout primitives', () => {
     expect(html).toContain('min-w-0');
     expect(html).toContain('flex-wrap');
     expect(html).toContain('justify-end');
+    expect(html).toContain('items-baseline');
+    expect(html).toContain('gap-2 overflow-hidden');
+    expect(html).toContain('실제 상태 기반');
     expect(html).toContain('본문 추출 대기');
   });
 });

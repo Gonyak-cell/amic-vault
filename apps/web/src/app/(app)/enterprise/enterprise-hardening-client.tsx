@@ -933,8 +933,12 @@ function AdminSearchOperationsPanel({
       </div>
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="rounded-md border bg-background p-3">
-          <h3 className="text-sm font-semibold tracking-normal">{copy.searchHealth}</h3>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy.searchHealthMeta}</p>
+          <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+            <h3 className="shrink-0 text-sm font-semibold tracking-normal">{copy.searchHealth}</h3>
+            <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
+              {copy.searchHealthMeta}
+            </p>
+          </div>
           {health ? (
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
               <Value
@@ -1134,16 +1138,18 @@ function AdminDmsConfigurationPanel({
       <div className="grid items-stretch gap-4 xl:grid-cols-3">
         <div className={dmsConfigurationCardClassName}>
           <div className={dmsConfigurationIntroClassName}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+              <div className="flex min-w-0 shrink-0 items-center gap-2">
                 <FileCog className="h-4 w-4 shrink-0" />
                 <span className="truncate text-sm font-semibold text-foreground">
                   {copy.taxonomy}
                 </span>
               </div>
               <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+              <p className="min-w-0 truncate whitespace-nowrap text-[13px] leading-5 text-muted-foreground">
+                {copy.taxonomyMeta}
+              </p>
             </div>
-            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.taxonomyMeta}</p>
           </div>
           <form className="mt-3 grid gap-2" onSubmit={submitTaxonomy}>
             <Input
@@ -1199,16 +1205,18 @@ function AdminDmsConfigurationPanel({
         </div>
         <div className={dmsConfigurationCardClassName}>
           <div className={dmsConfigurationIntroClassName}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+              <div className="flex min-w-0 shrink-0 items-center gap-2">
                 <FolderKanban className="h-4 w-4 shrink-0" />
                 <span className="truncate text-sm font-semibold text-foreground">
                   {copy.templates}
                 </span>
               </div>
               <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+              <p className="min-w-0 truncate whitespace-nowrap text-[13px] leading-5 text-muted-foreground">
+                {copy.templatesMeta}
+              </p>
             </div>
-            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.templatesMeta}</p>
             <p className="mt-2 text-[12px] font-medium leading-5 text-muted-foreground">
               {copy.templateGate}
             </p>
@@ -1274,16 +1282,18 @@ function AdminDmsConfigurationPanel({
         </div>
         <div className={dmsConfigurationCardClassName}>
           <div className={dmsConfigurationIntroClassName}>
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2 overflow-hidden">
+              <div className="flex min-w-0 shrink-0 items-center gap-2">
                 <SearchCheck className="h-4 w-4 shrink-0" />
                 <span className="truncate text-sm font-semibold text-foreground">
                   {copy.refiners}
                 </span>
               </div>
               <StatusBadge>{copy.activeConfiguration}</StatusBadge>
+              <p className="min-w-0 truncate whitespace-nowrap text-[13px] leading-5 text-muted-foreground">
+                {copy.refinersMeta}
+              </p>
             </div>
-            <p className="mt-2 text-[13px] leading-5 text-muted-foreground">{copy.refinersMeta}</p>
           </div>
           <form className="mt-3 grid gap-2" onSubmit={submitRefiner}>
             <select

@@ -31,6 +31,8 @@ describe('MattersPage', () => {
     expect(html).toContain('href="/matters/new"');
     expect(html.match(/href="\/matters\/new"/g)).toHaveLength(1);
     expect(html).toContain('Matter 관리 시스템에서 확정된 Matter 코드');
+    expect(html).toContain('items-baseline gap-x-2 overflow-hidden');
+    expect(html).toContain('truncate whitespace-nowrap text-sm leading-6');
     expect(html).not.toContain('파일 업로드');
     expect(html).not.toContain('href="/files"');
     expect(html).not.toMatch(/>18</);

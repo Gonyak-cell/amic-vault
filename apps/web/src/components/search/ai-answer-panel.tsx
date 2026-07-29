@@ -59,9 +59,9 @@ export function AiAnswerPanel({
   return (
     <section className="rounded-md border bg-card p-4" aria-label="AI에게 질문">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold tracking-normal">AI에게 질문</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
+        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+          <h2 className="shrink-0 text-base font-semibold tracking-normal">AI에게 질문</h2>
+          <p className="min-w-0 truncate whitespace-nowrap text-xs text-muted-foreground">
             {matterLabel ?? 'Matter 범위를 선택하면 접근 가능한 근거만 사용합니다.'}
           </p>
         </div>

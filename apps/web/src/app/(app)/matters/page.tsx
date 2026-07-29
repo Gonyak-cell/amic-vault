@@ -162,9 +162,11 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
           <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">{copy.prepTitle}</p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">{copy.prepDescription}</p>
+          <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+            <p className="shrink-0 text-sm font-semibold text-foreground">{copy.prepTitle}</p>
+            <p className="min-w-0 truncate whitespace-nowrap text-sm leading-6 text-muted-foreground">
+              {copy.prepDescription}
+            </p>
           </div>
         </div>
       </div>

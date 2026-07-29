@@ -1116,14 +1116,16 @@ function RecordsActionContextPanel({
     <div className="rounded-md border bg-card p-3">
       <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
             <ListChecks className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <p className="truncate text-sm font-semibold text-foreground">
               {copy.contextPanelTitle}
             </p>
             <StatusBadge tone="success">{copy.contextReady}</StatusBadge>
+            <p className="min-w-0 truncate whitespace-nowrap text-xs text-muted-foreground">
+              {copy.contextPanelMeta}
+            </p>
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">{copy.contextPanelMeta}</p>
           <dl className="mt-2 flex min-w-0 flex-wrap gap-2">
             {documentContextLabel ? (
               <ContextTarget label={copy.documentRef} value={documentContextLabel} compact />

@@ -81,9 +81,11 @@ export function MatterKnowledgeTab({
   return (
     <section id="matter-knowledge" className="grid gap-4" aria-label="Matter 지식">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">지식</h2>
-          <p className="text-xs text-muted-foreground">관계도 · 쟁점 지도 · 인용 근거</p>
+        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+          <h2 className="shrink-0 text-base font-semibold text-foreground">지식</h2>
+          <p className="min-w-0 truncate whitespace-nowrap text-xs text-muted-foreground">
+            관계도 · 쟁점 지도 · 인용 근거
+          </p>
         </div>
       </div>
 
