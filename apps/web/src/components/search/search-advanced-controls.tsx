@@ -146,7 +146,7 @@ const confidentialityLabels = {
 const privilegeLabels = {
   none: '특권 없음',
   privileged: '변호사-의뢰인 특권',
-  work_product: '작업 산출물',
+  work_product: '변호사 업무상 작성자료',
   joint_privilege: '공동 특권',
 } as const satisfies Record<DocumentPrivilegeStatus, string>;
 
@@ -337,7 +337,7 @@ export function SearchAdvancedControls({
         <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
           <SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden="true" />
           검색 조건
-          <span className="font-normal text-muted-foreground">권한 범위 내 결과</span>
+          <span className="font-normal text-muted-foreground">접근 가능한 문서만 표시</span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
           {activeCount > 0 ? <StatusBadge tone="warning">{activeCount}개</StatusBadge> : null}
@@ -350,367 +350,369 @@ export function SearchAdvancedControls({
       </button>
       {open ? (
         <div className="border-t py-4">
-      <div className="grid gap-3 md:grid-cols-4">
-        <label className="space-y-1 text-sm font-medium">
-          검색 범위
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.target}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                target: event.target.value as SearchTarget,
-              }))
-            }
-          >
-            {Object.entries(targetLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          정렬
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.sortBy}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                sortBy: event.target.value as SearchSort,
-              }))
-            }
-          >
-            {Object.entries(sortLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="space-y-1 text-sm font-medium">
-          그룹
-          <select
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            value={draft.groupBy}
-            disabled={busy}
-            onChange={(event) =>
-              setDraft((current) => ({
-                ...current,
-                groupBy: event.target.value as SearchGroupBy,
-              }))
-            }
-          >
-            {Object.entries(groupLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {allowed('documentType') ? (
-          <label className="space-y-1 text-sm font-medium">
-            문서 유형
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft.documentType}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  documentType: event.target.value as DocumentType | '',
-                }))
-              }
-            >
-              <option value="">전체</option>
-              {documentTypeOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {allowed('confidentialityLevel') ? (
-          <label className="space-y-1 text-sm font-medium">
-            기밀도
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft.confidentialityLevel}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  confidentialityLevel: event.target.value as DocumentConfidentialityLevel | '',
-                }))
-              }
-            >
-              <option value="">전체</option>
-              {documentConfidentialityLevels.map((level) => (
-                <option key={level} value={level}>
-                  {confidentialityLabels[level]}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {allowed('privilegeStatus') ? (
-          <label className="space-y-1 text-sm font-medium">
-            특권 상태
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft.privilegeStatus}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  privilegeStatus: event.target.value as DocumentPrivilegeStatus | '',
-                }))
-              }
-            >
-              <option value="">전체</option>
-              {documentPrivilegeStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {privilegeLabels[status]}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {allowed('extractionStatus') ? (
-          <label className="space-y-1 text-sm font-medium">
-            추출/OCR
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft.extractionStatus}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  extractionStatus: event.target.value as DocumentExtractionStatus | '',
-                }))
-              }
-            >
-              <option value="">전체 상태</option>
-              {documentExtractionStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {extractionStatusLabels[status]}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {allowed('legalHold') ? (
-          <label className="space-y-1 text-sm font-medium">
-            보존/삭제 금지
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft.legalHold}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  legalHold: event.target.value as SearchLegalHold | '',
-                }))
-              }
-            >
-              <option value="">전체</option>
-              {searchLegalHoldValues.map((status) => (
-                <option key={status} value={status}>
-                  {legalHoldLabels[status]}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {allowed('recordsStatus') ? (
-          <label className="space-y-1 text-sm font-medium">
-            기록 상태
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft.recordsStatus}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  recordsStatus: event.target.value as SearchRecordsStatus | '',
-                }))
-              }
-            >
-              <option value="">전체 상태</option>
-              {searchRecordsStatusValues.map((status) => (
-                <option key={status} value={status}>
-                  {recordsStatusLabels[status]}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {allowed('versionStatus') ? (
-          <label className="space-y-1 text-sm font-medium">
-            버전 상태
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft.versionStatus}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  versionStatus: event.target.value as SearchVersionStatus | '',
-                }))
-              }
-            >
-              <option value="">현재 버전 기본</option>
-              {searchVersionStatusValues.map((status) => (
-                <option key={status} value={status}>
-                  {versionStatusLabels[status]}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {allowed('dateRange') ? (
-          <label className="space-y-1 text-sm font-medium">
-            수정 기간
-            <select
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft.dateRange}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  dateRange: event.target.value as SearchDateRange | '',
-                }))
-              }
-            >
-              <option value="">전체 기간</option>
-              {Object.entries(dateRangeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        {allowed('title') ? (
-          <label className="space-y-1 text-sm font-medium">
-            제목
-            <Input
-              value={draft.title}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  title: event.target.value,
-                }))
-              }
-            />
-          </label>
-        ) : null}
-        {allowed('matterCode') ? (
-          <label className="space-y-1 text-sm font-medium">
-            Matter code
-            <Input
-              value={draft.matterCode}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  matterCode: event.target.value,
-                }))
-              }
-            />
-          </label>
-        ) : null}
-        {allowed('matterName') ? (
-          <label className="space-y-1 text-sm font-medium">
-            Matter 이름
-            <Input
-              value={draft.matterName}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  matterName: event.target.value,
-                }))
-              }
-            />
-          </label>
-        ) : null}
-        {allowed('clientName') ? (
-          <label className="space-y-1 text-sm font-medium">
-            고객명
-            <Input
-              value={draft.clientName}
-              disabled={busy}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  clientName: event.target.value,
-                }))
-              }
-            />
-          </label>
-        ) : null}
-      </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.5fr)]">
-        <section className="rounded-md border bg-background p-3">
-          <div className="flex items-center justify-between gap-3">
-            <h4 className="text-sm font-semibold text-foreground">활성 필터</h4>
-            <StatusBadge tone={activeCount > 0 ? 'warning' : 'neutral'}>
-              {activeCount > 0 ? `${activeCount}개` : '기본'}
-            </StatusBadge>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {activeSearchChips(selection, approvedRefinerKeys).map((chip) => (
-              <span
-                key={`${chip.label}-${chip.value}`}
-                className="inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border bg-muted/30 px-2.5 text-xs font-semibold text-foreground"
+          <div className="grid gap-3 md:grid-cols-4">
+            <label className="space-y-1 text-sm font-medium">
+              검색 범위
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={draft.target}
+                disabled={busy}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    target: event.target.value as SearchTarget,
+                  }))
+                }
               >
-                <span className="text-muted-foreground">{chip.label}</span>
-                <span className="max-w-44 truncate">{chip.value}</span>
-              </span>
-            ))}
+                {Object.entries(targetLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium">
+              정렬
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={draft.sortBy}
+                disabled={busy}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    sortBy: event.target.value as SearchSort,
+                  }))
+                }
+              >
+                {Object.entries(sortLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-sm font-medium">
+              그룹
+              <select
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={draft.groupBy}
+                disabled={busy}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    groupBy: event.target.value as SearchGroupBy,
+                  }))
+                }
+              >
+                {Object.entries(groupLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {allowed('documentType') ? (
+              <label className="space-y-1 text-sm font-medium">
+                문서 유형
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={draft.documentType}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      documentType: event.target.value as DocumentType | '',
+                    }))
+                  }
+                >
+                  <option value="">전체</option>
+                  {documentTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {allowed('confidentialityLevel') ? (
+              <label className="space-y-1 text-sm font-medium">
+                기밀도
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={draft.confidentialityLevel}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      confidentialityLevel: event.target.value as DocumentConfidentialityLevel | '',
+                    }))
+                  }
+                >
+                  <option value="">전체</option>
+                  {documentConfidentialityLevels.map((level) => (
+                    <option key={level} value={level}>
+                      {confidentialityLabels[level]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {allowed('privilegeStatus') ? (
+              <label className="space-y-1 text-sm font-medium">
+                특권 상태
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={draft.privilegeStatus}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      privilegeStatus: event.target.value as DocumentPrivilegeStatus | '',
+                    }))
+                  }
+                >
+                  <option value="">전체</option>
+                  {documentPrivilegeStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {privilegeLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {allowed('extractionStatus') ? (
+              <label className="space-y-1 text-sm font-medium">
+                추출/OCR
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={draft.extractionStatus}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      extractionStatus: event.target.value as DocumentExtractionStatus | '',
+                    }))
+                  }
+                >
+                  <option value="">전체 상태</option>
+                  {documentExtractionStatuses.map((status) => (
+                    <option key={status} value={status}>
+                      {extractionStatusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {allowed('legalHold') ? (
+              <label className="space-y-1 text-sm font-medium">
+                보존/삭제 금지
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={draft.legalHold}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      legalHold: event.target.value as SearchLegalHold | '',
+                    }))
+                  }
+                >
+                  <option value="">전체</option>
+                  {searchLegalHoldValues.map((status) => (
+                    <option key={status} value={status}>
+                      {legalHoldLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {allowed('recordsStatus') ? (
+              <label className="space-y-1 text-sm font-medium">
+                기록 상태
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={draft.recordsStatus}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      recordsStatus: event.target.value as SearchRecordsStatus | '',
+                    }))
+                  }
+                >
+                  <option value="">전체 상태</option>
+                  {searchRecordsStatusValues.map((status) => (
+                    <option key={status} value={status}>
+                      {recordsStatusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {allowed('versionStatus') ? (
+              <label className="space-y-1 text-sm font-medium">
+                버전 상태
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={draft.versionStatus}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      versionStatus: event.target.value as SearchVersionStatus | '',
+                    }))
+                  }
+                >
+                  <option value="">현재 버전 기본</option>
+                  {searchVersionStatusValues.map((status) => (
+                    <option key={status} value={status}>
+                      {versionStatusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {allowed('dateRange') ? (
+              <label className="space-y-1 text-sm font-medium">
+                수정 기간
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={draft.dateRange}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      dateRange: event.target.value as SearchDateRange | '',
+                    }))
+                  }
+                >
+                  <option value="">전체 기간</option>
+                  {Object.entries(dateRangeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {allowed('title') ? (
+              <label className="space-y-1 text-sm font-medium">
+                제목
+                <Input
+                  value={draft.title}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ) : null}
+            {allowed('matterCode') ? (
+              <label className="space-y-1 text-sm font-medium">
+                Matter 코드
+                <Input
+                  value={draft.matterCode}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      matterCode: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ) : null}
+            {allowed('matterName') ? (
+              <label className="space-y-1 text-sm font-medium">
+                Matter 이름
+                <Input
+                  value={draft.matterName}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      matterName: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ) : null}
+            {allowed('clientName') ? (
+              <label className="space-y-1 text-sm font-medium">
+                고객명
+                <Input
+                  value={draft.clientName}
+                  disabled={busy}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      clientName: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            ) : null}
           </div>
-        </section>
-        <section className="rounded-md border bg-background p-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <HelpCircle className="h-4 w-4 text-primary" />
-            검색식 도움말
+          <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.5fr)]">
+            <section className="rounded-md border bg-background p-3">
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="text-sm font-semibold text-foreground">활성 필터</h4>
+                <StatusBadge tone={activeCount > 0 ? 'warning' : 'neutral'}>
+                  {activeCount > 0 ? `${activeCount}개` : '기본'}
+                </StatusBadge>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {activeSearchChips(selection, approvedRefinerKeys).map((chip) => (
+                  <span
+                    key={`${chip.label}-${chip.value}`}
+                    className="inline-flex min-h-7 max-w-full items-center gap-1 rounded-md border bg-muted/30 px-2.5 text-xs font-semibold text-foreground"
+                  >
+                    <span className="text-muted-foreground">{chip.label}</span>
+                    <span className="max-w-44 truncate">{chip.value}</span>
+                  </span>
+                ))}
+              </div>
+            </section>
+            <section className="rounded-md border bg-background p-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <HelpCircle className="h-4 w-4 text-primary" />
+                검색식 도움말
+              </div>
+              <ul className="mt-2 grid gap-1.5 text-xs leading-5 text-muted-foreground">
+                <li>
+                  <code className="rounded border bg-muted px-1 py-0.5 text-foreground">
+                    "정확한 문구"
+                  </code>
+                  <span className="ml-2">정확한 문구 우선</span>
+                </li>
+                <li>
+                  <code className="rounded border bg-muted px-1 py-0.5 text-foreground">
+                    -제외어
+                  </code>
+                  <span className="ml-2">제외어 반영</span>
+                </li>
+                <li>본문/제목 범위와 Matter 코드는 위 필터로 고정</li>
+              </ul>
+            </section>
           </div>
-          <ul className="mt-2 grid gap-1.5 text-xs leading-5 text-muted-foreground">
-            <li>
-              <code className="rounded border bg-muted px-1 py-0.5 text-foreground">
-                "정확한 문구"
-              </code>
-              <span className="ml-2">정확한 문구 우선</span>
-            </li>
-            <li>
-              <code className="rounded border bg-muted px-1 py-0.5 text-foreground">-제외어</code>
-              <span className="ml-2">제외어 반영</span>
-            </li>
-            <li>본문/제목 범위와 Matter code는 위 필터로 고정</li>
-          </ul>
-        </section>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <Button
-          type="button"
-          size="sm"
-          onClick={() => onApply(normalizedDraft(draft, approvedRefinerKeys))}
-          disabled={busy}
-        >
-          적용
-        </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onReset} disabled={busy}>
-          <X className="h-4 w-4" />
-          초기화
-        </Button>
-      </div>
-      {children ? <div className="mt-4 border-t pt-4">{children}</div> : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => onApply(normalizedDraft(draft, approvedRefinerKeys))}
+              disabled={busy}
+            >
+              적용
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={onReset} disabled={busy}>
+              <X className="h-4 w-4" />
+              초기화
+            </Button>
+          </div>
+          {children ? <div className="mt-4 border-t pt-4">{children}</div> : null}
         </div>
       ) : null}
     </section>
@@ -786,7 +788,7 @@ function activeSearchChips(
     selection.matterCode &&
     hasSearchRefiner(approvedRefinerKeys, searchRefinerFieldKeys.matterCode)
   ) {
-    chips.push({ label: 'Matter code', value: selection.matterCode });
+    chips.push({ label: 'Matter 코드', value: selection.matterCode });
   }
   if (
     selection.matterName &&

@@ -201,7 +201,7 @@ describe('ResultCard', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('표시 가능한 제목 없음');
+    expect(html).toContain('제목 없음');
     expect(html).not.toContain('11111111-1111-4111-8111-111111111201</a>');
   });
 

@@ -70,7 +70,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
         <div>
           <h2 className="text-base font-semibold tracking-normal">파일 정리 상태</h2>
           <p className="text-sm text-muted-foreground">
-            권한이 확인된 파일의 정리 상태만 표시됩니다.
+            접근 가능한 문서의 정리 상태를 표시합니다.
           </p>
         </div>
         <Button
@@ -99,7 +99,7 @@ export function AiPrepMatterDashboard({ readiness, onRetryComplete }: AiPrepMatt
             readiness.documents.map((document) => (
               <DataTableRow key={document.documentId}>
                 <DataTableCell className="max-w-[360px] truncate font-medium">
-                  {document.title || '표시 가능한 제목 없음'}
+                  {document.title || '제목 없음'}
                 </DataTableCell>
                 <DataTableCell>
                   <StatusBadge tone={readinessTone(document.readinessStatus)}>

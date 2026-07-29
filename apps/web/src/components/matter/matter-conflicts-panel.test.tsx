@@ -74,7 +74,8 @@ describe('MatterConflictsPanelView', () => {
     expect(html).toContain('이해상충');
     expect(html).toContain('차단됨');
     expect(html).toContain('최근 검토: 검토 중');
-    expect(html).toContain('/walls 정보 차단 설정');
+    expect(html).toContain('정보 차단 설정 보기');
+    expect(html).not.toContain('/walls 정보 차단 설정');
     expect(html).toContain('한빛전자');
     expect(html).toContain('(주)한빛전자');
     expect(html).toContain('당사자');

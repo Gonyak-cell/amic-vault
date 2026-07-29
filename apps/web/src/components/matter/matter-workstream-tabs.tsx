@@ -9,25 +9,25 @@ const matterWorkstreamTabs = [
   {
     key: 'contracts',
     label: '계약',
-    meta: '조항 · Rule findings',
+    meta: '조항 · 기준 위반',
     icon: BriefcaseBusiness,
   },
   {
     key: 'dd',
     label: 'DD',
-    meta: 'RFI · Traceability',
+    meta: '자료 요청 · 추적성',
     icon: FileSearch,
   },
   {
     key: 'litigation',
     label: '송무',
-    meta: 'Fact Ledger · Case map',
+    meta: '사실관계 원장 · 사건 지도',
     icon: Scale,
   },
   {
     key: 'knowledge',
     label: '지식',
-    meta: 'Graph · Issue · Citation',
+    meta: '관계도 · 쟁점 · 인용 근거',
     icon: Network,
   },
 ] as const satisfies readonly {

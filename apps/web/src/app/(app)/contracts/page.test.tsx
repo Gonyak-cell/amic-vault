@@ -30,11 +30,11 @@ describe('Contracts clause bank page', () => {
   it('renders the firm clause bank surface with status filtering', () => {
     const html = renderToStaticMarkup(<ContractsPage />);
 
-    expect(html).toContain('조항은행');
+    expect(html).toContain('조항 라이브러리');
     expect(html).toContain('상태');
     expect(html).toContain('승인 대기');
     expect(html).toContain('승인됨');
-    expect(html).toContain('조항은행을 불러오는 중입니다.');
+    expect(html).toContain('조항 라이브러리를 불러오는 중입니다.');
     expect(html).toContain('유사 조항');
     expect(html).toContain('손해배상 책임 상한');
   });
@@ -45,8 +45,10 @@ describe('Contracts clause bank page', () => {
     );
 
     expect(html).toContain('12.3');
-    expect(html).toContain('governing_law');
-    expect(html).toContain('clause:11111111-1111-4111-8111-111111111302');
+    expect(html).toContain('참조 ••••11111302');
+    expect(html).toContain('준거법');
+    expect(html).not.toContain('governing_law');
+    expect(html).not.toContain('clause:11111111-1111-4111-8111-111111111302');
     expect(html).toContain('승인');
     expect(html).not.toContain('Confidential Information');
     expect(html).not.toContain('raw clause body');
@@ -63,7 +65,11 @@ describe('Contracts clause bank page', () => {
       citationRef: 'clause-bank:11111111-1111-4111-8111-111111111301',
     } satisfies ClauseBankEntryDto;
     const html = renderToStaticMarkup(
-      <ClauseBankTable entries={[restricted]} busyEntryId={null} onApprove={async () => undefined} />,
+      <ClauseBankTable
+        entries={[restricted]}
+        busyEntryId={null}
+        onApprove={async () => undefined}
+      />,
     );
 
     expect(html).toContain('권한 제한');
@@ -90,9 +96,11 @@ describe('Contracts clause bank page', () => {
     } satisfies ClauseSearchResultDto;
     const html = renderToStaticMarkup(<ClauseSearchResults results={[result]} />);
 
-    expect(html).toContain('liability_cap');
+    expect(html).toContain('절');
+    expect(html).toContain('책임 한도');
     expect(html).toContain('1.080');
-    expect(html).toContain('clause:11111111-1111-4111-8111-111111111401');
+    expect(html).toContain('참조 ••••11111401');
+    expect(html).not.toContain('clause:11111111-1111-4111-8111-111111111401');
     expect(html).not.toContain('손해배상액은 책임한도로 제한된다');
     expect(html).not.toContain('raw clause body');
   });

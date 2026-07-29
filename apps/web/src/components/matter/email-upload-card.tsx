@@ -38,7 +38,9 @@ export function EmailUploadCard({
   uploadEnabled = true,
 }: EmailUploadCardProps) {
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-  const [uploadResult, setUploadResult] = React.useState<UploadEmailToMatterResponseDto | null>(null);
+  const [uploadResult, setUploadResult] = React.useState<UploadEmailToMatterResponseDto | null>(
+    null,
+  );
   const [suggestions, setSuggestions] = React.useState<EmailMatterSuggestionDto[]>([]);
   const [selectedMatterId, setSelectedMatterId] = React.useState<string | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
@@ -89,7 +91,9 @@ export function EmailUploadCard({
     setIsFiling(true);
     setErrorMessage(null);
     try {
-      const filing = await fileEmailToMatter(uploadResult.email.emailId, { matterId: selectedMatterId });
+      const filing = await fileEmailToMatter(uploadResult.email.emailId, {
+        matterId: selectedMatterId,
+      });
       setStatusMessage('이메일 파일링 완료');
       if (filing.matterId === matter?.matterId) onFiled?.(filing);
     } catch (error) {
@@ -122,7 +126,7 @@ export function EmailUploadCard({
     return (
       <EmptyState
         variant="pre-search"
-        title="Matter code를 먼저 선택해 주세요."
+        title="Matter 코드를 먼저 선택해 주세요."
         description="이메일은 선택한 Matter 권한 범위 안에서만 보관할 수 있습니다."
       />
     );
@@ -133,7 +137,7 @@ export function EmailUploadCard({
       <EmptyState
         variant="policy-blocked"
         title="이메일 업로드 가능 여부 확인 필요"
-        description="Matter 관리 시스템에서 업로드 가능한 Matter code로 확인된 뒤 이메일을 보관할 수 있습니다."
+        description="Matter 관리 시스템에서 업로드 가능한 Matter 코드로 확인된 뒤 이메일을 보관할 수 있습니다."
       />
     );
   }

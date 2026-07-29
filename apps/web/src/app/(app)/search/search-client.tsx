@@ -485,7 +485,7 @@ export function SearchClient() {
                   type="button"
                   variant="outline"
                 >
-                  현재 검색 저장
+                  검색 조건 저장
                 </Button>
               </div>
             }
@@ -500,7 +500,7 @@ export function SearchClient() {
                     targetType: 'saved_search',
                     targetId: savedSearch.savedSearchId,
                     label: savedSearch.name,
-                    contextLabel: '저장 검색',
+                    contextLabel: '저장된 검색',
                     href: privateSearchUrl(savedSearch.savedSearchId),
                   })
                 }
@@ -557,7 +557,7 @@ export function SearchClient() {
                     targetType: 'saved_search',
                     targetId: savedSearch.savedSearchId,
                     label: savedSearch.name,
-                    contextLabel: '저장 검색',
+                    contextLabel: '저장된 검색',
                     href: privateSearchUrl(savedSearch.savedSearchId),
                   })
                 }
@@ -621,7 +621,7 @@ export function SearchClient() {
             open={saveOpen}
             returnFocusRef={saveTriggerRef}
             side="right"
-            title="현재 검색 저장"
+            title="검색 조건 저장"
           >
             <div id="search-workbench-save">
               <SearchSavePanel

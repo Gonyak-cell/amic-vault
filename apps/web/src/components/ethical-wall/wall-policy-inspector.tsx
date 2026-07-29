@@ -34,18 +34,18 @@ const copyByLanguage: Record<
 > = {
   ko: {
     title: '정책 상세',
-    meta: '선택한 정보 장벽',
-    emptyTitle: '선택한 정보 장벽이 없습니다.',
-    emptyDescription: '정보 장벽 행을 선택하면 정책 범위와 감사 맥락이 표시됩니다.',
-    barrier: '정보 장벽',
+    meta: '선택한 정보 차단 규칙',
+    emptyTitle: '선택한 정보 차단 규칙이 없습니다.',
+    emptyDescription: '정보 차단 규칙을 선택하면 정책 범위와 감사 기록이 표시됩니다.',
+    barrier: '정보 차단 규칙',
     status: '상태',
     matter: 'Matter',
-    matterHidden: 'Matter 정보는 권한 확인 후 표시됩니다.',
+    matterHidden: 'Matter 정보를 표시할 수 없습니다.',
     members: '구성원 상태',
     createdAt: '생성 시각',
     policyContext: '정책 및 감사 맥락',
     policyDescription:
-      '정보 장벽 변경은 권한 정책과 감사 기록을 통과한 작업만 반영됩니다. 구성원 확인 정보는 보안 운영 영역에서만 확인합니다.',
+      '정보 차단 규칙 변경은 감사 기록과 함께 저장됩니다. 구성원 정보는 보안 관리자만 확인할 수 있습니다.',
     active: '활성',
     released: '해제됨',
     membershipLabels: {

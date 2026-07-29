@@ -5,13 +5,23 @@ import type { SavedSearchDto } from '@amic-vault/shared';
 import { SearchWorkbenchRail } from './search-workbench-rail';
 
 vi.mock('next/link', () => ({
-  default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({ asChild, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => {
+  Button: ({
+    asChild,
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => {
     void asChild;
     return <button {...props}>{children}</button>;
   },
@@ -47,7 +57,7 @@ describe('SearchWorkbenchRail', () => {
       />,
     );
 
-    expect(html).toContain('현재 검색 저장');
+    expect(html).toContain('검색 조건 저장');
     expect(html).toContain('Matter 팀');
     expect(html).toContain('계약서 본문');
     expect(html).toContain('최근 문서');

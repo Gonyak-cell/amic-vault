@@ -34,7 +34,7 @@ describe('AuditEventTable', () => {
     expect(html).toContain('활동');
     expect(html).toContain('활동 기록 표');
     expect(html).toContain('min-w-[760px]');
-    expect(html).toContain('Audit Query Executed');
+    expect(html).toContain('감사 실행');
     expect(html).toContain('감사 콘솔');
     expect(html).toContain('조우상');
     expect(html).not.toContain('audit_console');

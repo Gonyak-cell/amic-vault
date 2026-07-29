@@ -81,7 +81,7 @@ const newMatterCopy: Record<Language, NewMatterCopy> = {
     description: '고객, 사건 유형, 담당자를 지정해 Matter를 생성합니다.',
     back: 'Matter 목록',
     formTitle: 'Matter 기본 정보',
-    formMeta: 'proposed 상태로 생성',
+    formMeta: '검토 제안 상태로 생성',
     client: '고객',
     clientLoading: '고객 목록을 불러오는 중입니다.',
     clientEmpty: '선택할 고객이 없습니다.',
@@ -90,13 +90,13 @@ const newMatterCopy: Record<Language, NewMatterCopy> = {
     appliedTemplate: '적용 템플릿',
     appliedAccessScope: '적용 접근 범위',
     appliedAiPolicy: 'AI 정책',
-    appliedLeadOwner: '담당 변호사 · owner',
+    appliedLeadOwner: '담당 변호사 · 책임자',
     appliedLeadPolicy: '초기 구성원',
     templatePreview: '템플릿 적용값',
     matterType: '사건 유형',
-    matterCode: 'Matter code',
+    matterCode: 'Matter 코드',
     matterName: 'Matter 이름',
-    practiceGroup: 'Practice group',
+    practiceGroup: '업무 분야',
     leadLawyer: '담당 변호사',
     leadLawyerOptional: '선택하지 않으면 현재 사용자가 담당자로 지정됩니다.',
     selectedLead: '선택된 담당자',
@@ -108,7 +108,7 @@ const newMatterCopy: Record<Language, NewMatterCopy> = {
     failed: 'Matter를 생성하지 못했습니다.',
     clientError: '고객 목록을 불러오지 못했습니다.',
     nextStepTitle: '생성 후 상태',
-    nextStepDescription: '생성된 Matter는 proposed 상태로 열리고 상세 화면에서 검토를 이어갑니다.',
+    nextStepDescription: '생성된 Matter는 검토 제안 상태로 열리고 상세 화면에서 검토를 이어갑니다.',
     accessScopeLabels: {
       firm_open: '펌 전체 열람',
       restricted: '제한 Matter',
@@ -118,8 +118,8 @@ const newMatterCopy: Record<Language, NewMatterCopy> = {
       restricted: '제한 Matter',
     },
     templateDescriptions: {
-      default_open: '담당 변호사를 owner로 지정하고 펌 전체 열람 범위로 시작합니다.',
-      restricted: '담당 변호사를 owner로 지정하고 구성원 기반 열람 범위로 시작합니다.',
+      default_open: '담당 변호사를 책임자로 지정하고 펌 전체 열람 범위로 시작합니다.',
+      restricted: '담당 변호사를 책임자로 지정하고 구성원 기반 열람 범위로 시작합니다.',
     },
     typeLabels: {
       advisory: '자문',
@@ -458,9 +458,7 @@ export default function NewMatterPage() {
               </div>
               <div>
                 <dt className="text-muted-foreground">{copy.appliedAiPolicy}</dt>
-                <dd className="mt-1 font-medium text-foreground">
-                  AMIC local file organization prep
-                </dd>
+                <dd className="mt-1 font-medium text-foreground">AMIC 로컬 문서 정리</dd>
               </div>
             </dl>
           </section>
@@ -479,7 +477,9 @@ export default function NewMatterPage() {
             {selectedLead ? (
               <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm">
                 <span className="text-muted-foreground">{copy.selectedLead}</span>
-                <span className="font-medium text-foreground">{selectedSubjectLabel(selectedLead)}</span>
+                <span className="font-medium text-foreground">
+                  {selectedSubjectLabel(selectedLead)}
+                </span>
                 <Button
                   aria-label={copy.clearLead}
                   title={copy.clearLead}

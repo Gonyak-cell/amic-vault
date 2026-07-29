@@ -42,11 +42,15 @@ const matter = {
 describe('MatterCodePicker', () => {
   it('fails closed when the Matter app source is not configured', () => {
     const html = renderToStaticMarkup(
-      <MatterCodePicker selectedMatter={null} onMatterSelected={() => undefined} sourceMode="unconfigured" />,
+      <MatterCodePicker
+        selectedMatter={null}
+        onMatterSelected={() => undefined}
+        sourceMode="unconfigured"
+      />,
     );
 
     expect(html).toContain('Matter 관리 시스템 연결 필요');
-    expect(html).toContain('Matter code를 선택한 뒤 작업을 진행합니다.');
+    expect(html).toContain('Matter 코드를 선택한 뒤 작업을 진행합니다.');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(matter.matterId);
   });
@@ -61,7 +65,7 @@ describe('MatterCodePicker', () => {
       />,
     );
 
-    expect(html).toContain('Matter code, Matter 이름 또는 고객 검색');
+    expect(html).toContain('Matter 코드, Matter 이름 또는 고객 검색');
     expect(html).toContain('value="AMIC-2026-0001"');
     expect(html).toContain('로컬 Matter 목록');
     expect(html).toContain('실제 업로드에는 사용하지 않습니다.');
@@ -70,7 +74,9 @@ describe('MatterCodePicker', () => {
   });
 
   it('maps matter list responses into picker options', () => {
-    expect(mattersToOptions({ items: [matter], page: 1, pageSize: 20, totalCount: 1 }, 'matter_app_api')).toEqual([
+    expect(
+      mattersToOptions({ items: [matter], page: 1, pageSize: 20, totalCount: 1 }, 'matter_app_api'),
+    ).toEqual([
       expect.objectContaining({
         matterCode: 'AMIC-2026-0001',
         matterName: 'Investment Advisory',
@@ -103,8 +109,8 @@ describe('MatterCodePicker', () => {
       />,
     );
 
-    expect(html).toContain('Matter code 또는 Matter 이름으로 검색해 주세요.');
-    expect(html).toContain('일반 문서 작업에서는 Matter code 또는 Matter 이름으로만 선택합니다.');
+    expect(html).toContain('Matter 코드 또는 Matter 이름으로 검색해 주세요.');
+    expect(html).toContain('일반 문서 작업에서는 Matter 코드 또는 Matter 이름으로만 선택합니다.');
     expect(html).not.toContain(`value="${matter.matterId}"`);
     expect(html).not.toContain(matter.matterId);
   });

@@ -27,7 +27,7 @@ describe('MatterEmailTimeline', () => {
     );
 
     expect(html).toContain('보관된 이메일');
-    expect(html).toContain('권한이 확인된 이메일만 표시');
+    expect(html).toContain('접근 가능한 이메일');
     expect(html).toContain('Matter filing receipt');
     expect(html).toContain('스레드 전체 보관');
     expect(html).toContain('이메일 1건');

@@ -100,7 +100,7 @@ const confidentialityLabels = {
 const privilegeLabels = {
   none: '특권 없음',
   privileged: '변호사-의뢰인 특권',
-  work_product: '작업 산출물',
+  work_product: '변호사 업무상 작성자료',
   joint_privilege: '공동 특권',
 } as const satisfies Record<DocumentPrivilegeStatus, string>;
 
@@ -132,7 +132,7 @@ const recordsStatusLabels = {
 const savedSearchScopeLabels = {
   personal: '개인',
   'matter-team': 'Matter 팀',
-  'admin-shared': '관리자 공유',
+  'admin-shared': '조직과 공유',
 } as const satisfies Record<SearchFolderScope, string>;
 
 export function SearchSavePanel({
@@ -151,15 +151,15 @@ export function SearchSavePanel({
 }: SearchSavePanelProps) {
   const [copyStatus, setCopyStatus] = React.useState<'idle' | 'copied' | 'error'>('idle');
   const [savedSearchName, setSavedSearchName] = React.useState('');
-  const [savedSearchScope, setSavedSearchScope] =
-    React.useState<SearchFolderScope>('personal');
+  const [savedSearchScope, setSavedSearchScope] = React.useState<SearchFolderScope>('personal');
   const items = searchPatternItems(query, selection);
   const hasReusableSearch = query.trim().length > 0;
   const allowsPlaintextReusableUrl = privacyMode === 'plaintext_url';
   const canSave = hasReusableSearch && !busy && !savedSearchBusy && Boolean(onSaveSearch);
   const canCopyReusableUrl =
     hasReusableSearch && allowsPlaintextReusableUrl && reusableUrl.trim().length > 0 && !busy;
-  const effectiveSavedSearchName = savedSearchName.trim() || defaultSavedSearchName(query, selection);
+  const effectiveSavedSearchName =
+    savedSearchName.trim() || defaultSavedSearchName(query, selection);
   const effectiveSavedSearchScope =
     savedSearchScope === 'matter-team' && !selection.matterId ? 'personal' : savedSearchScope;
 
@@ -191,11 +191,13 @@ export function SearchSavePanel({
       icon={<Bookmark className="h-4 w-4" />}
       title="검색 폴더"
       meta="검색 조건 재사용"
-      actions={showSavedList ? (
-        <StatusBadge tone={savedSearchBusy ? 'warning' : 'neutral'}>
-          {savedSearchBusy ? '동기화 중' : `${savedSearches.length}개`}
-        </StatusBadge>
-      ) : null}
+      actions={
+        showSavedList ? (
+          <StatusBadge tone={savedSearchBusy ? 'warning' : 'neutral'}>
+            {savedSearchBusy ? '동기화 중' : `${savedSearches.length}개`}
+          </StatusBadge>
+        ) : null
+      }
     >
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.55fr)]">
         <div className="min-w-0">
@@ -206,7 +208,9 @@ export function SearchSavePanel({
                 {items.map((item) => (
                   <div key={item.label} className="rounded-md border bg-background px-3 py-2">
                     <dt className="text-[11px] font-medium text-muted-foreground">{item.label}</dt>
-                    <dd className="mt-1 truncate text-[13px] font-semibold text-foreground">{item.value}</dd>
+                    <dd className="mt-1 truncate text-[13px] font-semibold text-foreground">
+                      {item.value}
+                    </dd>
                   </div>
                 ))}
               </dl>
@@ -256,9 +260,7 @@ export function SearchSavePanel({
               <select
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 value={savedSearchScope}
-                onChange={(event) =>
-                  setSavedSearchScope(event.target.value as SearchFolderScope)
-                }
+                onChange={(event) => setSavedSearchScope(event.target.value as SearchFolderScope)}
               >
                 <option value="personal">{savedSearchScopeLabels.personal}</option>
                 <option value="matter-team" disabled={!selection.matterId}>
@@ -298,65 +300,65 @@ export function SearchSavePanel({
             </div>
           </div>
 
-          {showSavedList ? <div className="rounded-md border bg-background">
-            <div className="border-b px-3 py-2 text-sm font-semibold">검색 목록</div>
-            {savedSearches.length > 0 ? (
-              <ul className="divide-y">
-                {savedSearches.map((savedSearch) => (
-                  <li key={savedSearch.savedSearchId} className="px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{savedSearch.name}</p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {savedSearchSummary(savedSearch.query)}
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-1.5">
-                        <StatusBadge>{savedSearchScopeLabels[savedSearch.scope]}</StatusBadge>
-                        <StatusBadge tone="neutral">{savedSearch.openCount}회 열림</StatusBadge>
+          {showSavedList ? (
+            <div className="rounded-md border bg-background">
+              <div className="border-b px-3 py-2 text-sm font-semibold">검색 목록</div>
+              {savedSearches.length > 0 ? (
+                <ul className="divide-y">
+                  {savedSearches.map((savedSearch) => (
+                    <li key={savedSearch.savedSearchId} className="px-3 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{savedSearch.name}</p>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {savedSearchSummary(savedSearch.query)}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <StatusBadge>{savedSearchScopeLabels[savedSearch.scope]}</StatusBadge>
+                          <StatusBadge tone="neutral">{savedSearch.openCount}회 열림</StatusBadge>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {privacyMode === 'private_saved_ref' ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {privacyMode === 'private_saved_ref' ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={busy || savedSearchBusy}
+                            onClick={() => void copySavedSearchReference(savedSearch.savedSearchId)}
+                          >
+                            <Copy className="h-4 w-4" />
+                            비공개 링크 복사
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
                           disabled={busy || savedSearchBusy}
-                          onClick={() => void copySavedSearchReference(savedSearch.savedSearchId)}
+                          onClick={() => onOpenSavedSearch?.(savedSearch)}
                         >
-                          <Copy className="h-4 w-4" />
-                          비공개 링크 복사
+                          <RotateCcw className="h-4 w-4" />
+                          열기
                         </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={busy || savedSearchBusy}
-                        onClick={() => onOpenSavedSearch?.(savedSearch)}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        열기
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={savedSearchBusy || !savedSearch.canRevoke}
-                        onClick={() => onDeleteSavedSearch?.(savedSearch.savedSearchId)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        해제
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-3 py-3 text-sm text-muted-foreground">
-                저장된 검색이 없습니다.
-              </p>
-            )}
-          </div> : null}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={savedSearchBusy || !savedSearch.canRevoke}
+                          onClick={() => onDeleteSavedSearch?.(savedSearch.savedSearchId)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          해제
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="px-3 py-3 text-sm text-muted-foreground">저장된 검색이 없습니다.</p>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </SectionCard>
@@ -373,7 +375,7 @@ export function searchPatternItems(
   items.push({ label: '정렬', value: sortLabels[selection.sortBy ?? 'relevance'] });
   items.push({ label: '그룹', value: groupLabels[selection.groupBy ?? 'none'] });
   if (selection.title) items.push({ label: '제목', value: selection.title });
-  if (selection.matterCode) items.push({ label: 'Matter code', value: selection.matterCode });
+  if (selection.matterCode) items.push({ label: 'Matter 코드', value: selection.matterCode });
   if (selection.matterName) items.push({ label: 'Matter 이름', value: selection.matterName });
   if (selection.clientName) items.push({ label: '고객명', value: selection.clientName });
   if (selection.documentType) {
@@ -401,7 +403,8 @@ export function searchPatternItems(
     items.push({ label: '기록', value: recordsStatusLabels[selection.recordsStatus] });
   }
   if (selection.versionStatus) items.push({ label: '버전 상태', value: selection.versionStatus });
-  if (selection.dateRange) items.push({ label: '수정 기간', value: dateRangeLabels[selection.dateRange] });
+  if (selection.dateRange)
+    items.push({ label: '수정 기간', value: dateRangeLabels[selection.dateRange] });
   return items;
 }
 

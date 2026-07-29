@@ -2,15 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import {
-  Bot,
-  CheckCircle2,
-  Clock3,
-  FileSearch,
-  Save,
-  Scale,
-  ShieldCheck,
-} from 'lucide-react';
+import { Bot, CheckCircle2, Clock3, FileSearch, Save, Scale, ShieldCheck } from 'lucide-react';
 import type {
   AiPrepDocumentStatusDto,
   AiPrepMatterReadinessDto,
@@ -195,7 +187,7 @@ export function MatterGovernanceContextPanel({
   );
   const scopeChanged = selectedAccessScope !== currentAccessScope;
   const items: GovernanceItem[] = [
-    { label: 'Matter code', value: matter.matterCode },
+    { label: 'Matter 코드', value: matter.matterCode },
     { label: '상태', value: matter.status },
     {
       label: '접근 범위',
@@ -384,11 +376,16 @@ function WorkflowTaskList({ tasks }: { tasks: WorkflowTask[] }) {
   return (
     <ul className="divide-y rounded-md border">
       {tasks.map((task) => (
-        <li key={task.title} className="flex flex-col gap-3 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <li
+          key={task.title}
+          className="flex flex-col gap-3 px-3.5 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-medium text-foreground">{task.title}</span>
-              <StatusBadge tone={task.tone}>{task.tone === 'blocked' ? '확인 필요' : '상태 기반'}</StatusBadge>
+              <StatusBadge tone={task.tone}>
+                {task.tone === 'blocked' ? '확인 필요' : '상태 기반'}
+              </StatusBadge>
             </div>
             <p className="mt-1 text-[13px] leading-5 text-muted-foreground">{task.description}</p>
           </div>

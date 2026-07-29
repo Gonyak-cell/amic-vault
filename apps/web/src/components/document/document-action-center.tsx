@@ -272,7 +272,10 @@ const comparisonChangeTones = {
   deleted: 'blocked',
   modified: 'warning',
   unchanged: 'neutral',
-} as const satisfies Record<DocumentComparisonDto['changes'][number]['changeType'], StatusBadgeTone>;
+} as const satisfies Record<
+  DocumentComparisonDto['changes'][number]['changeType'],
+  StatusBadgeTone
+>;
 
 const downloadReasonLabels = {
   casework: '업무 처리',
@@ -362,9 +365,7 @@ function subversionStatusTone(status: DocumentSubversionStatus): StatusBadgeTone
   return 'neutral';
 }
 
-function subversionReviewDecisionTone(
-  decision: DocumentSubversionReviewDecision,
-): StatusBadgeTone {
+function subversionReviewDecisionTone(decision: DocumentSubversionReviewDecision): StatusBadgeTone {
   return decision === 'approved' ? 'success' : 'warning';
 }
 
@@ -379,8 +380,7 @@ function subversionReviewGateTone(
 function canPromoteSubversion(subversion: DocumentSubversionDto): boolean {
   return (
     subversion.status === 'submitted' &&
-    (subversion.reviewGate.status === 'approved' ||
-      subversion.reviewGate.status === 'not_required')
+    (subversion.reviewGate.status === 'approved' || subversion.reviewGate.status === 'not_required')
   );
 }
 
@@ -404,12 +404,12 @@ function revisionSummaryLabel(summary: DocumentSubversionDto['revisionSummary'])
     summary.moveCount > 0 ? `이동 ${summary.moveCount}` : null,
     summary.formatCount > 0 ? `서식 ${summary.formatCount}` : null,
   ].filter(Boolean);
-  return parts.length > 0 ? `변경 ${summary.totalCount}건 · ${parts.join(' · ')}` : `변경 ${summary.totalCount}건`;
+  return parts.length > 0
+    ? `변경 ${summary.totalCount}건 · ${parts.join(' · ')}`
+    : `변경 ${summary.totalCount}건`;
 }
 
-function revisionDisplayText(
-  revision: DocumentSubversionDto['revisions'][number],
-): string {
+function revisionDisplayText(revision: DocumentSubversionDto['revisions'][number]): string {
   if (revision.changeType === 'insert') return revision.afterText || '삽입 내용 없음';
   if (revision.changeType === 'delete') return revision.beforeText || '삭제 내용 없음';
   return revision.afterText || revision.beforeText || '내용 없음';
@@ -420,8 +420,7 @@ const editLifecycleReasonMessages: Record<string, string> = {
     '기준 공식 버전이 이미 바뀌었습니다. 최신 버전에서 새 편집 세션을 시작하세요.',
   document_already_checked_out:
     '이미 다른 편집 세션이 문서 잠금을 보유하고 있습니다. 새로고침 후 현재 세션을 확인하세요.',
-  edit_session_conflict:
-    '편집 세션의 최신 검토본이 바뀌었습니다. 새로고침 후 다시 체크인하세요.',
+  edit_session_conflict: '편집 세션의 최신 검토본이 바뀌었습니다. 새로고침 후 다시 체크인하세요.',
   edit_session_expired: '편집 잠금이 만료되었습니다. 편집 세션을 다시 시작하세요.',
   promotion_conflict:
     '공식 발행 중 버전 충돌이 발생했습니다. 최신 버전을 확인한 뒤 다시 발행하세요.',
@@ -447,18 +446,23 @@ function draftFromDocument(document: DocumentDto): ProfileDraft {
   };
 }
 
-function recordsUrlForDocument(document: DocumentDto, tab: 'holds' | 'archive' | 'disposal'): string {
+function recordsUrlForDocument(
+  document: DocumentDto,
+  tab: 'holds' | 'archive' | 'disposal',
+): string {
   const params = new URLSearchParams();
   params.set('tab', tab);
   params.set('documentId', document.documentId);
-  if (document.matterDisplayCode?.trim()) params.set('matterCode', document.matterDisplayCode.trim());
+  if (document.matterDisplayCode?.trim())
+    params.set('matterCode', document.matterDisplayCode.trim());
   if (document.title.trim()) params.set('documentTitle', document.title.trim());
   return `/records?${params.toString()}`;
 }
 
 function fileCabinetUrlForDocument(document: DocumentDto): string {
   const params = new URLSearchParams();
-  if (document.matterDisplayCode?.trim()) params.set('matterCode', document.matterDisplayCode.trim());
+  if (document.matterDisplayCode?.trim())
+    params.set('matterCode', document.matterDisplayCode.trim());
   if (document.title.trim()) params.set('title', document.title.trim());
   const queryString = params.toString();
   return queryString ? `/files?${queryString}` : '/files';
@@ -549,7 +553,7 @@ function DocumentHeaderRecordsActions({ document }: { document: DocumentDto }) {
           </Link>
         </Button>
       ))}
-      <Button asChild className="shrink-0" size="sm" title="권한이 확인된 문서함 위치" variant="outline">
+      <Button asChild className="shrink-0" size="sm" title="문서함 위치" variant="outline">
         <Link href={fileCabinetUrlForDocument(document)}>
           <FileSearch className="h-4 w-4" />
           문서함 위치
@@ -564,9 +568,7 @@ export function relatedMatterDocuments(
   currentDocumentId: string,
   limit = 5,
 ): DocumentDto[] {
-  return documents
-    .filter((document) => document.documentId !== currentDocumentId)
-    .slice(0, limit);
+  return documents.filter((document) => document.documentId !== currentDocumentId).slice(0, limit);
 }
 
 export function relatedDocumentEmailLinks(
@@ -574,9 +576,7 @@ export function relatedDocumentEmailLinks(
   currentDocumentId: string,
   limit = 5,
 ): EmailDocumentLinkDto[] {
-  return emails
-    .filter((email) => email.documentId === currentDocumentId)
-    .slice(0, limit);
+  return emails.filter((email) => email.documentId === currentDocumentId).slice(0, limit);
 }
 
 export async function loadRelatedDocumentEmailLinks(
@@ -653,9 +653,7 @@ function parseSearchTarget(value: string | null): SearchTarget {
 
 function parseUuidParam(value: string | null): string | undefined {
   if (!value) return undefined;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  )
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
     ? value
     : undefined;
 }
@@ -694,7 +692,9 @@ function searchHitUrlForDocument(documentId: string, context: DocumentSearchHitC
 
 export function versionUploadStatusMessage(result: AddDocumentVersionResponseDto): string {
   const duplicateMessage =
-    result.duplicates.length > 0 ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.` : '';
+    result.duplicates.length > 0
+      ? ` 중복 후보 ${result.duplicates.length}건이 감지되었습니다.`
+      : '';
   return `v${result.versionNo} 새 버전이 추가되었습니다. 버전 목록, 활동 기록, 파일 정리 준비 상태를 갱신했습니다.${duplicateMessage}`;
 }
 
@@ -749,71 +749,73 @@ function SearchHitContextPanel({
         <p className="text-sm leading-6 text-muted-foreground">
           {isAiCitation
             ? 'AI 답변의 인용 링크에서 열린 문서입니다. 인용 순번만 전달하고 질문·응답 원문은 전달하지 않습니다.'
-            : '검색 결과에서 열린 문서입니다. 표시 위치는 승인된 검색 hit 범위 안에서만 이동합니다.'}
+            : '검색 결과에서 열린 문서입니다. 검색 결과 위치를 기준으로 이동합니다.'}
         </p>
-        {!isAiCitation ? <div className="flex flex-wrap gap-2">
-          {hasPreviousHit ? (
-            <Button asChild size="sm" variant="outline">
-              <Link
-                href={searchHitUrlForDocument(documentId, {
-                  hitCount: context.hitCount,
-                  hitIndex: previousIndex,
-                  source: context.source,
-                  target: context.target,
-                })}
-              >
+        {!isAiCitation ? (
+          <div className="flex flex-wrap gap-2">
+            {hasPreviousHit ? (
+              <Button asChild size="sm" variant="outline">
+                <Link
+                  href={searchHitUrlForDocument(documentId, {
+                    hitCount: context.hitCount,
+                    hitIndex: previousIndex,
+                    source: context.source,
+                    target: context.target,
+                  })}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  이전 검색 결과
+                </Link>
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" disabled type="button">
                 <ChevronLeft className="h-4 w-4" />
-                이전 hit
-              </Link>
-            </Button>
-          ) : (
-            <Button size="sm" variant="outline" disabled type="button">
-              <ChevronLeft className="h-4 w-4" />
-              이전 hit
-            </Button>
-          )}
-          {hasNextHit ? (
+                이전 검색 결과
+              </Button>
+            )}
+            {hasNextHit ? (
+              <Button asChild size="sm" variant="outline">
+                <Link
+                  href={searchHitUrlForDocument(documentId, {
+                    hitCount: context.hitCount,
+                    hitIndex: nextIndex,
+                    source: context.source,
+                    target: context.target,
+                  })}
+                >
+                  다음 검색 결과
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" disabled type="button">
+                다음 검색 결과
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
             <Button asChild size="sm" variant="outline">
               <Link
-                href={searchHitUrlForDocument(documentId, {
-                  hitCount: context.hitCount,
-                  hitIndex: nextIndex,
-                  source: context.source,
-                  target: context.target,
-                })}
+                href="/search"
+                onClick={(event) => {
+                  if (
+                    event.button !== 0 ||
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey ||
+                    window.history.length <= 1
+                  ) {
+                    return;
+                  }
+                  event.preventDefault();
+                  window.history.back();
+                }}
               >
-                다음 hit
-                <ChevronRight className="h-4 w-4" />
+                검색으로 돌아가기
               </Link>
             </Button>
-          ) : (
-            <Button size="sm" variant="outline" disabled type="button">
-              다음 hit
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          )}
-          <Button asChild size="sm" variant="outline">
-            <Link
-              href="/search"
-              onClick={(event) => {
-                if (
-                  event.button !== 0 ||
-                  event.metaKey ||
-                  event.ctrlKey ||
-                  event.shiftKey ||
-                  event.altKey ||
-                  window.history.length <= 1
-                ) {
-                  return;
-                }
-                event.preventDefault();
-                window.history.back();
-              }}
-            >
-              검색으로 돌아가기
-            </Link>
-          </Button>
-        </div> : null}
+          </div>
+        ) : null}
       </div>
     </SectionCard>
   );
@@ -838,8 +840,8 @@ function DocumentActionHierarchyPanel({ document }: { document: DocumentDto }) {
         ))}
       </div>
       <div className="mt-3 rounded-md border bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
-        로컬 편집 핸드오프와 파일 왕복 저장은 같은 공식 버전을 덮어쓰지 않고 검토본으로
-        기록됩니다. 공식 발행 시에만 다음 vN+1 문서 버전이 생성됩니다.
+        로컬 편집 핸드오프와 파일 왕복 저장은 같은 공식 버전을 덮어쓰지 않고 검토본으로 기록됩니다.
+        공식 발행 시에만 다음 vN+1 문서 버전이 생성됩니다.
       </div>
     </SectionCard>
   );
@@ -855,7 +857,9 @@ function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
       <DataTableCell className="font-semibold">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span>v{version.versionNo}</span>
-          {version.versionLabel ? <StatusBadge tone="neutral">{version.versionLabel}</StatusBadge> : null}
+          {version.versionLabel ? (
+            <StatusBadge tone="neutral">{version.versionLabel}</StatusBadge>
+          ) : null}
         </div>
       </DataTableCell>
       <DataTableCell>
@@ -863,7 +867,9 @@ function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
       </DataTableCell>
       <DataTableCell>
         <div className="flex flex-wrap gap-2">
-          <StatusBadge tone={version.versionSignificance === 'execution_copy' ? 'success' : 'neutral'}>
+          <StatusBadge
+            tone={version.versionSignificance === 'execution_copy' ? 'success' : 'neutral'}
+          >
             {versionSignificanceLabels[version.versionSignificance]}
           </StatusBadge>
           <StatusBadge tone={version.renditionType === 'markup' ? 'warning' : 'neutral'}>
@@ -1168,7 +1174,7 @@ function DocumentEditingLifecyclePanel({
               </div>
               <p>
                 기준 v{editPackage.baseVersionNo} · {editPackage.mimeType} ·{' '}
-                {editPackage.sizeBytes.toLocaleString('ko-KR')} bytes
+                {editPackage.sizeBytes.toLocaleString('ko-KR')}바이트
               </p>
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -1282,8 +1288,8 @@ function DocumentEditingLifecyclePanel({
                 : '검토본 저장'}
           </Button>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            검토 저장은 vN.1, vN.2 이력으로만 남고 검색, 문서 정리, 기록 보존 공식 대상에는 바로 올라가지
-            않습니다.
+            검토 저장은 vN.1, vN.2 이력으로만 남고 검색, 문서 정리, 기록 보존 공식 대상에는 바로
+            올라가지 않습니다.
           </p>
         </div>
 
@@ -1309,7 +1315,8 @@ function DocumentEditingLifecyclePanel({
                   </div>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
                     {subversionVisibilityLabels[subversion.visibilityScope]} ·{' '}
-                    {formatDateTime(subversion.createdAt)} · {reviewGateCountLabel(subversion.reviewGate)}
+                    {formatDateTime(subversion.createdAt)} ·{' '}
+                    {reviewGateCountLabel(subversion.reviewGate)}
                   </p>
                   {subversion.revisionSummary.totalCount > 0 ? (
                     <div className="mt-2 border-l-2 border-primary/30 pl-3">
@@ -1380,7 +1387,9 @@ function DocumentEditingLifecyclePanel({
             <select
               className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               disabled={subversions.length === 0 || busy}
-              value={selectedReviewSubversionIndex >= 0 ? String(selectedReviewSubversionIndex) : ''}
+              value={
+                selectedReviewSubversionIndex >= 0 ? String(selectedReviewSubversionIndex) : ''
+              }
               onChange={(event) => {
                 const subversion = subversions[Number(event.target.value)];
                 if (subversion) onSelectReviewSubversion(subversion.subversionId);
@@ -1515,7 +1524,9 @@ function DocumentEditingLifecyclePanel({
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => latestSubmittedSubversion && void onPromoteSubversion(latestSubmittedSubversion)}
+              onClick={() =>
+                latestSubmittedSubversion && void onPromoteSubversion(latestSubmittedSubversion)
+              }
               disabled={!latestSubmittedSubversion || !latestSubmittedCanPromote || busy}
             >
               <Upload className="h-4 w-4" />
@@ -1584,7 +1595,7 @@ function RelatedDocumentsPanel({
 
       {!errorMessage && isLoading ? (
         <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-sm text-muted-foreground">
-          같은 Matter에서 권한이 확인된 관련 문서를 확인하는 중입니다.
+          같은 Matter의 관련 문서를 확인하는 중입니다.
         </div>
       ) : null}
 
@@ -1612,14 +1623,13 @@ function RelatedDocumentsPanel({
                 </StatusBadge>
               </div>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                동일 Matter에서 권한이 확인된 문서 ·{' '}
+                동일 Matter의 관련 문서 ·{' '}
                 {approvedDocumentTypeLabel(
                   relatedDocument.documentType,
                   typeLabels,
                   taxonomyCatalog,
                 )}{' '}
-                ·{' '}
-                {formatDateTime(relatedDocument.updatedAt)}
+                · {formatDateTime(relatedDocument.updatedAt)}
               </p>
             </li>
           ))}
@@ -1677,7 +1687,9 @@ function RelatedEmailsPanel({
         <ul className="divide-y rounded-md border bg-background">
           {emails.map((email) => (
             <li key={email.linkId} className="px-3 py-2.5">
-              <p className="truncate text-sm font-semibold text-foreground">{email.attachmentFilename}</p>
+              <p className="truncate text-sm font-semibold text-foreground">
+                {email.attachmentFilename}
+              </p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span>연결 {formatDateTime(email.createdAt)}</span>
                 <span>첨부 {email.attachmentIndex + 1}번</span>
@@ -1827,7 +1839,9 @@ export function DocumentActionCenter({
     useState<DocumentSubversionVisibilityScope>('matter_editors');
   const [editLifecycleLoading, setEditLifecycleLoading] = useState(false);
   const [editLifecycleError, setEditLifecycleError] = useState<string | null>(null);
-  const [editLifecycleSuccessMessage, setEditLifecycleSuccessMessage] = useState<string | null>(null);
+  const [editLifecycleSuccessMessage, setEditLifecycleSuccessMessage] = useState<string | null>(
+    null,
+  );
   const [checkoutSaving, setCheckoutSaving] = useState(false);
   const [subversionSaving, setSubversionSaving] = useState(false);
   const [editPackage, setEditPackage] = useState<DocumentEditPackageDto | null>(null);
@@ -1839,7 +1853,9 @@ export function DocumentActionCenter({
   const [subversionReviews, setSubversionReviews] = useState<DocumentSubversionReviewDto[]>([]);
   const [subversionReviewsLoading, setSubversionReviewsLoading] = useState(false);
   const [reviewDecisionSaving, setReviewDecisionSaving] = useState(false);
-  const [subversionReviewers, setSubversionReviewers] = useState<DocumentSubversionReviewerDto[]>([]);
+  const [subversionReviewers, setSubversionReviewers] = useState<DocumentSubversionReviewerDto[]>(
+    [],
+  );
   const [subversionReviewersLoading, setSubversionReviewersLoading] = useState(false);
   const [reviewerSaving, setReviewerSaving] = useState(false);
   const [selectedReviewerSubject, setSelectedReviewerSubject] =
@@ -1854,9 +1870,8 @@ export function DocumentActionCenter({
   const editIntentAutomationRef = useRef<DocumentEditIntentAutomationState | null>(null);
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   const [downloadReason, setDownloadReason] = useState<DocumentDownloadReasonCode>('casework');
-  const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>(
-    initialTaxonomyCatalog,
-  );
+  const [taxonomyCatalog, setTaxonomyCatalog] =
+    useState<EnterpriseApprovedDmsTaxonomyDto[]>(initialTaxonomyCatalog);
   const subtypeListId = useId();
   const documentTypeOptions = useMemo(
     () => approvedDocumentTypeOptions(typeLabels, taxonomyCatalog),
@@ -2051,7 +2066,8 @@ export function DocumentActionCenter({
       sortBy: 'updated_desc',
     })
       .then((response) => {
-        if (active) setRelatedDocuments(relatedMatterDocuments(response.items, document.documentId));
+        if (active)
+          setRelatedDocuments(relatedMatterDocuments(response.items, document.documentId));
       })
       .catch((caught) => {
         if (!active) return;
@@ -2294,7 +2310,9 @@ export function DocumentActionCenter({
 
   function openEditBaseFile() {
     if (!document || !activeEditSession) return;
-    window.location.assign(documentEditBaseFileUrl(document.documentId, activeEditSession.editSessionId));
+    window.location.assign(
+      documentEditBaseFileUrl(document.documentId, activeEditSession.editSessionId),
+    );
   }
 
   function openSubversionFile(subversion: DocumentSubversionDto) {
@@ -2443,7 +2461,9 @@ export function DocumentActionCenter({
       setSubversionVisibilityScope('matter_editors');
       await refreshEditingState();
       setAuditRefreshKey((current) => current + 1);
-      setEditLifecycleSuccessMessage(`${latestSavedSubversion.displayVersion} 체크인을 완료했습니다.`);
+      setEditLifecycleSuccessMessage(
+        `${latestSavedSubversion.displayVersion} 체크인을 완료했습니다.`,
+      );
     } catch (caught) {
       setEditLifecycleError(editLifecycleErrorMessage(caught));
     } finally {
@@ -2696,8 +2716,8 @@ export function DocumentActionCenter({
     <>
       <PageHeader
         breadcrumbs={['문서 보관', '파일']}
-        title={document?.title || '표시 가능한 제목 없음'}
-        description="권한이 확인된 파일 정보만 표시됩니다."
+        title={document?.title || '제목 없음'}
+        description="접근 가능한 문서 정보를 표시합니다."
         actions={
           <div className="flex max-w-full flex-wrap justify-end gap-2">
             <Button
@@ -2728,7 +2748,13 @@ export function DocumentActionCenter({
         }
       />
 
-      {error ? <EmptyState variant="api-error" title="파일 정보를 표시할 수 없습니다." description={error} /> : null}
+      {error ? (
+        <EmptyState
+          variant="api-error"
+          title="파일 정보를 표시할 수 없습니다."
+          description={error}
+        />
+      ) : null}
 
       {document ? (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
@@ -2770,7 +2796,11 @@ export function DocumentActionCenter({
                 <ProfileField label="Matter" value={matterLabel} />
                 <ProfileField
                   label="문서 유형"
-                  value={approvedDocumentTypeLabel(document.documentType, typeLabels, taxonomyCatalog)}
+                  value={approvedDocumentTypeLabel(
+                    document.documentType,
+                    typeLabels,
+                    taxonomyCatalog,
+                  )}
                 />
                 <ProfileField label="세부 유형" value={document.subtype || '없음'} />
                 <ProfileField
@@ -2881,7 +2911,9 @@ export function DocumentActionCenter({
                       value={profileDraft.source}
                       onChange={(event) =>
                         setProfileDraft((current) =>
-                          current ? { ...current, source: event.target.value as DocumentSource } : current,
+                          current
+                            ? { ...current, source: event.target.value as DocumentSource }
+                            : current,
                         )
                       }
                     >
@@ -2910,7 +2942,7 @@ export function DocumentActionCenter({
             <SectionCard
               icon={<AlertTriangle className="h-4 w-4" />}
               title="조항 리스크 분석"
-              meta="권한 확인된 근거만 사용"
+              meta="접근 가능한 근거만 사용"
               actions={
                 clauseAnalysis?.escalationRequired ? (
                   <StatusBadge tone="warning">변호사 검토 필요</StatusBadge>
@@ -2932,7 +2964,9 @@ export function DocumentActionCenter({
                 {clauseAnalysisLoading ? '분석 중' : '조항 리스크 분석'}
               </Button>
               {!document.aiAllowed ? (
-                <p className="mt-3 text-sm text-muted-foreground">AI 허용 자료만 분석할 수 있습니다.</p>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  AI 허용 자료만 분석할 수 있습니다.
+                </p>
               ) : null}
               {clauseAnalysisError ? (
                 <p className="mt-3 text-sm text-destructive">{clauseAnalysisError}</p>
@@ -2948,7 +2982,7 @@ export function DocumentActionCenter({
               <SectionCard
                 icon={<Mail className="h-4 w-4" />}
                 title="이메일 요청·기한 요약"
-                meta="권한 확인된 이메일 근거만 사용"
+                meta="접근 가능한 이메일 근거만 사용"
                 actions={
                   emailThreadSummary?.recommendedActions.length ? (
                     <StatusBadge tone="warning">요청/기한 확인</StatusBadge>
@@ -3002,7 +3036,9 @@ export function DocumentActionCenter({
                   기준 버전
                   <select
                     className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={comparisonBaseVersionIndex >= 0 ? String(comparisonBaseVersionIndex) : ''}
+                    value={
+                      comparisonBaseVersionIndex >= 0 ? String(comparisonBaseVersionIndex) : ''
+                    }
                     onChange={(event) => {
                       const selected = comparisonVersionOptions[Number(event.target.value)];
                       setComparisonBaseVersionId(selected?.versionId ?? '');
@@ -3059,11 +3095,13 @@ export function DocumentActionCenter({
               {comparison ? (
                 <div className="mt-4 space-y-4 border-t pt-4">
                   <div className="flex flex-wrap gap-2">
-                    <StatusBadge tone="warning">수정 {comparison.summary.modifiedCount}</StatusBadge>
+                    <StatusBadge tone="warning">
+                      수정 {comparison.summary.modifiedCount}
+                    </StatusBadge>
                     <StatusBadge tone="success">추가 {comparison.summary.addedCount}</StatusBadge>
                     <StatusBadge tone="blocked">삭제 {comparison.summary.deletedCount}</StatusBadge>
                     <StatusBadge tone="neutral">전체 {comparison.summary.totalCount}</StatusBadge>
-                    <StatusBadge tone="neutral">{comparison.summary.durationMs}ms</StatusBadge>
+                    <StatusBadge tone="neutral">{comparison.summary.durationMs}밀리초</StatusBadge>
                   </div>
                   <div className="space-y-3">
                     {comparison.changes
@@ -3106,14 +3144,16 @@ export function DocumentActionCenter({
             <SectionCard
               icon={<Eye className="h-4 w-4" />}
               title="미리보기"
-              meta={searchHitContext ? searchTargetLabels[searchHitContext.target] : '권한 확인 후 제공'}
+              meta={
+                searchHitContext ? searchTargetLabels[searchHitContext.target] : '미리보기 제공'
+              }
               actions={
                 searchHitContext?.hitCount ? (
                   <StatusBadge tone="neutral">
-                    hit {searchHitContext.hitIndex}/{searchHitContext.hitCount}
+                    검색 결과 {searchHitContext.hitIndex}/{searchHitContext.hitCount}
                   </StatusBadge>
                 ) : (
-                  <StatusBadge tone="neutral">preview</StatusBadge>
+                  <StatusBadge tone="neutral">미리보기</StatusBadge>
                 )
               }
             >
@@ -3269,17 +3309,19 @@ export function DocumentActionCenter({
                 </div>
                 {uploadQueueItems(document, prepStatus, versionFile, versionSaving).length > 0 ? (
                   <ul className="divide-y">
-                    {uploadQueueItems(document, prepStatus, versionFile, versionSaving).map((item) => (
-                      <li key={item.title} className="px-3 py-2.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-medium">{item.title}</span>
-                          <StatusBadge tone={item.tone}>상태 기반</StatusBadge>
-                        </div>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {item.description}
-                        </p>
-                      </li>
-                    ))}
+                    {uploadQueueItems(document, prepStatus, versionFile, versionSaving).map(
+                      (item) => (
+                        <li key={item.title} className="px-3 py-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-medium">{item.title}</span>
+                            <StatusBadge tone={item.tone}>상태 기반</StatusBadge>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                            {item.description}
+                          </p>
+                        </li>
+                      ),
+                    )}
                   </ul>
                 ) : (
                   <p className="px-3 py-3 text-sm text-muted-foreground">
@@ -3372,7 +3414,9 @@ export function DocumentActionCenter({
                   <Upload className="h-4 w-4" />
                   {versionSaving ? '업로드 중' : '새 버전 추가'}
                 </Button>
-                {versionError ? <p className="mt-2 text-sm text-destructive">{versionError}</p> : null}
+                {versionError ? (
+                  <p className="mt-2 text-sm text-destructive">{versionError}</p>
+                ) : null}
                 {versionSuccessMessage ? (
                   <p className="mt-2 text-sm font-medium text-primary" role="status">
                     {versionSuccessMessage}
@@ -3380,13 +3424,15 @@ export function DocumentActionCenter({
                 ) : null}
               </div>
             </SectionCard>
-
           </aside>
         </div>
       ) : null}
 
       {!document && !error && !loading ? (
-        <EmptyState title="표시할 문서가 없습니다." description="권한이 있거나 존재하는 문서만 열람할 수 있습니다." />
+        <EmptyState
+          title="문서를 표시할 수 없습니다."
+          description="문서가 없거나 접근할 수 없습니다."
+        />
       ) : null}
     </>
   );

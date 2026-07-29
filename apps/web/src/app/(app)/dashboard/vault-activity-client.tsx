@@ -103,7 +103,7 @@ export function VaultActivityContent({
       <PageHeader
         breadcrumbs={['문서 보관', '홈']}
         title="홈"
-        description="권한이 확인된 실제 파일과 활동만 표시됩니다."
+        description="접근 가능한 문서와 최근 활동을 표시합니다."
       />
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -471,7 +471,7 @@ function DashboardStateBody<T>({
     );
   }
 
-  return <EmptyState variant="api-unavailable" title="운영 데이터 연결 대기 중입니다." />;
+  return <EmptyState variant="api-unavailable" title="데이터를 불러오는 중입니다." />;
 }
 
 function dashboardMeta<T>(state: DataState<T[]>): string {
@@ -480,7 +480,7 @@ function dashboardMeta<T>(state: DataState<T[]>): string {
   if (state.status === 'empty') return '표시할 항목 없음';
   if (state.status === 'error') return '연결 확인 필요';
   if (state.status === 'forbidden' || state.status === 'blocked') return '권한 정책 적용';
-  return '운영 데이터 연결 대기';
+  return '데이터 불러오는 중';
 }
 
 function usageStatsMeta(state: DataState<DashboardUsageStats>): string {
@@ -489,7 +489,7 @@ function usageStatsMeta(state: DataState<DashboardUsageStats>): string {
   }
   if (state.status === 'error') return '연결 확인 필요';
   if (state.status === 'forbidden' || state.status === 'blocked') return '권한 정책 적용';
-  return '운영 데이터 연결 대기';
+  return '데이터 불러오는 중';
 }
 
 function formatNumber(value: number): string {
@@ -544,7 +544,7 @@ function DashboardActionLauncher() {
       href: '/files#matter-upload',
       icon: <UploadCloud className="h-4 w-4" />,
       title: 'Matter 문서 업로드',
-      description: 'Matter code 선택 후 파일을 업로드합니다.',
+      description: 'Matter 코드 선택 후 파일을 업로드합니다.',
     },
     {
       href: '/files',
@@ -680,7 +680,7 @@ function PermissionBanner() {
       <div className="flex flex-col gap-3 p-4 sm:p-[18px] md:flex-row md:items-center md:justify-between">
         <div>
           <div className="text-[15px] font-semibold text-foreground">
-            권한이 확인된 항목만 표시됩니다
+            접근 가능한 항목만 표시됩니다
           </div>
           <p className="mt-1 text-[13px] leading-6 text-muted-foreground">
             접근 권한과 정보 차단 정책을 통과한 운영 데이터만 이 화면에 나타납니다.

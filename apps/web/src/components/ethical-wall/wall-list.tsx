@@ -44,15 +44,15 @@ const copyByLanguage: Record<
   }
 > = {
   ko: {
-    title: '정보 장벽 목록',
+    title: '정보 차단 규칙 목록',
     barrier: '차단 규칙',
     status: '상태',
     members: '구성원',
-    caption: '정보 장벽 목록 표',
+    caption: '정보 차단 규칙 목록 표',
     remove: '구성원 제거',
     emptyMembers: '등록된 구성원이 없습니다.',
-    emptyTitle: '등록된 정보 장벽이 없습니다.',
-    emptyDescription: '운영 데이터가 연결되면 접근 제한 규칙만 표시됩니다.',
+    emptyTitle: '등록된 정보 차단 규칙이 없습니다.',
+    emptyDescription: '등록된 규칙이 생기면 이 목록에 표시됩니다.',
     memberUnavailable: '표시 가능한 구성원 정보 없음',
     active: '활성',
     released: '해제됨',

@@ -4,11 +4,13 @@ import React, { FormEvent, useMemo, useState } from 'react';
 import { FileCheck2, ShieldAlert } from 'lucide-react';
 import type {
   CreateExternalLinkRequestDto,
+  DocumentDto,
   ExternalLinkCreatedResponseDto,
   ExternalManagementWorkspaceDto,
 } from '@amic-vault/shared';
-import { MatterDocumentList } from '@/components/document/matter-document-list';
+import { MatterDocumentPicker } from '@/components/document/matter-document-picker';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
 import { ApiClientError } from '@/lib/api-client';
 import type { MatterCodeOption } from '@/lib/matter-app';
@@ -96,8 +98,7 @@ export function LinkIssuanceDialog({
   workspace,
 }: LinkIssuanceDialogProps) {
   const [externalUserId, setExternalUserId] = useState('');
-  const [documentId, setDocumentId] = useState('');
-  const [versionId, setVersionId] = useState('');
+  const [selectedDocument, setSelectedDocument] = useState<DocumentDto | null>(null);
   const [expiresAt, setExpiresAt] = useState('');
   const [watermarkRequired, setWatermarkRequired] = useState(true);
   const [pendingDlpWarning, setPendingDlpWarning] = useState<PendingDlpWarning | null>(null);
@@ -106,21 +107,19 @@ export function LinkIssuanceDialog({
 
   const users = workspace?.users ?? [];
   const selectedExternalUserId = externalUserId || users[0]?.externalUserId || '';
-  const canSubmit = Boolean(workspace && selectedExternalUserId && documentId.trim() && expiresAt);
-
   const input = useMemo<CreateExternalLinkRequestDto | null>(() => {
-    if (!workspace || !canSubmit) return null;
+    if (!workspace || !selectedExternalUserId || !selectedDocument || !expiresAt) return null;
     return {
       workspaceId: workspace.workspaceId,
       externalUserId: selectedExternalUserId,
-      documentId: documentId.trim(),
-      ...(versionId.trim() ? { versionId: versionId.trim() } : {}),
+      documentId: selectedDocument.documentId,
       expiresAt: new Date(expiresAt).toISOString(),
       ndaVersion: 'NDA-R11-V1',
       watermarkRequired,
       dlpWarningAccepted: false,
     };
-  }, [canSubmit, documentId, expiresAt, selectedExternalUserId, versionId, watermarkRequired, workspace]);
+  }, [expiresAt, selectedDocument, selectedExternalUserId, watermarkRequired, workspace]);
+  const canSubmit = input !== null;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -130,8 +129,7 @@ export function LinkIssuanceDialog({
     try {
       const created = await onCreateLink(input);
       onCreated(created);
-      setDocumentId('');
-      setVersionId('');
+      setSelectedDocument(null);
     } catch (error) {
       if (isExternalDlpWarningRequired(error)) {
         setPendingDlpWarning({
@@ -157,8 +155,7 @@ export function LinkIssuanceDialog({
       );
       onCreated(created);
       setPendingDlpWarning(null);
-      setDocumentId('');
-      setVersionId('');
+      setSelectedDocument(null);
     } catch {
       setErrorMessage('DLP 경고 수용 후 링크 발급에 실패했습니다.');
     } finally {
@@ -168,7 +165,10 @@ export function LinkIssuanceDialog({
 
   return (
     <section className="grid gap-4">
-      <form className="grid gap-3 lg:grid-cols-[minmax(12rem,1fr)_minmax(14rem,1fr)_minmax(12rem,1fr)_auto]" onSubmit={submit}>
+      <form
+        className="grid gap-3 lg:grid-cols-[minmax(12rem,1fr)_minmax(12rem,1fr)_auto]"
+        onSubmit={submit}
+      >
         <select
           aria-label="외부 사용자"
           className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -184,13 +184,6 @@ export function LinkIssuanceDialog({
           ))}
         </select>
         <Input
-          aria-label="연결할 문서"
-          disabled={disabled || busy || !workspace}
-          placeholder="문서 식별값"
-          value={documentId}
-          onChange={(event) => setDocumentId(event.target.value)}
-        />
-        <Input
           aria-label="만료 시각"
           disabled={disabled || busy || !workspace}
           type="datetime-local"
@@ -201,14 +194,6 @@ export function LinkIssuanceDialog({
           <FileCheck2 className="h-4 w-4" />
           링크 발급
         </Button>
-        <Input
-          aria-label="연결할 버전"
-          className="lg:col-span-2"
-          disabled={disabled || busy || !workspace}
-          placeholder="버전 식별값"
-          value={versionId}
-          onChange={(event) => setVersionId(event.target.value)}
-        />
         <label className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm">
           <input
             checked={watermarkRequired}
@@ -222,9 +207,17 @@ export function LinkIssuanceDialog({
 
       {matterOption ? (
         <div className="border-t pt-4">
-          <MatterDocumentList selectedMatter={matterOption} />
+          <p className="mb-3 text-sm font-semibold text-foreground">송부할 문서</p>
+          <MatterDocumentPicker
+            disabled={disabled || busy || !workspace}
+            matterId={matterOption.matterReference}
+            onDocumentSelected={setSelectedDocument}
+            selectedDocumentId={selectedDocument?.documentId ?? null}
+          />
         </div>
-      ) : null}
+      ) : (
+        <EmptyState variant="pre-search" title="Matter를 불러온 뒤 문서를 선택할 수 있습니다." />
+      )}
 
       {errorMessage ? <p className="text-sm font-medium text-destructive">{errorMessage}</p> : null}
       {pendingDlpWarning ? (

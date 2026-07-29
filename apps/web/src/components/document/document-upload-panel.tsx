@@ -53,7 +53,13 @@ export interface DocumentUploadPanelProps {
   sourceMode?: MatterAppSourceMode;
 }
 
-type UploadQueueStatus = 'pending' | 'uploading' | 'uploaded' | 'quarantined' | 'failed' | 'duplicate';
+type UploadQueueStatus =
+  | 'pending'
+  | 'uploading'
+  | 'uploaded'
+  | 'quarantined'
+  | 'failed'
+  | 'duplicate';
 
 export interface UploadQueueRow {
   duplicateCount?: number;
@@ -132,7 +138,9 @@ export function DocumentUploadPanel({
   const [title, setTitle] = React.useState('');
   const [tagInput, setTagInput] = React.useState('');
   const [metadataProfile, setMetadataProfile] = React.useState(defaultUploadMetadataProfile);
-  const [taxonomyCatalog, setTaxonomyCatalog] = React.useState<EnterpriseApprovedDmsTaxonomyDto[]>([]);
+  const [taxonomyCatalog, setTaxonomyCatalog] = React.useState<EnterpriseApprovedDmsTaxonomyDto[]>(
+    [],
+  );
   const [isUploading, setIsUploading] = React.useState(false);
   const [isDragActive, setIsDragActive] = React.useState(false);
   const [batchActionPending, setBatchActionPending] = React.useState(false);
@@ -145,10 +153,10 @@ export function DocumentUploadPanel({
   const files = React.useMemo(() => fileEntries.map((entry) => entry.file), [fileEntries]);
   const canUpload = Boolean(
     selectedMatter &&
-      fileEntries.length > 0 &&
-      uploadSourceReady &&
-      !isUploading &&
-      !batchActionPending,
+    fileEntries.length > 0 &&
+    uploadSourceReady &&
+    !isUploading &&
+    !batchActionPending,
   );
 
   const requestDuplicateDecision = React.useCallback(
@@ -341,22 +349,37 @@ export function DocumentUploadPanel({
         ...(parseUploadTags(tagInput).length > 0 ? { tags: parseUploadTags(tagInput) } : {}),
         ...(selectedEntries.length === 1 && title.trim() ? { title: title.trim() } : {}),
       },
-      { sourceRelativePaths: selectedEntries.map((entry) => entry.sourceRelativePath ?? entry.file.name) },
+      {
+        sourceRelativePaths: selectedEntries.map(
+          (entry) => entry.sourceRelativePath ?? entry.file.name,
+        ),
+      },
     );
     setActiveBatch(batch);
     setUploadQueue(batchToUploadQueue(batch));
-    const completed = await pollBulkUploadBatch(selectedMatter.matterReference, batch.batchId, (next) => {
-      setActiveBatch(next);
-      setUploadQueue(batchToUploadQueue(next));
-    });
+    const completed = await pollBulkUploadBatch(
+      selectedMatter.matterReference,
+      batch.batchId,
+      (next) => {
+        setActiveBatch(next);
+        setUploadQueue(batchToUploadQueue(next));
+      },
+    );
     setActiveBatch(completed);
     setUploadQueue(batchToUploadQueue(completed));
     setStatusMessage(batchUploadStatusMessage(completed));
-    if (acceptedBatchItems(completed) > 0 && completed.failedItems === 0 && completed.duplicateItems === 0) {
+    if (
+      acceptedBatchItems(completed) > 0 &&
+      completed.failedItems === 0 &&
+      completed.duplicateItems === 0
+    ) {
       setFileEntries([]);
       setTitle('');
     }
-    if (acceptedBatchItems(completed) === 0 && completed.failedItems + completed.duplicateItems > 0) {
+    if (
+      acceptedBatchItems(completed) === 0 &&
+      completed.failedItems + completed.duplicateItems > 0
+    ) {
       setErrorMessage('업로드 완료 항목이 없습니다.');
     }
   }
@@ -368,7 +391,11 @@ export function DocumentUploadPanel({
     setBatchActionPending(true);
     setIsUploading(true);
     setErrorMessage(null);
-    setStatusMessage(kind === 'duplicate' ? '중복 항목을 새 문서로 등록하고 있습니다.' : '실패 항목을 다시 요청하고 있습니다.');
+    setStatusMessage(
+      kind === 'duplicate'
+        ? '중복 항목을 새 문서로 등록하고 있습니다.'
+        : '실패 항목을 다시 요청하고 있습니다.',
+    );
     try {
       let latest = activeBatch;
       for (const item of targets) {
@@ -388,14 +415,22 @@ export function DocumentUploadPanel({
       }
       setActiveBatch(latest);
       setUploadQueue(batchToUploadQueue(latest));
-      const completed = await pollBulkUploadBatch(selectedMatter.matterReference, latest.batchId, (next) => {
-        setActiveBatch(next);
-        setUploadQueue(batchToUploadQueue(next));
-      });
+      const completed = await pollBulkUploadBatch(
+        selectedMatter.matterReference,
+        latest.batchId,
+        (next) => {
+          setActiveBatch(next);
+          setUploadQueue(batchToUploadQueue(next));
+        },
+      );
       setActiveBatch(completed);
       setUploadQueue(batchToUploadQueue(completed));
       setStatusMessage(batchUploadStatusMessage(completed));
-      if (acceptedBatchItems(completed) > 0 && completed.failedItems === 0 && completed.duplicateItems === 0) {
+      if (
+        acceptedBatchItems(completed) > 0 &&
+        completed.failedItems === 0 &&
+        completed.duplicateItems === 0
+      ) {
         setFileEntries([]);
         setTitle('');
       }
@@ -411,8 +446,8 @@ export function DocumentUploadPanel({
     return (
       <EmptyState
         variant="pre-search"
-        title="Matter code를 먼저 선택해 주세요."
-        description="파일은 선택한 Matter code의 권한 범위 안에서만 업로드할 수 있습니다."
+        title="Matter 코드를 먼저 선택해 주세요."
+        description="파일은 선택한 Matter 코드의 권한 범위 안에서만 업로드할 수 있습니다."
       />
     );
   }
@@ -422,7 +457,7 @@ export function DocumentUploadPanel({
       <EmptyState
         variant="policy-blocked"
         title="업로드 가능 여부 확인 필요"
-        description="Matter 관리 시스템에서 업로드 가능한 Matter code로 확인된 뒤 파일 업로드를 시작할 수 있습니다."
+        description="Matter 관리 시스템에서 업로드 가능한 Matter 코드로 확인된 뒤 파일 업로드를 시작할 수 있습니다."
       />
     );
   }
@@ -580,7 +615,13 @@ function BatchUploadControls({
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border bg-background px-3 py-2">
       {batch.failedItems > 0 ? (
-        <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={onRetryFailed}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          onClick={onRetryFailed}
+        >
           <RotateCw className="h-4 w-4" aria-hidden="true" />
           실패 항목 재시도
         </Button>
@@ -701,7 +742,10 @@ export function normalizeUploadSourceRelativePath(value: string | undefined): st
 
 export function parseUploadTags(value: string): string[] {
   const seen = new Set<string>();
-  for (const tag of value.split(/[,\n]/).map((entry) => entry.trim()).filter(Boolean)) {
+  for (const tag of value
+    .split(/[,\n]/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)) {
     seen.add(tag);
   }
   return [...seen].slice(0, 50);
@@ -809,7 +853,8 @@ function batchItemStatusMessage(item: BulkUploadBatchItemDto): string {
   if (item.status === 'done') return '배치 업로드 완료.';
   if (item.status === 'quarantined') return '보안 검사가 완료될 때까지 문서함에 표시되지 않습니다.';
   if (item.status === 'duplicate') return item.errorReason ?? '중복 결정이 필요합니다.';
-  if (item.status === 'failed') return item.errorReason ?? item.errorCode ?? '업로드에 실패했습니다.';
+  if (item.status === 'failed')
+    return item.errorReason ?? item.errorCode ?? '업로드에 실패했습니다.';
   if (item.status === 'uploaded') return '서버 배치에서 처리 중입니다.';
   return '배치 대기 중입니다.';
 }
@@ -901,7 +946,11 @@ export function bulkUploadStatusMessage(
 
 export function batchUploadStatusMessage(batch: BulkUploadBatchDto): string {
   const quarantinedItems = batch.items.filter((item) => item.status === 'quarantined').length;
-  if (quarantinedItems > 0 && batch.doneItems === 0 && batch.failedItems + batch.duplicateItems === 0) {
+  if (
+    quarantinedItems > 0 &&
+    batch.doneItems === 0 &&
+    batch.failedItems + batch.duplicateItems === 0
+  ) {
     return `${quarantinedItems}개 보안 검사 대기 중입니다.`;
   }
   if (quarantinedItems > 0 && batch.failedItems + batch.duplicateItems === 0) {

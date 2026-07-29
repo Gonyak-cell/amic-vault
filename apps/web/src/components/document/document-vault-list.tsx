@@ -137,7 +137,7 @@ export const sortLabels = {
   updated_desc: '최근 업데이트',
   updated_asc: '오래된 업데이트',
   title_asc: '문서명',
-  matter_asc: 'Matter code',
+  matter_asc: 'Matter 코드',
   type_asc: '문서 유형',
   status_asc: '상태',
 } as const satisfies Record<ListDocumentSort, string>;
@@ -507,7 +507,7 @@ export function DocumentVaultList({
           id="document-vault-tag"
           value={draftFilters.tag}
           onChange={(event) => updateDraftFilter('tag', event.target.value)}
-          placeholder="executed"
+          placeholder="예: 체결"
         />
       </FilterField>
       <FilterField htmlFor="document-vault-sort" label="정렬">
@@ -668,7 +668,7 @@ export function DocumentVaultList({
               문서함 검색
             </h2>
             <p className="text-xs leading-5 text-muted-foreground">
-              권한이 확인된 문서를 문서명과 Matter code 기준으로 찾습니다.
+              접근 가능한 문서를 문서명과 Matter 코드 기준으로 찾습니다.
             </p>
             <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
               {isLoading
@@ -679,7 +679,7 @@ export function DocumentVaultList({
           <div className="flex min-w-0 flex-wrap items-center gap-2 xl:justify-end">
             <Button type="submit" size="sm" disabled={isLoading} title="검색 적용">
               <Search className="mr-1.5 h-4 w-4" aria-hidden="true" />
-              적용
+              검색
             </Button>
             <Button
               type="button"
@@ -721,7 +721,9 @@ export function DocumentVaultList({
               <SlidersHorizontal className="mr-1.5 h-4 w-4" aria-hidden="true" />
               상세 검색
               <span className="ml-2 shrink-0 text-xs font-normal text-muted-foreground">
-                {draftAdvancedFilterCount}개 선택
+                {draftAdvancedFilterCount > 0
+                  ? `상세 조건 · ${draftAdvancedFilterCount}개`
+                  : '상세 조건 · 선택 없음'}
               </span>
             </span>
             <ChevronDown
@@ -776,7 +778,7 @@ export function DocumentVaultList({
         <EmptyState
           variant="no-data"
           title="표시할 문서가 없습니다."
-          description="접근 권한과 필터 조건을 통과한 문서만 이 문서함에 표시됩니다."
+          description="조건에 맞는 문서가 없습니다. 검색 조건을 바꾸거나 초기화해 주세요."
         />
       </div>
     );

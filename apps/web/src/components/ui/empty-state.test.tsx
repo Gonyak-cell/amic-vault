@@ -12,7 +12,7 @@ describe('EmptyState', () => {
     expect(html).toContain('aria-atomic="true"');
     expect(html).toContain('aria-labelledby="');
     expect(html).toContain('aria-describedby="');
-    expect(html).toContain('검색어를 입력하면 접근 권한이 확인된 파일만 표시됩니다.');
+    expect(html).toContain('검색어를 입력하면 접근 가능한 문서만 표시됩니다.');
   });
 
   it('announces fail-closed states assertively', () => {

@@ -8,11 +8,13 @@ import {
   type BreakGlassRequestDto,
   type BreakGlassRequestStatus,
   type DlpBehaviorAlertDto,
+  type EthicalWallDetailDto,
   type MfaEnrollResponseDto,
   type UserRole,
   type UserSummary,
 } from '@amic-vault/shared';
 import { EmptyState } from '@/components/ui/empty-state';
+import { maskInternalReference } from '@/components/security/secure-ref';
 import { Button } from '@/components/ui/button';
 import {
   DataTable,
@@ -35,6 +37,7 @@ import {
   revokeBreakGlassRequest,
 } from '@/lib/api/break-glass';
 import { listDlpBehaviorAlerts } from '@/lib/api/dlp';
+import { listEthicalWalls } from '@/lib/api/ethical-walls';
 import { deactivateUser, listUsers, reactivateUser } from '@/lib/api/user-lifecycle';
 import { activateMfa, enrollMfa, getCurrentUser } from '@/lib/auth';
 import { qrSvgDataUri } from '@/lib/qr-code';
@@ -133,6 +136,7 @@ export interface AdminSecurityClientProps {
   initialUsers?: UserSummary[];
   initialBreakGlassRequests?: BreakGlassRequestDto[];
   initialDlpAlerts?: DlpBehaviorAlertDto[];
+  initialEthicalWalls?: EthicalWallDetailDto[];
 }
 
 export function AdminSecurityClient({
@@ -141,6 +145,7 @@ export function AdminSecurityClient({
   initialUsers = [],
   initialBreakGlassRequests = [],
   initialDlpAlerts = [],
+  initialEthicalWalls = [],
 }: AdminSecurityClientProps = {}) {
   const [currentUser, setCurrentUser] = useState<UserSummary | null>(initialCurrentUser);
   const [mfaEnrollment, setMfaEnrollment] = useState<MfaEnrollResponseDto | null>(
@@ -151,6 +156,7 @@ export function AdminSecurityClient({
   const [users, setUsers] = useState<UserSummary[]>(initialUsers);
   const [requests, setRequests] = useState<BreakGlassRequestDto[]>(initialBreakGlassRequests);
   const [dlpAlerts, setDlpAlerts] = useState<DlpBehaviorAlertDto[]>(initialDlpAlerts);
+  const [ethicalWalls, setEthicalWalls] = useState<EthicalWallDetailDto[]>(initialEthicalWalls);
   const [busy, setBusy] = useState(false);
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -179,16 +185,25 @@ export function AdminSecurityClient({
     setBusy(true);
     setError(null);
     try {
-      const [current, listedUsers, listedRequests, listedDlpAlerts] = await Promise.all([
-        getCurrentUser(),
-        listUsers(),
-        listBreakGlassRequests(),
-        listDlpBehaviorAlerts(),
-      ]);
+      const [current, listedUsers, listedRequests, listedDlpAlerts, listedWalls] =
+        await Promise.all([
+          getCurrentUser(),
+          listUsers(),
+          listBreakGlassRequests(),
+          listDlpBehaviorAlerts(),
+          listEthicalWalls({ limit: 100, status: 'active' }),
+        ]);
       setCurrentUser(current.user);
       setUsers(listedUsers.items);
       setRequests(listedRequests.items);
       setDlpAlerts(listedDlpAlerts.items);
+      setEthicalWalls(listedWalls.items);
+      setForm((currentForm) => ({
+        ...currentForm,
+        wallId: listedWalls.items.some((item) => item.wall.wallId === currentForm.wallId)
+          ? currentForm.wallId
+          : (listedWalls.items[0]?.wall.wallId ?? ''),
+      }));
     } catch (caught) {
       setError(safeApiErrorMessage(caught));
     } finally {
@@ -285,7 +300,7 @@ export function AdminSecurityClient({
       <PageHeader
         breadcrumbs={['문서 보관', '관리', '보안']}
         title="보안 운영"
-        description="구성원 접근 상태와 break-glass 요청을 한 화면에서 확인하고 처리합니다."
+        description="구성원 접근 상태와 긴급 접근 요청을 확인하고 처리합니다."
         actions={
           <Button onClick={() => void refresh()} disabled={busy} type="button" variant="outline">
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -519,21 +534,30 @@ export function AdminSecurityClient({
 
         <SectionCard
           icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />}
-          title="Break-glass 요청"
+          title="긴급 접근 요청"
           meta={`${pendingRequestCount}건 승인 대기`}
         >
           <form className="grid gap-3" onSubmit={(event) => void handleCreateRequest(event)}>
             <label className="grid gap-1.5 text-sm">
-              <span className="font-medium">Ethical wall ID</span>
-              <input
+              <span className="font-medium">정보 차단 규칙</span>
+              <select
                 className="h-10 rounded-md border bg-background px-3 text-sm"
+                disabled={ethicalWalls.length === 0}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, wallId: event.target.value }))
                 }
-                placeholder="wall UUID"
                 required
                 value={form.wallId}
-              />
+              >
+                {ethicalWalls.length === 0 ? (
+                  <option value="">사용 가능한 규칙이 없습니다</option>
+                ) : null}
+                {ethicalWalls.map((item) => (
+                  <option key={item.wall.wallId} value={item.wall.wallId}>
+                    {item.wall.wallName}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="grid gap-1.5 text-sm">
               <span className="font-medium">사유</span>
@@ -567,7 +591,11 @@ export function AdminSecurityClient({
                 value={form.expiresAt}
               />
             </label>
-            <Button disabled={rowBusyId === 'break-glass:create'} type="submit" className="w-full">
+            <Button
+              disabled={rowBusyId === 'break-glass:create' || !form.wallId}
+              type="submit"
+              className="w-full"
+            >
               <ShieldAlert className="h-4 w-4" aria-hidden="true" />
               요청 생성
             </Button>
@@ -580,7 +608,7 @@ export function AdminSecurityClient({
         title="승인 대기열"
         meta="두 명의 비요청자 승인이 필요합니다."
       >
-        <DataTable caption="Break-glass 요청 목록" minWidthClassName="min-w-[880px]">
+        <DataTable caption="긴급 접근 요청 목록" minWidthClassName="min-w-[880px]">
           <DataTableHeader>
             <DataTableRow>
               <DataTableHead>요청</DataTableHead>
@@ -594,7 +622,7 @@ export function AdminSecurityClient({
           <DataTableBody>
             {requests.length === 0 ? (
               <DataTableEmptyRow colSpan={6}>
-                승인 대기 중인 break-glass 요청이 없습니다.
+                승인 대기 중인 긴급 접근 요청이 없습니다.
               </DataTableEmptyRow>
             ) : (
               requests.map((request) => {
@@ -609,9 +637,11 @@ export function AdminSecurityClient({
                   <DataTableRow key={request.requestId}>
                     <DataTableCell>
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{request.requestId}</p>
+                        <p className="truncate font-medium">긴급 접근 요청</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          matter {request.matterId}
+                          {ethicalWalls.find((item) => item.wall.wallId === request.wallId)?.wall
+                            .wallName ?? '정보 차단 규칙'}{' '}
+                          · {maskInternalReference(request.requestId)}
                         </p>
                       </div>
                     </DataTableCell>
@@ -624,7 +654,7 @@ export function AdminSecurityClient({
                     <DataTableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
-                          aria-label="Break-glass 요청 승인"
+                          aria-label="긴급 접근 요청 승인"
                           className="h-9 w-9 px-0"
                           disabled={!canApprove || actionBusy}
                           onClick={() => void handleApprove(request)}
@@ -636,7 +666,7 @@ export function AdminSecurityClient({
                           <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                         </Button>
                         <Button
-                          aria-label="Break-glass 요청 회수"
+                          aria-label="긴급 접근 요청 회수"
                           className="h-9 w-9 px-0"
                           disabled={!canRevoke || actionBusy}
                           onClick={() => void handleRevoke(request)}

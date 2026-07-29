@@ -29,7 +29,7 @@ export default function IntegrationsPage() {
           <IntegrationCard
             icon={<FolderSearch className="h-4 w-4" />}
             title="Matter 관리 시스템"
-            description="Matter code 기준 정보와 업로드 가능 여부를 확인합니다. 연결 전에는 파일 업로드를 열지 않습니다."
+            description="Matter 코드 기준 정보와 업로드 가능 여부를 확인합니다. 연결 전에는 파일 업로드를 열지 않습니다."
             status="업로드 조건 확인"
             tone="warning"
             href="/integrations/matter-app"

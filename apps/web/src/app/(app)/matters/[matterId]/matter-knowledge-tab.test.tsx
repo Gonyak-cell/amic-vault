@@ -17,12 +17,13 @@ describe('MatterKnowledgeTab', () => {
       />,
     );
 
-    expect(html).toContain('Matter Graph');
+    expect(html).toContain('Matter 관계도');
     expect(html).toContain('Matter 지식 서브탭');
     expect(html).toContain('[확정]');
     expect(html).toContain('[AI제안]');
     expect(html).toContain('[파생]');
-    expect(html).toContain('EVIDENCED_BY');
+    expect(html).toContain('근거');
+    expect(html).not.toContain('EVIDENCED_BY');
     expect(html).toContain('id="graph-node-11111111-1111-4111-8111-111111111010"');
     expect(html).toContain('/documents/11111111-1111-4111-8111-111111111003');
     expect(html).toContain('위키');
@@ -33,10 +34,10 @@ describe('MatterKnowledgeTab', () => {
     expect(html).toContain(
       'http://localhost:3001/v1/matters/11111111-1111-4111-8111-111111111001/wiki-export',
     );
-    expect(html).toContain('Issue Map');
+    expect(html).toContain('쟁점 지도');
     expect(html).toContain('LIT-001');
     expect(html).toContain('DD-ISSUE-001');
-    expect(html).toContain('Citation Panel');
+    expect(html).toContain('인용 근거');
     expect(html).toContain('LOI 체결 사실이 확인되었습니다.');
     expect(html).toContain('/documents/11111111-1111-4111-8111-111111111003?chunk=1');
   });
@@ -55,21 +56,9 @@ describe('MatterKnowledgeTab', () => {
 });
 
 function knowledgeData(): MatterKnowledgeInitialData {
-  const confirmed = graphNode(
-    '11111111-1111-4111-8111-111111111010',
-    'fact',
-    'human_confirmed',
-  );
-  const proposed = graphNode(
-    '11111111-1111-4111-8111-111111111011',
-    'issue',
-    'ai_proposed',
-  );
-  const derived = graphNode(
-    '11111111-1111-4111-8111-111111111012',
-    'document',
-    'derived',
-  );
+  const confirmed = graphNode('11111111-1111-4111-8111-111111111010', 'fact', 'human_confirmed');
+  const proposed = graphNode('11111111-1111-4111-8111-111111111011', 'issue', 'ai_proposed');
+  const derived = graphNode('11111111-1111-4111-8111-111111111012', 'document', 'derived');
   return {
     facts: [
       {

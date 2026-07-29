@@ -45,8 +45,8 @@ export function AccountLedgerAdminClient() {
   return (
     <SectionCard
       icon={<KeyRound className="h-4 w-4" aria-hidden="true" />}
-      title="계정 원장 ID"
-      meta="전역 유일 로그인 ID"
+      title="로그인 계정 연결"
+      meta="사용자별 계정명"
       actions={
         <StatusBadge tone={selectedSubject ? 'success' : 'neutral'}>
           {selectedSubject ? '사용자 선택됨' : '대기'}
@@ -72,7 +72,7 @@ export function AccountLedgerAdminClient() {
             ) : null}
           </div>
           <label className="grid gap-1.5">
-            <span className="text-sm font-medium text-foreground">원장 ID</span>
+            <span className="text-sm font-medium text-foreground">로그인 계정명</span>
             <Input
               autoComplete="off"
               inputMode="text"
@@ -82,7 +82,7 @@ export function AccountLedgerAdminClient() {
                 setStatus(null);
                 setError(null);
               }}
-              placeholder="amic-user-001"
+              placeholder="영문·숫자 3자 이상"
               value={accountLedgerId}
             />
           </label>

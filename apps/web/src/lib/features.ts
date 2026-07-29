@@ -9,7 +9,16 @@ export type RouteProductionVisibility =
 
 export interface RouteVisibilityPolicy {
   route: string;
-  group: 'Vault' | 'Governance' | 'Audit' | 'Security' | 'Admin' | 'Integrations' | 'AI Prep/Ops' | 'Internal Ops' | 'Out of scope';
+  group:
+    | 'Vault'
+    | 'Governance'
+    | 'Audit'
+    | 'Security'
+    | 'Admin'
+    | 'Integrations'
+    | 'AI Prep/Ops'
+    | 'Internal Ops'
+    | 'Out of scope';
   production: RouteProductionVisibility;
   roles: readonly UserRole[];
   showInNavigation: boolean;
@@ -102,7 +111,7 @@ export const routeVisibilityPolicies = [
     group: 'Security',
     production: 'visible_admin_only',
     roles: adminRoles,
-    showInNavigation: true,
+    showInNavigation: false,
   },
   {
     route: '/admin',
@@ -183,8 +192,12 @@ export const routeVisibilityPolicies = [
   },
 ] as const satisfies readonly RouteVisibilityPolicy[];
 
-export function canRoleViewRoute(policy: RouteVisibilityPolicy, role: UserRole | null | undefined): boolean {
-  if (policy.production === 'hidden' || policy.production === 'hidden_until_api_ready') return false;
+export function canRoleViewRoute(
+  policy: RouteVisibilityPolicy,
+  role: UserRole | null | undefined,
+): boolean {
+  if (policy.production === 'hidden' || policy.production === 'hidden_until_api_ready')
+    return false;
   if (!role) return policy.route === '/dashboard';
   return policy.roles.includes(role);
 }

@@ -40,7 +40,7 @@ describe('MatterDocumentList', () => {
   it('waits for a Matter Code before rendering file rows', () => {
     const html = renderToStaticMarkup(<MatterDocumentList selectedMatter={null} />);
 
-    expect(html).toContain('Matter code를 선택하면 파일 목록이 표시됩니다.');
+    expect(html).toContain('Matter 코드를 선택하면 파일 목록이 표시됩니다.');
     expect(html).not.toContain('DOC-');
     expect(html).not.toContain('Matter ID');
     expect(html).not.toContain(selectedMatter.matterReference);

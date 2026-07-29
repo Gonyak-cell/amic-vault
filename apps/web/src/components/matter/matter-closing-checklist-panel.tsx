@@ -1,7 +1,14 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, CircleAlert, Download, FileArchive, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+  CheckCircle2,
+  CircleAlert,
+  Download,
+  FileArchive,
+  RefreshCw,
+  ShieldCheck,
+} from 'lucide-react';
 import type {
   MatterClosingBinderDto,
   MatterClosingChecklistDto,
@@ -12,6 +19,7 @@ import type {
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
+import { maskInternalReference } from '@/components/security/secure-ref';
 import {
   ApiClientError,
   evaluateMatterClosingChecklist,
@@ -90,42 +98,49 @@ function closingErrorMessage(error: unknown): string {
   if (error instanceof ApiClientError && error.reason === 'CLOSING_CHECKLIST_INCOMPLETE') {
     return '대기 중인 체크리스트 항목이 있어 Matter를 닫을 수 없습니다.';
   }
-  return 'Closing 체크리스트 작업을 완료하지 못했습니다.';
+  return '종결 체크리스트 작업을 완료하지 못했습니다.';
 }
 
 function checklistEmptyState(loadStatus: ClosingLoadStatus) {
   if (loadStatus === 'loading') {
-    return <EmptyState variant="api-unavailable" title="Closing 체크리스트를 불러오는 중입니다." />;
+    return <EmptyState variant="api-unavailable" title="종결 체크리스트를 불러오는 중입니다." />;
   }
   if (loadStatus === 'empty') {
-    return <EmptyState title="Closing 체크리스트가 아직 생성되지 않았습니다." />;
+    return <EmptyState title="종결 체크리스트가 아직 생성되지 않았습니다." />;
   }
   if (loadStatus === 'error') {
-    return <EmptyState variant="api-error" title="Closing 체크리스트를 표시할 수 없습니다." />;
+    return <EmptyState variant="api-error" title="종결 체크리스트를 표시할 수 없습니다." />;
   }
   if (loadStatus === 'forbidden') {
-    return <EmptyState variant="no-access" title="Closing 체크리스트를 볼 권한이 없습니다." />;
+    return <EmptyState variant="no-access" title="종결 체크리스트를 볼 권한이 없습니다." />;
   }
   if (loadStatus === 'blocked') {
-    return <EmptyState variant="policy-blocked" title="권한 정책으로 Closing 체크리스트가 차단되었습니다." />;
+    return (
+      <EmptyState
+        variant="policy-blocked"
+        title="권한 정책으로 종결 체크리스트가 차단되었습니다."
+      />
+    );
   }
   return null;
 }
 
 function binderEmptyState(loadStatus: ClosingLoadStatus | undefined) {
   if (loadStatus === 'loading') {
-    return <EmptyState variant="api-unavailable" title="Closing Binder를 불러오는 중입니다." />;
+    return <EmptyState variant="api-unavailable" title="종결 문서철을 불러오는 중입니다." />;
   }
   if (loadStatus === 'error') {
-    return <EmptyState variant="api-error" title="Closing Binder를 표시할 수 없습니다." />;
+    return <EmptyState variant="api-error" title="종결 문서철을 표시할 수 없습니다." />;
   }
   if (loadStatus === 'forbidden') {
-    return <EmptyState variant="no-access" title="Closing Binder를 볼 권한이 없습니다." />;
+    return <EmptyState variant="no-access" title="종결 문서철을 볼 권한이 없습니다." />;
   }
   if (loadStatus === 'blocked') {
-    return <EmptyState variant="policy-blocked" title="권한 정책으로 Closing Binder가 차단되었습니다." />;
+    return (
+      <EmptyState variant="policy-blocked" title="권한 정책으로 종결 문서철이 차단되었습니다." />
+    );
   }
-  return <EmptyState title="Closing Binder가 아직 생성되지 않았습니다." />;
+  return <EmptyState title="종결 문서철이 아직 생성되지 않았습니다." />;
 }
 
 function statusBadge(item: MatterClosingChecklistItemDto) {
@@ -155,7 +170,8 @@ export function MatterClosingChecklistPanelView({
   onWaive,
   onWaiverReasonChange,
 }: MatterClosingChecklistPanelViewProps) {
-  const isBusy = actionState === 'evaluating' || actionState === 'waiving' || actionState === 'status';
+  const isBusy =
+    actionState === 'evaluating' || actionState === 'waiving' || actionState === 'status';
   const hasItems = Boolean(checklist && checklist.items.length > 0);
   const canPrepareClosing = matter.status === 'active' && !isBusy;
   const canCloseMatter = matter.status === 'closing' && checklist?.complete === true && !isBusy;
@@ -163,7 +179,7 @@ export function MatterClosingChecklistPanelView({
   return (
     <SectionCard
       icon={<ShieldCheck className="h-4 w-4" />}
-      title="Closing 체크리스트"
+      title="종결 체크리스트"
       meta={checklist?.complete ? '닫기 가능' : '닫기 전 확인'}
       actions={
         <>
@@ -225,7 +241,9 @@ export function MatterClosingChecklistPanelView({
                       {checklistReasonLabels[item.reasonCode] ?? item.reasonCode}
                     </p>
                     {item.evidenceRef ? (
-                      <p className="mt-1 text-xs text-muted-foreground">근거: {item.evidenceRef}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        근거: {maskInternalReference(item.evidenceRef)}
+                      </p>
                     ) : null}
                   </div>
                   <div className="grid gap-2">
@@ -236,7 +254,9 @@ export function MatterClosingChecklistPanelView({
                         disabled={isBusy || item.status === 'passed'}
                         maxLength={500}
                         value={reason}
-                        onChange={(event) => onWaiverReasonChange?.(item.itemCode, event.target.value)}
+                        onChange={(event) =>
+                          onWaiverReasonChange?.(item.itemCode, event.target.value)
+                        }
                       />
                     </label>
                     <Button
@@ -264,10 +284,10 @@ export function MatterClosingChecklistPanelView({
                 <FileArchive className="h-4 w-4" aria-hidden="true" />
               </span>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">Closing Binder</p>
+                <p className="text-sm font-semibold text-foreground">종결 문서철</p>
                 <p className="text-xs text-muted-foreground">
                   {binder
-                    ? `${binder.manifest.items.length}개 항목 · Archive ${binder.recordsArchiveCount}`
+                    ? `${binder.manifest.items.length}개 항목 · 보관 ${binder.recordsArchiveCount}건`
                     : '종료 확정 후 생성'}
                 </p>
               </div>
@@ -305,10 +325,12 @@ export function MatterClosingChecklistPanelView({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">{item.title}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {item.versionLabel ?? item.sourceRef}
+                      {item.versionLabel ?? maskInternalReference(item.sourceRef)}
                     </p>
                   </div>
-                  <p className="break-all font-mono text-xs text-muted-foreground">{item.sha256}</p>
+                  <p className="text-xs text-muted-foreground">
+                    파일 해시 {maskInternalReference(item.sha256)}
+                  </p>
                 </div>
               ))}
               {binder.manifest.items.length === 0 ? (

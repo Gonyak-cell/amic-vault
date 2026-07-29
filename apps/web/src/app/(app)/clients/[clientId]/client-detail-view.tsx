@@ -119,13 +119,8 @@ export function ClientDetailView({
 
       {loadState === 'ready' && client ? (
         <>
-          <SectionCard
-            icon={<Building2 className="h-4 w-4" />}
-            title="고객 정보"
-            meta="Client master"
-          >
+          <SectionCard icon={<Building2 className="h-4 w-4" />} title="고객 정보" meta="기본 정보">
             <dl className="grid gap-0 border-t text-sm sm:grid-cols-2 lg:grid-cols-4">
-              <DetailField label="고객 ID" value={client.clientId} />
               <DetailField
                 label="고객 유형"
                 value={clientTypeLabels[client.clientType as ClientType] ?? client.clientType}
@@ -142,6 +137,7 @@ export function ClientDetailView({
                   ] ?? client.confidentialityLevel
                 }
               />
+              <DetailField label="등록명" value={client.name} />
             </dl>
             <div className="border-t px-5 py-4">
               <p className="text-xs font-semibold text-muted-foreground">구명칭·별칭</p>
@@ -158,7 +154,7 @@ export function ClientDetailView({
                   <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <p className="min-w-0 text-sm font-medium leading-6 text-foreground">
-                  이 고객 기준으로 Matter intake와 검색 범위를 확인합니다.
+                  이 고객의 Matter와 관련 문서를 확인합니다.
                 </p>
               </div>
               <Button asChild variant="outline" size="sm">

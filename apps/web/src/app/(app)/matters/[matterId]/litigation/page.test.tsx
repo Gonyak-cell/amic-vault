@@ -129,11 +129,11 @@ describe('Matter litigation read-only page', () => {
       />,
     );
 
-    expect(html).toContain('Fact Ledger');
+    expect(html).toContain('사실관계 원장');
     expect(html).toContain('FACT-001');
-    expect(html).toContain('Case map');
+    expect(html).toContain('사건 관계도');
     expect(html).toContain('준비서면 제출기한');
-    expect(html).toContain('fact:verified');
+    expect(html).not.toContain('fact:verified');
     expect(html).toContain('EV-001');
   });
 });

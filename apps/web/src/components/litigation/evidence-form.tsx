@@ -11,6 +11,7 @@ import type {
 } from '@amic-vault/shared';
 import { createLitigationEvidenceRequestSchema } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
+import { MatterDocumentPicker } from '@/components/document/matter-document-picker';
 import { createLitigationEvidence, getLitigationEvidenceNextCode } from '@/lib/api/litigation';
 
 const directionLabels = {
@@ -198,15 +199,13 @@ export function EvidenceForm({
           등록
         </Button>
       </form>
-      <input
-        className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        value={state.documentId}
+      <MatterDocumentPicker
         disabled={busy}
-        placeholder="연결할 문서 식별값"
-        aria-label="연결할 문서"
-        onChange={(event) =>
-          setState((current) => ({ ...current, documentId: event.target.value }))
+        matterId={matterId}
+        onDocumentSelected={(document) =>
+          setState((current) => ({ ...current, documentId: document.documentId }))
         }
+        selectedDocumentId={state.documentId}
       />
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
     </section>

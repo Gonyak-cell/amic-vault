@@ -133,13 +133,13 @@ export default function ClientsPage() {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-foreground">운영 기준</p>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              활성 고객 기준으로 Matter intake 목록을 구성합니다.
+              활성 고객을 기준으로 Matter 생성 목록을 구성합니다.
             </p>
           </div>
         </div>
       </div>
 
-      <SectionCard icon={<Plus className="h-4 w-4" />} title="고객 등록" meta="Matter intake">
+      <SectionCard icon={<Plus className="h-4 w-4" />} title="고객 등록" meta="Matter 생성 준비">
         <form className="grid gap-4" onSubmit={submit}>
           <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_180px_180px]">
             <label className="grid gap-1.5 text-sm font-medium">
@@ -221,7 +221,11 @@ export default function ClientsPage() {
         </form>
       </SectionCard>
 
-      <SectionCard icon={<Building2 className="h-4 w-4" />} title="고객 목록" meta="권한 확인">
+      <SectionCard
+        icon={<Building2 className="h-4 w-4" />}
+        title="고객 목록"
+        meta="접근 가능한 고객"
+      >
         <ClientListTable clients={clients} />
         {loadState === 'loading' ? (
           <EmptyState

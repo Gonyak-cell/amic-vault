@@ -89,7 +89,7 @@ describe('AdminSecurityPage', () => {
     expect(html).toContain('55건');
     expect(html).toContain('Security Reviewer');
     expect(html).toContain('비활성화');
-    expect(html).toContain('Break-glass 요청');
+    expect(html).toContain('긴급 접근 요청');
     expect(html).toContain('요청 생성');
     expect(html).toContain('승인 대기열');
     expect(html).toContain('승인');

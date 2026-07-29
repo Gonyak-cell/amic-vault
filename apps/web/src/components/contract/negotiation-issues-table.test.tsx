@@ -35,15 +35,16 @@ describe('NegotiationIssuesTable', () => {
       <NegotiationIssuesTable issues={[issue]} onStatusChange={() => undefined} />,
     );
 
-    expect(html).toContain('협상쟁점표');
+    expect(html).toContain('협상 쟁점표');
     expect(html).toContain('rule.finding.missing_governing_law');
     expect(html).toContain('governing_law v3');
-    expect(html).toContain('aaaaaaaaaaaa');
+    expect(html).toContain('참조 ••••aaaaaaaa');
     expect(html).toContain('검토 중');
     expect(html).toContain('value="agreed"');
     expect(html).toContain('합의');
     expect(html).toContain('value="dropped"');
-    expect(html).toContain('redline:11111111-1111-4111-8111-111111111228');
+    expect(html).toContain('참조 ••••11111228');
+    expect(html).not.toContain('redline:11111111-1111-4111-8111-111111111228');
     expect(html).not.toContain('disabled=""');
   });
 

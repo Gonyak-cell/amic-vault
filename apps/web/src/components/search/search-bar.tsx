@@ -19,6 +19,12 @@ const searchModeLabels = {
   hybrid: '혼합',
 } as const satisfies Record<SearchMode, string>;
 
+const searchModeDescriptions = {
+  keyword: '입력한 단어가 포함된 문서를 찾습니다.',
+  semantic: '표현이 달라도 뜻이 비슷한 문서를 찾습니다.',
+  hybrid: '키워드와 의미 검색 결과를 함께 찾습니다.',
+} as const satisfies Record<SearchMode, string>;
+
 const searchModeOptions: SearchMode[] = ['keyword', 'semantic', 'hybrid'];
 
 export function searchSubmissionQuery(
@@ -87,6 +93,7 @@ export function SearchBar({
             key={option}
             aria-label={`${searchModeLabels[option]} 검색`}
             aria-pressed={mode === option}
+            title={searchModeDescriptions[option]}
             className="h-8 px-3"
             disabled={busy}
             size="sm"

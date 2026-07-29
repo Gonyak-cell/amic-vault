@@ -83,9 +83,9 @@ describe('SearchFacets', () => {
     expect(html).toContain('추출/OCR');
     expect(html).toContain('추출 실패');
     expect(html).toContain('OCR 신뢰도');
-    expect(html).toContain('OCR 저신뢰');
+    expect(html).toContain('OCR 신뢰도 낮음');
     expect(html).toContain('보존/삭제 금지');
-    expect(html).toContain('파일 삭제 금지');
+    expect(html).toContain('문서 보존 조치');
     expect(html).toContain('보존 조치 없음');
     expect(html).toContain('기록 상태');
     expect(html).toContain('보관됨');

@@ -9,6 +9,13 @@ export interface SecureRefProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: string | null;
 }
 
+export function maskInternalReference(value?: string | null): string {
+  const normalizedValue = typeof value === 'string' ? value.trim() : '';
+  if (!normalizedValue) return '';
+  const suffix = normalizedValue.replace(/[^A-Za-z0-9]/g, '').slice(-8);
+  return suffix ? `참조 ••••${suffix}` : '참조값 있음';
+}
+
 export function SecureRef({
   className,
   emptyText = '확인 정보 없음',
@@ -26,12 +33,10 @@ export function SecureRef({
       <dd className="mt-1 truncate text-sm font-medium text-foreground">
         {reveal && normalizedValue ? (
           <code className="break-all rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">
-            {normalizedValue}
+            {maskInternalReference(normalizedValue)}
           </code>
         ) : (
-          <span className="text-muted-foreground">
-            {normalizedValue ? hiddenText : emptyText}
-          </span>
+          <span className="text-muted-foreground">{normalizedValue ? hiddenText : emptyText}</span>
         )}
       </dd>
     </div>

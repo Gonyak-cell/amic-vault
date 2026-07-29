@@ -2,14 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  AlertTriangle,
-  ChevronDown,
-  ExternalLink,
-  FileSearch,
-  Send,
-  ThumbsUp,
-} from 'lucide-react';
+import { AlertTriangle, ChevronDown, ExternalLink, FileSearch, Send, ThumbsUp } from 'lucide-react';
 import type {
   AiCitationVerificationWarningDto,
   AiSessionChunkDetailDto,
@@ -144,7 +137,7 @@ export function AiAssistantPanel({
       aria-label="Matter AI 질의"
       icon={<FileSearch className="h-4 w-4" />}
       title="Matter AI 질의"
-      meta="권한 확인된 근거만 사용"
+      meta="접근 가능한 근거만 사용"
       actions={
         response?.escalationRequired ? (
           <StatusBadge tone="warning">변호사 검토 필요</StatusBadge>
@@ -283,13 +276,7 @@ function StructuredAnswer({ response }: { response: AiSummaryResponseDto }) {
   );
 }
 
-function StructuredBlock({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) {
+function StructuredBlock({ children, title }: { children: React.ReactNode; title: string }) {
   return (
     <section className="border-t pt-3 first:border-t-0 first:pt-0">
       <h3 className="text-sm font-semibold tracking-normal">{title}</h3>
@@ -367,7 +354,10 @@ function Warnings({ response }: { response: AiSummaryResponseDto }) {
         </StatusBadge>
       ))}
       {response.citationWarnings.map((warning) => (
-        <StatusBadge key={`${warning.code}:${warning.claimId}:${warning.citationRef ?? ''}`} tone="warning">
+        <StatusBadge
+          key={`${warning.code}:${warning.claimId}:${warning.citationRef ?? ''}`}
+          tone="warning"
+        >
           {citationWarningLabels[warning.code]}
         </StatusBadge>
       ))}
@@ -398,7 +388,9 @@ function AuditDetails({
               <Link className="font-medium text-primary" href={citationHref(item)}>
                 인용 {item.ordinal}
               </Link>
-              <span className="ml-2 text-muted-foreground">파일 {shortId(item.citation.documentId)}</span>
+              <span className="ml-2 text-muted-foreground">
+                파일 {shortId(item.citation.documentId)}
+              </span>
             </li>
           ))}
         </AuditColumn>

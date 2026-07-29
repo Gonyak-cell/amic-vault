@@ -61,7 +61,9 @@ export function MatterListTable({
               </span>
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{matter.matterName}</span>
-                <span className="block truncate text-xs text-muted-foreground">{matter.matterCode}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {matter.matterCode}
+                </span>
               </span>
             </Link>
             <span className="truncate text-muted-foreground">
@@ -79,15 +81,13 @@ export function MatterListTable({
               {matter.ethicalWallActive ? (
                 <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-amber-300 px-2 py-1 font-medium text-amber-700">
                   <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
-                  Wall
+                  정보 차단
                 </span>
               ) : null}
             </span>
             <span className="flex min-w-0 justify-end gap-2 whitespace-nowrap">
               <Button asChild className="min-w-[72px] px-3" size="sm" variant="outline">
-                <Link href={`/matters/${matter.matterId}`}>
-                  {copy.openMatter}
-                </Link>
+                <Link href={`/matters/${matter.matterId}`}>{copy.openMatter}</Link>
               </Button>
               <Button asChild className="min-w-[78px] px-3" size="sm" variant="outline">
                 <Link href={matterFileCabinetUrl(matter)}>{copy.fileCabinet}</Link>

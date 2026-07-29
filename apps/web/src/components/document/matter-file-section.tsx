@@ -138,9 +138,10 @@ export function MatterFileSection({
   );
   const matterLabel = matter.safeLabel ?? matter.displayName ?? matter.matterName;
   const approvedTemplate =
-    templateCatalog?.templates.find((template) => template.matterType === matter.matterType) ?? null;
+    templateCatalog?.templates.find((template) => template.matterType === matter.matterType) ??
+    null;
   const filingRows: FilingContextRow[] = [
-    { label: 'Matter code', value: matter.matterCode },
+    { label: 'Matter 코드', value: matter.matterCode },
     { label: 'Matter', value: matterLabel },
     { label: '업무 그룹', value: matter.practiceGroup ?? '미지정' },
     { label: 'Matter 상태', value: matterStatusLabel(matter.status) },
@@ -172,17 +173,13 @@ export function MatterFileSection({
         <FilingContextRows rows={filingRows} />
         <MatterTemplateDocumentSets template={approvedTemplate} />
       </SectionCard>
-      <SectionCard
-        icon={<FolderOpen className="h-4 w-4" />}
-        title="파일"
-        meta="Matter별 문서 목록"
-      >
+      <SectionCard icon={<FolderOpen className="h-4 w-4" />} title="파일" meta="Matter별 문서 목록">
         <MatterDocumentList refreshKey={uploadRevision} selectedMatter={matterOption} />
       </SectionCard>
       <SectionCard
         icon={<FolderUp className="h-4 w-4" />}
         title="파일 업로드"
-        meta="Matter code 확인 후 업로드"
+        meta="Matter 코드 확인 후 업로드"
       >
         <DocumentUploadPanel
           selectedMatter={matterOption}

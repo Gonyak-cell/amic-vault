@@ -41,7 +41,8 @@ export function ResultCard({
   if (isAuthorityResult(result)) {
     return <AuthorityResultCard onSelect={onSelect} result={result} selected={selected} />;
   }
-  const isClauseResult = result.resultKind === 'clause' || (target === 'clause' && !!result.clauseId);
+  const isClauseResult =
+    result.resultKind === 'clause' || (target === 'clause' && !!result.clauseId);
   const clauseDisplay = isClauseResult ? clauseLabel(result) : undefined;
   const title = result.displayName || result.title || t('search.result.hiddenTitle');
   const showsSemanticContext = mode === 'semantic' || mode === 'hybrid';
@@ -382,6 +383,6 @@ function privilegeLabel(value: SearchResultDto['permissionBadges']['privilege'])
 }
 
 function legalHoldLabel(value: SearchResultDto['permissionBadges']['legalHold']): string {
-  if (value === 'matter_hold') return '매터 보존';
+  if (value === 'matter_hold') return 'Matter 보존';
   return '문서 보존';
 }

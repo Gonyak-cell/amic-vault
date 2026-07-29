@@ -63,7 +63,9 @@ const notificationSortLabels = {
   source: '업무 구분별',
 } as const satisfies Record<NotificationSortMode, string>;
 
-const notificationSourceOptions = Object.keys(notificationSourceLabels) as NotificationSourceFilter[];
+const notificationSourceOptions = Object.keys(
+  notificationSourceLabels,
+) as NotificationSourceFilter[];
 const notificationToneOptions = Object.keys(notificationToneLabels) as NotificationToneFilter[];
 const notificationSortOptions = Object.keys(notificationSortLabels) as NotificationSortMode[];
 
@@ -178,11 +180,9 @@ export function NotificationsContent({
       <PageHeader
         breadcrumbs={['문서 보관', '알림']}
         title="알림"
-        description="권한이 확인된 실제 운영 이벤트와 상태 알림만 표시됩니다."
+        description="접근 가능한 활동과 상태 알림을 표시합니다."
         actions={
-          <StatusBadge tone={items.length > 0 ? 'warning' : 'success'}>
-            실제 상태 기반
-          </StatusBadge>
+          <StatusBadge tone={items.length > 0 ? 'warning' : 'success'}>실제 상태 기반</StatusBadge>
         }
       />
 
@@ -200,7 +200,9 @@ export function NotificationsContent({
                     id="notification-source-filter"
                     className={selectClassName}
                     value={sourceFilter}
-                    onChange={(event) => setSourceFilter(event.target.value as NotificationSourceFilter)}
+                    onChange={(event) =>
+                      setSourceFilter(event.target.value as NotificationSourceFilter)
+                    }
                   >
                     {notificationSourceOptions.map((option) => (
                       <option key={option} value={option}>
@@ -214,7 +216,9 @@ export function NotificationsContent({
                     id="notification-status-filter"
                     className={selectClassName}
                     value={toneFilter}
-                    onChange={(event) => setToneFilter(event.target.value as NotificationToneFilter)}
+                    onChange={(event) =>
+                      setToneFilter(event.target.value as NotificationToneFilter)
+                    }
                   >
                     {notificationToneOptions.map((option) => (
                       <option key={option} value={option}>
@@ -262,9 +266,16 @@ export function NotificationsContent({
             title="알림 센터"
             {...notificationActionProps}
           />
-          <SectionCard icon={<Activity className="h-4 w-4" />} title="알림 구분" meta="확인된 데이터 기준">
+          <SectionCard
+            icon={<Activity className="h-4 w-4" />}
+            title="알림 구분"
+            meta="확인된 데이터 기준"
+          >
             <ul className="grid gap-2 sm:grid-cols-2">
-              <NotificationSourceItem label="권한/정책" state={dashboardState.permissionPolicyAlerts} />
+              <NotificationSourceItem
+                label="권한/정책"
+                state={dashboardState.permissionPolicyAlerts}
+              />
               <NotificationSourceItem label="파일 정리 준비" state={dashboardState.aiPrepStatus} />
               <NotificationSourceItem label="연동 상태" state={dashboardState.integrationStatus} />
               <NotificationSourceItem label="최근 활동" state={dashboardState.recentActivity} />
@@ -341,12 +352,19 @@ function NotificationSourceBody<T>({
     );
   }
   if (state.status === 'empty') return <EmptyState title={emptyTitle} />;
-  if (state.status === 'error') return <EmptyState variant="api-error" title="알림을 표시할 수 없습니다." />;
-  if (state.status === 'forbidden') return <EmptyState variant="no-access" title="이 항목을 볼 권한이 없습니다." />;
+  if (state.status === 'error')
+    return <EmptyState variant="api-error" title="알림을 표시할 수 없습니다." />;
+  if (state.status === 'forbidden')
+    return <EmptyState variant="no-access" title="이 항목을 볼 권한이 없습니다." />;
   if (state.status === 'blocked') {
-    return <EmptyState variant="policy-blocked" title="정보 차단 또는 권한 정책으로 표시할 수 없습니다." />;
+    return (
+      <EmptyState
+        variant="policy-blocked"
+        title="정보 차단 또는 권한 정책으로 표시할 수 없습니다."
+      />
+    );
   }
-  return <EmptyState variant="api-unavailable" title="운영 데이터 연결 대기 중입니다." />;
+  return <EmptyState variant="api-unavailable" title="데이터를 불러오는 중입니다." />;
 }
 
 function notificationTone<T>(state: DataState<T[]>): 'success' | 'warning' | 'blocked' | 'neutral' {
@@ -391,7 +409,8 @@ function compareNotifications(
     const toneDelta = notificationToneRank(left.tone) - notificationToneRank(right.tone);
     if (toneDelta !== 0) return toneDelta;
   }
-  const occurredDelta = notificationTimeRank(right.occurredAt) - notificationTimeRank(left.occurredAt);
+  const occurredDelta =
+    notificationTimeRank(right.occurredAt) - notificationTimeRank(left.occurredAt);
   if (occurredDelta !== 0) return occurredDelta;
   return left.itemKey.localeCompare(right.itemKey);
 }

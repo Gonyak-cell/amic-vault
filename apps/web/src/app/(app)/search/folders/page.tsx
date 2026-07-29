@@ -11,7 +11,7 @@ export default function SearchFoldersPage() {
       <PageHeader
         breadcrumbs={['문서 보관', '검색 폴더']}
         title="검색 폴더"
-        description="저장된 검색 조건을 폴더처럼 열어 권한이 확인된 문서 결과로 바로 돌아갑니다."
+        description="저장된 검색 조건을 폴더처럼 열어 접근 가능한 문서 결과로 바로 돌아갑니다."
         actions={
           <Button asChild>
             <Link href="/search">

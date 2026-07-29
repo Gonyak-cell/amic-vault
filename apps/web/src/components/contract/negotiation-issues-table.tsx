@@ -3,6 +3,7 @@ import type { NegotiationIssueDto, NegotiationIssueStatus } from '@amic-vault/sh
 import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { maskInternalReference } from '@/components/security/secure-ref';
 
 const issueStatusLabels = {
   open: '검토 중',
@@ -22,6 +23,12 @@ const severityTones = {
   critical: 'blocked',
 } as const satisfies Record<NegotiationIssueDto['severity'], StatusBadgeTone>;
 
+const severityLabels = {
+  info: '참고',
+  warning: '주의',
+  critical: '중요',
+} as const satisfies Record<NegotiationIssueDto['severity'], string>;
+
 export interface NegotiationIssuesTableProps {
   issues: NegotiationIssueDto[];
   onStatusChange?: ((issueId: string, status: NegotiationIssueStatus) => void) | undefined;
@@ -34,18 +41,18 @@ export function NegotiationIssuesTable({
   updatingIssueId = null,
 }: NegotiationIssuesTableProps) {
   return (
-    <SectionCard title="협상쟁점표" meta="Redline · playbook finding · 상태">
+    <SectionCard title="협상 쟁점표" meta="수정 제안 · 기준 위반 · 진행 상태">
       {issues.length > 0 ? (
         <div className="overflow-x-auto">
           <table className="min-w-full border-collapse text-sm">
             <caption className="sr-only">계약 협상쟁점표</caption>
             <thead className="bg-muted/60 text-left text-xs uppercase text-muted-foreground">
               <tr>
-                <TableHeader>Finding</TableHeader>
-                <TableHeader>Redline</TableHeader>
-                <TableHeader>Severity</TableHeader>
-                <TableHeader>Status</TableHeader>
-                <TableHeader>Citations</TableHeader>
+                <TableHeader>검토 항목</TableHeader>
+                <TableHeader>수정 제안</TableHeader>
+                <TableHeader>중요도</TableHeader>
+                <TableHeader>상태</TableHeader>
+                <TableHeader>근거</TableHeader>
               </tr>
             </thead>
             <tbody>
@@ -64,14 +71,14 @@ export function NegotiationIssuesTable({
                     <TableCell>
                       <div className="grid gap-1">
                         <span>{issue.changeType}</span>
-                        <span className="font-mono text-[11px] text-muted-foreground">
-                          {issue.redlineTextHash.slice(0, 12)}
+                        <span className="text-[11px] text-muted-foreground">
+                          {maskInternalReference(issue.redlineTextHash)}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell>
                       <StatusBadge tone={severityTones[issue.severity]}>
-                        {issue.severity}
+                        {severityLabels[issue.severity]}
                       </StatusBadge>
                     </TableCell>
                     <TableCell>
@@ -134,9 +141,9 @@ function InlineRefs({ refs }: { refs: readonly string[] }) {
   return (
     <div className="flex max-w-md flex-wrap gap-1.5">
       {refs.map((ref) => (
-        <code key={ref} className="rounded bg-muted px-1.5 py-1 text-[11px]">
-          {ref}
-        </code>
+        <span key={ref} className="rounded bg-muted px-1.5 py-1 text-[11px]">
+          {maskInternalReference(ref)}
+        </span>
       ))}
     </div>
   );

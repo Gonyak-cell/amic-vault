@@ -41,7 +41,7 @@ describe('WallPolicyInspector', () => {
 
     expect(html).toContain('정책 상세');
     expect(html).toContain('Conflict wall');
-    expect(html).toContain('Matter 정보는 권한 확인 후 표시됩니다.');
+    expect(html).toContain('Matter 정보를 표시할 수 없습니다.');
     expect(html).not.toContain('내부 식별값은 기본 화면에 표시하지 않음');
     expect(html).toContain('접근 차단');
     expect(html).not.toContain(item.wall.wallId);
@@ -57,6 +57,6 @@ describe('WallPolicyInspector', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('선택한 정보 장벽이 없습니다.');
+    expect(html).toContain('선택한 정보 차단 규칙이 없습니다.');
   });
 });

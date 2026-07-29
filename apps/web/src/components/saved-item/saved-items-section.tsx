@@ -13,7 +13,7 @@ export interface SavedItemsSectionProps {
 const typeLabels: Record<SavedItemTargetType, string> = {
   document: '문서',
   matter: 'Matter',
-  saved_search: '저장 검색',
+  saved_search: '저장된 검색',
 };
 
 const typeIcons = {
@@ -40,9 +40,7 @@ export function SavedItemsSection({
         </div>
         {items.length > 0 ? <StatusBadge tone="neutral">{items.length}</StatusBadge> : null}
       </div>
-      {loading ? (
-        <p className="text-xs leading-5 text-muted-foreground">불러오는 중</p>
-      ) : null}
+      {loading ? <p className="text-xs leading-5 text-muted-foreground">불러오는 중</p> : null}
       {error ? (
         <p className="text-xs leading-5 text-destructive" role="alert">
           즐겨찾기를 표시할 수 없습니다.
@@ -50,7 +48,7 @@ export function SavedItemsSection({
       ) : null}
       {!loading && !error && items.length === 0 ? (
         <p className="text-xs leading-5 text-muted-foreground">
-          자주 쓰는 문서, Matter, 저장 검색을 즐겨찾기에 추가할 수 있습니다.
+          자주 쓰는 문서, Matter, 저장된 검색을 즐겨찾기에 추가할 수 있습니다.
         </p>
       ) : null}
       {items.length > 0 ? (

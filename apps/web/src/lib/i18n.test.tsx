@@ -8,6 +8,9 @@ describe('i18n shell helpers', () => {
     expect(getTranslation('nav.globalSearch', 'ko')).toBe('Matter, 문서, 활동 검색');
     expect(getTranslation('nav.globalSearch', 'en')).toBe('Search matters, files, and activity');
     expect(getTranslation('nav.group.governance', 'ko')).toBe('정책 관리');
+    expect(getTranslation('route.blocked.cardMeta', 'ko')).toBe('사용 제한');
+    expect(getTranslation('search.facet.ocrLowConfidence', 'ko')).toBe('OCR 신뢰도 낮음');
+    expect(getTranslation('search.facet.workProduct', 'ko')).toBe('변호사 업무상 작성자료');
   });
 
   it('renders the language toggle with Korean as the server-safe default', () => {

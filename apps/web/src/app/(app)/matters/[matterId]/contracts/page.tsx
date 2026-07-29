@@ -148,7 +148,7 @@ export default function MatterContractsPage({ params }: { params: { matterId: st
       <PageHeader
         breadcrumbs={['문서 보관', 'Matter', '계약']}
         title="계약 검토"
-        description="조항 은행 · Rule findings"
+        description="조항 라이브러리 · 기준 검토 결과"
       />
 
       <MatterWorkstreamTabs matterId={params.matterId} active="contracts" />

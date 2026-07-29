@@ -31,7 +31,7 @@ describe('integration status routes', () => {
     expect(html).toContain('Matter 관리 시스템');
     expect(html).toContain('업로드 기준');
     expect(html).toContain('Matter 관리 시스템 연결 상태');
-    expect(html).toContain('Matter code 기준 정보');
+    expect(html).toContain('Matter 코드 기준 정보');
     expect(html).toContain('업로드 차단');
     expect(html).toContain('Matter 미선택 업로드');
     expect(html).toContain('Outlook');

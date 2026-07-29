@@ -143,7 +143,7 @@ describe('SearchSavePanel', () => {
         { label: 'Matter 이름', value: 'Vault Upgrade' },
         { label: '고객명', value: 'AMIC' },
         { label: '기밀도', value: '높음' },
-        { label: '특권', value: '작업 산출물' },
+        { label: '특권', value: '변호사 업무상 작성자료' },
         { label: '추출/OCR', value: '추출 실패' },
         { label: '보존', value: 'Matter 삭제 금지' },
         { label: '기록', value: '처분 잠금' },

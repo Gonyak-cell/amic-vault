@@ -13,11 +13,7 @@ const excludedPathParts = [
   `${path.sep}tests${path.sep}`,
 ];
 
-const excludedFilePatterns = [
-  /\.test\.[tj]sx?$/,
-  /\.spec\.[tj]sx?$/,
-  /\.stories\.[tj]sx?$/,
-];
+const excludedFilePatterns = [/\.test\.[tj]sx?$/, /\.spec\.[tj]sx?$/, /\.stories\.[tj]sx?$/];
 
 const literalPatterns = [
   { name: 'mock literal', pattern: /\bmock\b/i },
@@ -53,7 +49,10 @@ const literalPatterns = [
   { name: 'version id label', pattern: /Version ID|버전 ID/i },
   { name: 'file id label', pattern: /File ID|파일 ID/i },
   { name: 'user id label', pattern: /User ID|사용자 ID/i },
-  { name: 'raw uuid literal', pattern: /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i },
+  {
+    name: 'raw uuid literal',
+    pattern: /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i,
+  },
   { name: 'download id label', pattern: /다운로드 ID/ },
   { name: 'download ref label', pattern: /Download ref/ },
   { name: 'raw prompt copy', pattern: /raw prompt|prompt 원문/i },
@@ -61,11 +60,30 @@ const literalPatterns = [
   { name: 'model response copy', pattern: /model response|model-response|모델 응답/i },
   { name: 'external model copy', pattern: /external model|외부 모델/i },
   { name: 'legal analysis copy', pattern: /legal analysis|법률 분석/i },
-  { name: 'document summary claim', pattern: /document summary|summary generation|문서 요약/i },
+  {
+    name: 'generated document summary claim',
+    pattern: /document summary generation|summary generation|AI 문서 요약 생성/i,
+  },
+  { name: 'ethical wall id copy', pattern: /Ethical wall ID/i },
+  { name: 'wall uuid copy', pattern: /wall UUID/i },
+  { name: 'email hash copy', pattern: /email hash/i },
+  { name: 'recipient ref copy', pattern: /Recipient Ref/i },
+  { name: 'document identifier copy', pattern: /문서 식별값/ },
+  { name: 'version identifier copy', pattern: /버전 식별값/ },
+  { name: 'assignee id copy', pattern: /새 담당자 ID/ },
+  { name: 'raw route copy', pattern: /\/walls\s+정보 차단/ },
+  { name: 'internal rollout copy', pattern: /운영 노출 차단/ },
+  { name: 'specification voice copy', pattern: /명시적 작업|안전한 요약 정보/ },
+  { name: 'translationese copy', pattern: /OCR 저신뢰|작업 산출물|동기화 헬스/ },
+  { name: 'legacy Korean barrier term', pattern: /정보 장벽/ },
+  {
+    name: 'mixed Korean Matter code term',
+    pattern: /[가-힣][^'"\n]*Matter code|Matter code[^'"\n]*[가-힣]/,
+  },
   {
     name: 'unsafe id slice formatter',
     pattern:
-      /\b(documentId|matterId|clientId|userId|tenantId|workspaceId|versionId|fileObjectId)\b[^;\n]*\.slice\s*\(\s*0\s*,/i,
+      /\b(?:document\.|matter\.|client\.|user\.|tenant\.|workspace\.|version\.|fileObject\.)?(documentId|matterId|clientId|userId|tenantId|workspaceId|versionId|fileObjectId)\s*\.slice\s*\(\s*0\s*,/i,
   },
   {
     name: 'unsafe id short hash formatter',
@@ -78,6 +96,8 @@ const literalPatterns = [
 
 const requiredExpandedDmsSurfaceFiles = [
   'apps/web/src/app/(app)/app-shell.tsx',
+  'apps/web/src/lib/navigation.ts',
+  'apps/web/src/lib/features.ts',
   'apps/web/src/app/(app)/files/page.tsx',
   'apps/web/src/components/document/document-upload-panel.tsx',
   'apps/web/src/components/document/upload-metadata-profile.tsx',
@@ -86,6 +106,7 @@ const requiredExpandedDmsSurfaceFiles = [
   'apps/web/src/components/document/matter-document-list.tsx',
   'apps/web/src/components/document/matter-file-section.tsx',
   'apps/web/src/components/document/document-action-center.tsx',
+  'apps/web/src/components/document/matter-document-picker.tsx',
   'apps/web/src/components/document/document-audit-timeline.tsx',
   'apps/web/src/components/matter/matter-list-table.tsx',
   'apps/web/src/components/matter/matter-code-picker.tsx',
@@ -114,6 +135,11 @@ const requiredExpandedDmsSurfaceFiles = [
   'apps/web/src/components/dashboard/dashboard-notifications.tsx',
   'apps/web/src/app/(app)/admin/page.tsx',
   'apps/web/src/app/(app)/admin/security/page.tsx',
+  'apps/web/src/app/(app)/admin/security/admin-security-client.tsx',
+  'apps/web/src/app/(app)/admin/account-ledger-admin-client.tsx',
+  'apps/web/src/app/(app)/matters/[matterId]/sharing/sharing-client.tsx',
+  'apps/web/src/components/external/link-issuance-dialog.tsx',
+  'apps/web/src/components/litigation/evidence-form.tsx',
   'apps/web/src/app/(app)/enterprise/enterprise-hardening-client.tsx',
   'apps/web/src/app/(app)/integrations/page.tsx',
   'apps/web/src/app/(app)/integrations/matter-app/page.tsx',
@@ -152,7 +178,9 @@ function walk(directory) {
 const findings = [];
 
 const scannedFiles = walk(sourceRoot);
-const scannedRelativeFiles = new Set(scannedFiles.map((filePath) => path.relative(repoRoot, filePath)));
+const scannedRelativeFiles = new Set(
+  scannedFiles.map((filePath) => path.relative(repoRoot, filePath)),
+);
 
 for (const relativePath of requiredExpandedDmsSurfaceFiles) {
   if (!scannedRelativeFiles.has(relativePath)) {

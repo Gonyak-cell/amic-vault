@@ -32,7 +32,7 @@ describe('AuditEventInspector', () => {
     );
 
     expect(html).toContain('상세 정보');
-    expect(html).toContain('Audit Query Executed');
+    expect(html).toContain('감사 실행');
     expect(html).toContain('감사 콘솔');
     expect(html).toContain('조우상');
     expect(html).not.toContain('audit_console');

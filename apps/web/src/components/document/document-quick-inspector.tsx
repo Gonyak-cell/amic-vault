@@ -46,7 +46,7 @@ export function DocumentQuickInspector({
         className="h-full rounded-none border-0"
         empty={
           <p className="text-sm leading-6 text-muted-foreground">
-            목록에서 문서를 선택하면 안전한 요약 정보가 표시됩니다.
+            목록에서 문서를 선택하면 문서 요약이 표시됩니다.
           </p>
         }
         title="세부 정보"

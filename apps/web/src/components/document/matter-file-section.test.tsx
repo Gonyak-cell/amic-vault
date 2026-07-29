@@ -79,7 +79,7 @@ describe('MatterFileSection', () => {
     expect(html).toContain('파일');
     expect(html).toContain('Matter별 문서 목록');
     expect(html).toContain('파일 업로드');
-    expect(html).toContain('Matter code 확인 후 업로드');
+    expect(html).toContain('Matter 코드 확인 후 업로드');
     expect(html).toContain('AMIC-2026-0001');
     expect(html).toContain('Investment Advisory');
     expect(html).toContain('type="file"');

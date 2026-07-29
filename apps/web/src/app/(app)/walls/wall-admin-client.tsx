@@ -56,24 +56,24 @@ const wallCopy: Record<
   }
 > = {
   ko: {
-    title: '정보 장벽',
-    description: '권한이 확인된 정보 장벽과 구성원 차단 상태만 표시합니다.',
-    searchCard: '정보 장벽 조회',
+    title: '정보 차단',
+    description: '접근 가능한 정보 차단 규칙과 구성원 차단 상태만 표시합니다.',
+    searchCard: '정보 차단 규칙 조회',
     searchMeta: '운영 데이터 기준',
-    matterFilter: 'Matter code',
+    matterFilter: 'Matter 코드',
     filterTitle: '검색',
-    membershipActions: '정보 장벽 구성원 추가',
+    membershipActions: '정보 차단 구성원 추가',
     membershipActionsMeta: '조직 디렉터리에서 표시 가능한 사용자 또는 그룹만 선택합니다.',
     policyActions: '정책 작업',
-    policyActionsMeta: 'Matter code 기준',
+    policyActionsMeta: 'Matter 코드 기준',
     selectedMatter: '선택된 Matter',
-    selectedWall: '선택된 정보 장벽',
-    noMatterSelected: 'Matter code를 먼저 선택하세요.',
-    noWallSelected: '목록에서 정보 장벽을 먼저 선택하세요.',
+    selectedWall: '선택된 정보 차단 규칙',
+    noMatterSelected: 'Matter 코드를 먼저 선택하세요.',
+    noWallSelected: '목록에서 정보 차단 규칙을 먼저 선택하세요.',
     noSubjectSelected: '조직 디렉터리에서 사용자 또는 그룹을 선택하세요.',
-    wallName: '정보 장벽 이름',
+    wallName: '정보 차단 규칙 이름',
     reason: '설정 사유',
-    createTitle: '정보 장벽 추가',
+    createTitle: '정보 차단 규칙 추가',
     membershipType: '구성원 유형',
     addMemberTitle: '구성원 추가',
     membershipLabels: {
@@ -248,15 +248,14 @@ export function WallAdminClient() {
           description={copy.searchMeta}
         >
           <div className="sm:col-span-full">
-            <MatterCodePicker
-              selectedMatter={filterMatter}
-              onMatterSelected={setFilterMatter}
-            />
+            <MatterCodePicker selectedMatter={filterMatter} onMatterSelected={setFilterMatter} />
           </div>
         </FilterBar>
       </form>
 
-      {error ? <EmptyState variant="api-error" title={error} className="items-start text-left" /> : null}
+      {error ? (
+        <EmptyState variant="api-error" title={error} className="items-start text-left" />
+      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <WallList

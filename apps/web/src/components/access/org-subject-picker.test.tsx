@@ -57,4 +57,17 @@ describe('OrgSubjectPickerContent', () => {
     expect(html).toContain('두 글자 이상');
     expect(html).not.toContain(userSubject.subjectId);
   });
+
+  it('uses Korean labels for organization group types', () => {
+    const html = renderToStaticMarkup(
+      <OrgSubjectPickerContent
+        items={[{ ...groupSubject, groupType: 'practice_group' }]}
+        onSubjectSelected={() => undefined}
+        query="기업"
+      />,
+    );
+
+    expect(html).toContain('업무 그룹');
+    expect(html).not.toContain('Practice Group');
+  });
 });

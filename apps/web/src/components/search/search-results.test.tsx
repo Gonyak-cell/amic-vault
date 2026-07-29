@@ -220,7 +220,7 @@ describe('SearchResults', () => {
       </LanguageProvider>,
     );
 
-    expect(startHtml).toContain('검색어를 입력하면 접근 권한이 있는 파일만 보여줍니다.');
+    expect(startHtml).toContain('검색어를 입력하면 접근 가능한 문서만 표시됩니다.');
     expect(blockedHtml).toContain('정보 차단 또는 권한 정책으로 표시할 수 없습니다.');
   });
 });

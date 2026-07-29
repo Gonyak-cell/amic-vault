@@ -111,8 +111,8 @@ describe('Matter DD read-only page', () => {
 
     expect(html).toContain('RFI-001');
     expect(html).toContain('Corporate charter documents');
-    expect(html).toContain('Traceability');
-    expect(html).toContain('rfi:requested');
+    expect(html).toContain('추적 관계');
+    expect(html).not.toContain('rfi:requested');
     expect(html).toContain('DD-RISK-001');
   });
 });

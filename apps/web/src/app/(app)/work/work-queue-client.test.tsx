@@ -8,7 +8,7 @@ describe('WorkQueueClient', () => {
     const html = renderToStaticMarkup(<WorkQueueClient />);
 
     expect(html).toContain('작업함');
-    expect(html).toContain('권한과 운영 상태가 확인된 작업만 표시됩니다.');
+    expect(html).toContain('담당 업무와 검토가 필요한 항목을 표시합니다.');
     expect(html).toContain('작업함 조치 콘솔');
     expect(html).toContain('전체 종류');
     expect(html).toContain('전체 담당');
@@ -25,7 +25,7 @@ describe('WorkQueueClient', () => {
     expect(html).toContain('/files?status=draft');
     expect(html).toContain('/files?aiAllowed=true&amp;sortBy=matter_asc');
     expect(html).toContain('/records');
-    expect(html).toContain('운영 데이터 연결 대기 중입니다.');
+    expect(html).toContain('데이터를 불러오는 중입니다.');
     expect(html).not.toContain('가짜 작업');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');
@@ -150,7 +150,7 @@ describe('WorkQueueClient', () => {
     expect(html).toContain('종결 의견서');
     expect(html).toContain('승인');
     expect(html).toContain('반려');
-    expect(html).toContain('AI Fact 후보 확인');
+    expect(html).toContain('AI 사실관계 후보 확인');
     expect(html).toContain('매수인은 잔금을 지급했다.');
     expect(html).toContain('확인');
     expect(html).toContain('거절');
@@ -159,7 +159,8 @@ describe('WorkQueueClient', () => {
     expect(html).toContain('6건 표시 · 전체 26건');
     expect(html).toContain('1-20 / 26');
     expect(html).toContain('담당자 재배정');
-    expect(html).toContain('새 담당자 ID');
+    expect(html).toContain('새 담당자');
+    expect(html).not.toContain('새 담당자 ID');
     expect(html).toContain('재배정');
     expect(html).toContain('권한/정책');
     expect(html).toContain('파일 정리 준비');

@@ -266,20 +266,21 @@ function DocumentFolderSelector({
     document.folderId !== null &&
     document.folderId !== undefined &&
     folders.some((folder) => folder.folderId === document.folderId);
-  const folderOptions = hasCurrentFolder || !document.folderId
-    ? folders
-    : [
-        ...folders,
-        {
-          folderId: document.folderId,
-          matterId: document.matterId,
-          parentFolderId: null,
-          name: document.folderPath?.trim() || '현재 폴더',
-          path: document.folderPath?.trim() || '현재 폴더',
-          createdAt: document.createdAt,
-          updatedAt: document.updatedAt,
-        },
-      ];
+  const folderOptions =
+    hasCurrentFolder || !document.folderId
+      ? folders
+      : [
+          ...folders,
+          {
+            folderId: document.folderId,
+            matterId: document.matterId,
+            parentFolderId: null,
+            name: document.folderPath?.trim() || '현재 폴더',
+            path: document.folderPath?.trim() || '현재 폴더',
+            createdAt: document.createdAt,
+            updatedAt: document.updatedAt,
+          },
+        ];
 
   async function handleChange(event: React.ChangeEvent<HTMLSelectElement>) {
     const nextValue = event.target.value;
@@ -415,9 +416,12 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
   const [folders, setFolders] = React.useState<DocumentFolderDto[]>([]);
   const [knownTags, setKnownTags] = React.useState<string[]>([]);
   const [totalCount, setTotalCount] = React.useState(0);
-  const [draftFilters, setDraftFilters] =
-    React.useState<MatterDocumentFilterState>(emptyMatterDocumentFilters);
-  const [filters, setFilters] = React.useState<MatterDocumentFilterState>(emptyMatterDocumentFilters);
+  const [draftFilters, setDraftFilters] = React.useState<MatterDocumentFilterState>(
+    emptyMatterDocumentFilters,
+  );
+  const [filters, setFilters] = React.useState<MatterDocumentFilterState>(
+    emptyMatterDocumentFilters,
+  );
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const [organizationError, setOrganizationError] = React.useState<string | null>(null);
@@ -530,8 +534,8 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
     return (
       <EmptyState
         variant="pre-search"
-        title="Matter code를 선택하면 파일 목록이 표시됩니다."
-        description="목록은 접근 권한이 확인된 파일만 표시합니다."
+        title="Matter 코드를 선택하면 파일 목록이 표시됩니다."
+        description="접근 가능한 문서만 표시합니다."
       />
     );
   }
@@ -737,7 +741,7 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
       <FilterBar
         label="Matter 문서함 필터"
         title="Matter 문서함 필터"
-        description="선택한 Matter code 안에서 권한이 확인된 문서를 문서명, 보안 상태, 파일 정리 상태, 추출/OCR 상태 기준으로 좁힙니다."
+        description="선택한 Matter 코드 안에서 접근 가능한 문서를 문서명, 보안 상태, 파일 정리 상태, 추출/OCR 상태 기준으로 좁힙니다."
         resultsSummary={
           isLoading
             ? 'Matter 문서함을 확인하는 중입니다.'
@@ -800,7 +804,7 @@ export function MatterDocumentList({ refreshKey = 0, selectedMatter }: MatterDoc
         <EmptyState
           variant="no-data"
           title="표시할 파일이 없습니다."
-          description="선택한 Matter code에서 접근 권한과 필터 조건을 통과한 파일이 여기에 표시됩니다."
+          description="조건에 맞는 문서가 없습니다. 검색 조건을 바꾸거나 초기화해 주세요."
         />
       </div>
     );
