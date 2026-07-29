@@ -24,9 +24,9 @@ export function DocumentWorkbenchShell({
     <section className={cn('min-w-0 border', className)} aria-label="문서 워크벤치">
       {mobileControls ? <div className="border-b px-3 py-2 xl:hidden">{mobileControls}</div> : null}
       <div className="grid min-w-0 xl:grid-cols-[232px_minmax(520px,1fr)_360px]">
-        <aside className="hidden min-w-0 border-r xl:block">{rail}</aside>
-        <main className="min-w-0 p-3 sm:p-4">{children}</main>
-        <aside className="hidden min-w-0 border-l xl:block">{inspector}</aside>
+        <div className="hidden min-w-0 border-r xl:block">{rail}</div>
+        <div className="min-w-0 p-3 sm:p-4">{children}</div>
+        <div className="hidden min-w-0 border-l xl:block">{inspector}</div>
       </div>
     </section>
   );

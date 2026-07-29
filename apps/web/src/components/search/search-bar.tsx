@@ -1,4 +1,4 @@
-import React, { type FormEvent, useEffect, useState } from 'react';
+import React, { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Search } from 'lucide-react';
 import type { SearchMode } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,15 @@ const searchModeLabels = {
 
 const searchModeOptions: SearchMode[] = ['keyword', 'semantic', 'hybrid'];
 
+export function searchSubmissionQuery(
+  query: string,
+  busy: boolean,
+  composing: boolean,
+): string | null {
+  const trimmed = query.trim();
+  return !trimmed || busy || composing ? null : trimmed;
+}
+
 export function SearchBar({
   initialQuery,
   busy,
@@ -30,6 +39,7 @@ export function SearchBar({
 }: SearchBarProps) {
   const { t } = useI18n();
   const [query, setQuery] = useState(initialQuery);
+  const composingRef = useRef(false);
 
   useEffect(() => {
     setQuery(initialQuery);
@@ -37,9 +47,9 @@ export function SearchBar({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmed = query.trim();
-    if (!trimmed || busy) return;
-    onSearch(trimmed);
+    const nextQuery = searchSubmissionQuery(query, busy, composingRef.current);
+    if (!nextQuery) return;
+    onSearch(nextQuery);
   }
 
   return (
@@ -50,6 +60,12 @@ export function SearchBar({
           value={query}
           placeholder={t('search.placeholder')}
           disabled={busy}
+          onCompositionEnd={() => {
+            composingRef.current = false;
+          }}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
           onChange={(event) => setQuery(event.target.value)}
         />
         <Button

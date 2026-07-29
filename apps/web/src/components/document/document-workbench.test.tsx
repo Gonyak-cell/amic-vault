@@ -57,6 +57,8 @@ describe('Document workbench components', () => {
     );
 
     expect(shell).toContain('xl:grid-cols-[232px_minmax(520px,1fr)_360px]');
+    expect(shell).not.toContain('<main');
+    expect(shell).not.toContain('<aside');
     expect(drawer).toContain('role="dialog"');
     expect(drawer).toContain('aria-modal="true"');
     expect(drawer).toContain('문서 탐색 닫기');
