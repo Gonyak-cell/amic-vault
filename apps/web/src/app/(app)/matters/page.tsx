@@ -37,10 +37,6 @@ const mattersCopy: Record<
     newMatter: string;
     clientFilterActive: string;
     clearFilter: string;
-    loading: string;
-    apiError: string;
-    noAccess: string;
-    policyBlocked: string;
   }
 > = {
   ko: {
@@ -50,8 +46,7 @@ const mattersCopy: Record<
     status: '상태',
     actions: '작업',
     empty: '표시할 Matter가 없습니다.',
-    emptyDescription:
-      'Matter 관리 시스템에서 신규 Matter를 만들거나 Matter 코드 동기화가 완료되면 문서 보관함에 표시됩니다.',
+    emptyDescription: '새 Matter를 등록하거나 검색 조건을 바꿔 보세요.',
     fileCabinet: '파일함',
     searchMatter: '검색',
     moreActions: '추가 작업',
@@ -61,10 +56,6 @@ const mattersCopy: Record<
     newMatter: '새 Matter',
     clientFilterActive: '선택한 고객의 Matter만 표시합니다.',
     clearFilter: '전체 Matter 보기',
-    loading: 'Matter 목록을 불러오는 중입니다.',
-    apiError: '데이터를 표시할 수 없습니다.',
-    noAccess: '이 항목을 볼 권한이 없습니다.',
-    policyBlocked: '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
   },
   en: {
     title: 'Matter list',
@@ -73,8 +64,7 @@ const mattersCopy: Record<
     status: 'Status',
     actions: 'Actions',
     empty: 'No matters to show.',
-    emptyDescription:
-      'Create a matter in the Matter app or sync Matter codes, then Vault will show the authorized Matter here.',
+    emptyDescription: 'Create a matter or change the current filters.',
     fileCabinet: 'Files',
     searchMatter: 'Search',
     moreActions: 'More actions',
@@ -84,15 +74,11 @@ const mattersCopy: Record<
     newMatter: 'New Matter',
     clientFilterActive: 'Showing matters for the selected client.',
     clearFilter: 'View all matters',
-    loading: 'Loading matters.',
-    apiError: 'Unable to display data.',
-    noAccess: 'You do not have permission to view this item.',
-    policyBlocked: 'Information barrier or permission policy prevents display.',
   },
 };
 
 export default function MattersPage({ searchParams = {} }: { searchParams?: MatterSearchParams }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const copy = mattersCopy[language];
   const [matters, setMatters] = useState<MatterDto[]>([]);
   const [loadState, setLoadState] = useState<MatterLoadState>('loading');
@@ -157,19 +143,19 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
       <SectionCard icon={<FolderKanban className="h-4 w-4" />} title={copy.title}>
         <MatterListTable copy={copy} matters={matters} />
         {loadState === 'loading' ? (
-          <EmptyState variant="api-unavailable" title={copy.loading} className="m-5" />
+          <EmptyState variant="loading" title={t('dataState.loading')} className="m-5" />
         ) : null}
         {loadState === 'empty' ? (
           <EmptyState title={copy.empty} description={copy.emptyDescription} className="m-5" />
         ) : null}
         {loadState === 'error' ? (
-          <EmptyState variant="api-error" title={copy.apiError} className="m-5" />
+          <EmptyState variant="api-error" title={t('dataState.error')} className="m-5" />
         ) : null}
         {loadState === 'forbidden' ? (
-          <EmptyState variant="no-access" title={copy.noAccess} className="m-5" />
+          <EmptyState variant="no-access" title={t('dataState.forbidden')} className="m-5" />
         ) : null}
         {loadState === 'blocked' ? (
-          <EmptyState variant="policy-blocked" title={copy.policyBlocked} className="m-5" />
+          <EmptyState variant="policy-blocked" title={t('dataState.blocked')} className="m-5" />
         ) : null}
       </SectionCard>
     </PageShell>

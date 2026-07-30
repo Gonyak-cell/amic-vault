@@ -32,11 +32,24 @@ describe('MattersPage', () => {
     expect(html.match(/href="\/matters\/new"/g)).toHaveLength(1);
     expect(html).not.toContain('Matter 관리 시스템에서 동기화된');
     expect(html).not.toContain('Matter 관리 시스템에서 확정된 Matter 코드');
+    expect(html).not.toContain('Matter 코드 동기화');
     expect(html).not.toContain('파일 업로드');
     expect(html).not.toContain('href="/files"');
     expect(html).not.toMatch(/>18</);
     expect(html).not.toMatch(/>642</);
     expect(html).not.toMatch(/>9</);
+  });
+
+  it('uses direct empty copy without presenting loading as a failure', () => {
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <MattersPage />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('불러오는 중입니다.');
+    expect(html).not.toContain('데이터를 불러올 수 없습니다.');
+    expect(html).not.toContain('Matter 관리 시스템');
   });
 
   it('passes a selected client filter from the route into the matter list query', () => {

@@ -11,6 +11,12 @@ describe('i18n shell helpers', () => {
     expect(getTranslation('route.blocked.cardMeta', 'ko')).toBe('사용 제한');
     expect(getTranslation('search.facet.ocrLowConfidence', 'ko')).toBe('OCR 신뢰도 낮음');
     expect(getTranslation('search.facet.workProduct', 'ko')).toBe('변호사 업무상 작성자료');
+    expect(getTranslation('dataState.loading', 'ko')).toBe('불러오는 중입니다.');
+    expect(getTranslation('dataState.error', 'en')).toBe('Unable to display data.');
+    expect(getTranslation('dataState.forbidden', 'ko')).toBe('이 항목을 볼 권한이 없습니다.');
+    expect(getTranslation('dataState.blocked', 'en')).toBe(
+      'Information barrier or permission policy prevents display.',
+    );
   });
 
   it('renders the language toggle with Korean as the server-safe default', () => {

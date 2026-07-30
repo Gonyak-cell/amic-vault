@@ -346,6 +346,19 @@ const translations = {
   'matter.list.title': { ko: 'Matter 목록', en: 'Matter list' },
   'matter.list.empty': { ko: '표시할 Matter가 없습니다.', en: 'No matters to show.' },
   'matter.list.loading': { ko: 'Matter 목록을 불러오는 중입니다.', en: 'Loading matters.' },
+  'dataState.loading': { ko: '불러오는 중입니다.', en: 'Loading.' },
+  'dataState.error': {
+    ko: '데이터를 표시할 수 없습니다.',
+    en: 'Unable to display data.',
+  },
+  'dataState.forbidden': {
+    ko: '이 항목을 볼 권한이 없습니다.',
+    en: 'You do not have permission to view this item.',
+  },
+  'dataState.blocked': {
+    ko: '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
+    en: 'Information barrier or permission policy prevents display.',
+  },
   'matter.detail.fallbackTitle': { ko: 'Matter', en: 'Matter' },
   'matter.detail.errorTitle': {
     ko: 'Matter를 표시할 수 없습니다.',

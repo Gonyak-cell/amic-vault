@@ -15,6 +15,16 @@ describe('EmptyState', () => {
     expect(html).toContain('검색어를 입력하면 접근 가능한 문서만 표시됩니다.');
   });
 
+  it('keeps loading distinct from empty and failure states', () => {
+    const html = renderToStaticMarkup(<EmptyState variant="loading" />);
+
+    expect(html).toContain('role="status"');
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('불러오는 중입니다.');
+    expect(html).not.toContain('표시할 항목이 없습니다.');
+    expect(html).not.toContain('불러올 수 없습니다.');
+  });
+
   it('announces fail-closed states assertively', () => {
     const html = renderToStaticMarkup(<EmptyState variant="policy-blocked" />);
 

@@ -1,10 +1,19 @@
 import * as React from 'react';
-import { AlertCircle, Ban, Database, FileQuestion, Search, ShieldAlert } from 'lucide-react';
+import {
+  AlertCircle,
+  Ban,
+  Database,
+  FileQuestion,
+  LoaderCircle,
+  Search,
+  ShieldAlert,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type EmptyStateVariant =
   | 'no-data'
   | 'pre-search'
+  | 'loading'
   | 'no-access'
   | 'policy-blocked'
   | 'api-unavailable'
@@ -15,6 +24,7 @@ export type EmptyStateVariant =
 const emptyStateCopy = {
   'no-data': '표시할 항목이 없습니다.',
   'pre-search': '검색어를 입력하면 접근 가능한 문서만 표시됩니다.',
+  loading: '요청한 데이터를 준비하고 있습니다.',
   'no-access': '이 항목을 볼 권한이 없습니다.',
   'policy-blocked': '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
   'api-unavailable': '데이터를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.',
@@ -26,6 +36,7 @@ const emptyStateCopy = {
 const emptyStateIcons = {
   'no-data': FileQuestion,
   'pre-search': Search,
+  loading: LoaderCircle,
   'no-access': ShieldAlert,
   'policy-blocked': Ban,
   'api-unavailable': Database,
@@ -47,7 +58,7 @@ export function EmptyState({
   actions,
   className,
   description,
-  title = '표시할 항목이 없습니다.',
+  title,
   variant = 'no-data',
   role,
   'aria-atomic': ariaAtomic,
@@ -59,6 +70,8 @@ export function EmptyState({
   const Icon = emptyStateIcons[variant];
   const titleId = React.useId();
   const descriptionId = React.useId();
+  const resolvedTitle =
+    title ?? (variant === 'loading' ? '불러오는 중입니다.' : '표시할 항목이 없습니다.');
   const resolvedDescription = description ?? emptyStateCopy[variant];
   const resolvedRole = role ?? (alertVariants.has(variant) ? 'alert' : 'status');
   const resolvedLive = ariaLive ?? (resolvedRole === 'alert' ? 'assertive' : 'polite');
@@ -80,7 +93,7 @@ export function EmptyState({
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
       <p id={titleId} className="text-[15px] font-semibold text-foreground">
-        {title}
+        {resolvedTitle}
       </p>
       <p id={descriptionId} className="mt-1 max-w-[38rem] text-sm leading-6 text-muted-foreground">
         {resolvedDescription}
