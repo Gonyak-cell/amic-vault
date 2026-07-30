@@ -1579,7 +1579,8 @@ const responsiveAccessibilityFiles = [
       { name: 'bounded card overflow', pattern: /overflow-hidden/ },
       {
         name: 'wrapped card actions',
-        pattern: /flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2/,
+        pattern:
+          /<div(?=[^>]*data-slot="section-card-actions")(?=[^>]*className="[^"]*\bw-full\b)(?=[^>]*className="[^"]*\bflex-wrap\b)(?=[^>]*className="[^"]*\bsm:w-auto\b)/,
       },
     ],
   },

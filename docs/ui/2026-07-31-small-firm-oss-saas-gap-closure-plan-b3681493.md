@@ -681,6 +681,33 @@ unit, build, migration 왕복과 전체 integration이 통과하더라도 아래
 - Verification: focused navigation/session tests, Web full tests/lint/typecheck/build,
   운영 모드 브라우저 deep-link/login/Back 재현, independent read-only code review.
 
+### `SF-B368-G34` — 모바일 Client 검색 control 잘림 폐쇄
+
+- Risk / Size: M / XS
+- 소유 파일:
+  - `apps/web/src/components/ui/section-card.tsx`
+  - `apps/web/src/components/ui/layout-primitives.test.tsx`
+  - `apps/web/src/app/(app)/clients/page.tsx`
+  - `apps/web/src/app/(app)/clients/page.test.tsx`
+  - `tools/release/check-production-ui-smoke.mjs`
+- 발견 근거: exact-SHA 운영 모드 브라우저 10 route × 5 viewport 행렬에서 전역
+  horizontal overflow는 없었지만 `/clients`의 390×844 화면에서 검색 버튼 오른쪽이
+  viewport 밖으로 잘렸다. `SectionCard` header가 mobile에서도 title과 shrink 불가능한
+  actions를 한 행에 강제한 것이 원인이었다.
+- 목표: 기존 compact title/meta와 desktop action 배치를 유지하면서, 좁은 화면에서는
+  actions가 카드 내부 가용 폭을 사용하고 검색 input만 유연하게 줄어들도록 한다.
+- Acceptance:
+  - 390×844와 720×450에서 고객 등록, 검색 input, 검색 버튼의 전체 hit target이
+    viewport와 카드 안에 보인다.
+  - mobile action 영역은 card width를 넘지 않고 필요 시 title 아래로 배치된다.
+  - desktop에서는 title/meta와 actions의 기존 한 행 배치를 유지한다.
+  - 검색 form의 `role="search"`, label, submit button과 keyboard 동작을 유지한다.
+  - 공통 `SectionCard`를 사용하는 10개 핵심 route × 5 viewport에서 새 page overflow나
+    잘린 interactive control이 없다.
+- Verification: layout/client render contract, Web focused/full tests, lint/typecheck/build,
+  50-combination actual browser overflow/interactive-boundary matrix, independent read-only
+  code review.
+
 ## 4. 실행 순서
 
 ```text
@@ -712,7 +739,8 @@ G29 ─ G30 ──────────────────────�
 G30 ─ G31 ────────────────────────┤
 G31 ─ G32 ────────────────────────┤
 G16 ─ G33 ────────────────────────┤
-G01~G33 전체 ───────────────────┴─ G11
+G17/G26 ─ G34 ────────────────────┤
+G01~G34 전체 ───────────────────┴─ G11
 ```
 
 - 파일 소유권이 겹치지 않는 G01~G06, G10은 병렬 실행할 수 있다.
@@ -723,7 +751,7 @@ G01~G33 전체 ───────────────────┴─ G
 
 ## 5. 완료 기준
 
-`SF-B368-G01~G33`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
+`SF-B368-G01~G34`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
 `SF-B368-001~020`, `C01~C03`를 최종 코드 SHA에서 다시 판정했을 때만
 “계획과 goal대로 100% 로컬 구현”이라고 기록한다. 그렇지 않으면 통과 범위와 남은
 경계를 수치로 보고한다.

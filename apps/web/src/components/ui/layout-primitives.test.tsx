@@ -32,7 +32,7 @@ describe('layout primitives', () => {
     expect(html).toContain('새 문서');
   });
 
-  it('keeps section title and metadata in one compact header row', () => {
+  it('keeps compact section metadata while giving mobile actions the full card width', () => {
     const html = renderToStaticMarkup(
       <SectionCard
         actions={<Button type="button">재시도</Button>}
@@ -45,5 +45,13 @@ describe('layout primitives', () => {
 
     expect(html).toContain('실제 상태 기반');
     expect(html).toContain('본문 추출 대기');
+    expect(classTokensFor(html, 'data-slot="section-card-actions"')).toEqual(
+      expect.arrayContaining(['w-full', 'min-w-0', 'flex-wrap', 'sm:w-auto', 'sm:shrink-0']),
+    );
   });
 });
+
+function classTokensFor(html: string, attribute: string): string[] {
+  const tag = html.match(new RegExp(`<[^>]*${attribute}[^>]*>`))?.[0];
+  return tag?.match(/class="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
+}

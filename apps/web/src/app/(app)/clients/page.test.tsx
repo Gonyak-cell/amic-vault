@@ -31,6 +31,10 @@ describe('ClientsPage', () => {
     expect(html).toContain('고객');
     expect(html).toContain('role="search"');
     expect(html).toContain('id="client-search"');
+    expect(classTokensFor(html, 'aria-label="고객 목록 검색"')).toEqual(
+      expect.arrayContaining(['min-w-0', 'flex-1']),
+    );
+    expect(classTokensFor(html, 'id="client-search"')).toContain('min-w-0');
     expect(html).toContain('고객 등록');
     expect(html).toContain('고객 목록');
     expect(html).toContain('aria-haspopup="dialog"');
@@ -256,6 +260,11 @@ function clientListResult(name: string): ClientListDto {
     pageSize: 100,
     totalCount: 1,
   };
+}
+
+function classTokensFor(html: string, attribute: string): string[] {
+  const tag = html.match(new RegExp(`<[^>]*${attribute}[^>]*>`))?.[0];
+  return tag?.match(/class="([^"]*)"/)?.[1]?.split(/\s+/) ?? [];
 }
 
 const clientFixture: ClientDto = {

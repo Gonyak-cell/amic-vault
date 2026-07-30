@@ -177,6 +177,7 @@ export default function ClientsPage() {
               ref={createTriggerRef}
               aria-expanded={createDialogOpen}
               aria-haspopup="dialog"
+              className="shrink-0"
               type="button"
               variant="outline"
               onClick={openCreateDialog}
@@ -185,7 +186,7 @@ export default function ClientsPage() {
               고객 등록
             </Button>
             <form
-              className="flex min-w-0 items-center gap-2"
+              className="flex min-w-0 flex-1 items-center gap-2"
               onSubmit={submitSearch}
               role="search"
               aria-label="고객 목록 검색"
@@ -199,8 +200,9 @@ export default function ClientsPage() {
                 placeholder="고객 검색"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
+                className="min-w-0"
               />
-              <Button type="submit" variant="outline" size="sm">
+              <Button className="shrink-0" type="submit" variant="outline" size="sm">
                 <Search className="h-4 w-4" aria-hidden="true" />
                 검색
               </Button>
