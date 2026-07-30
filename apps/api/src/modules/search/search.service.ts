@@ -122,6 +122,44 @@ const internalSavedSearchRoles = [
   'knowledge_manager',
 ] as const;
 
+const savedSearchQueryMatterIdText = `(s.search_query_json #>> '{filters,matterId}')`;
+const savedSearchQueryMatterId = `
+  CASE
+    WHEN ${savedSearchQueryMatterIdText} ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN ${savedSearchQueryMatterIdText}::uuid
+    ELSE NULL::uuid
+  END
+`;
+const savedSearchEffectiveMatterId = `COALESCE(s.matter_id, (${savedSearchQueryMatterId}))`;
+const savedSearchMatterAuthorizationWhere = `
+  (
+    (${savedSearchQueryMatterIdText} IS NULL AND s.matter_id IS NULL)
+    OR (
+      (
+        ${savedSearchQueryMatterIdText} IS NULL
+        OR (
+          (${savedSearchQueryMatterId}) IS NOT NULL
+          AND (
+            s.matter_id IS NULL
+            OR s.matter_id = (${savedSearchQueryMatterId})
+          )
+        )
+      )
+      AND ${savedSearchEffectiveMatterId} IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM allowed_matter_ids allowed
+        WHERE allowed.matter_id = ${savedSearchEffectiveMatterId}
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM wall_blocked_matter_ids blocked
+        WHERE blocked.matter_id = ${savedSearchEffectiveMatterId}
+      )
+    )
+  )
+`;
+
 const visibleSavedSearchWhere = `
   actor.status = 'active'
   AND actor.role = ANY($3::text[])
@@ -133,18 +171,9 @@ const visibleSavedSearchWhere = `
     OR (
       s.scope_type = 'matter-team'
       AND s.matter_id IS NOT NULL
-      AND EXISTS (
-        SELECT 1
-        FROM allowed_matter_ids allowed
-        WHERE allowed.matter_id = s.matter_id
-      )
-      AND NOT EXISTS (
-        SELECT 1
-        FROM wall_blocked_matter_ids blocked
-        WHERE blocked.matter_id = s.matter_id
-      )
     )
   )
+  AND ${savedSearchMatterAuthorizationWhere}
 `;
 
 function sha256Hex(input: string): string {
@@ -582,7 +611,11 @@ export class SearchService {
     const queryHash = sha256Hex(input.query.query ?? '');
     const refs = filterRefs(input.query);
     const scope = input.scope ?? 'personal';
-    const matterId = scope === 'matter-team' ? (input.matterId ?? null) : null;
+    const queryMatterId = input.query.filters?.matterId ?? null;
+    if (input.matterId && queryMatterId && input.matterId !== queryMatterId) {
+      throw permissionDenied();
+    }
+    const matterId = input.matterId ?? queryMatterId;
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       await this.assertCanSaveSavedSearch(client, ctx, scope, matterId);
       const result = await client.query(
@@ -603,12 +636,9 @@ export class SearchService {
           WHERE actor.status = 'active'
             AND actor.role = ANY($9::text[])
             AND (
-              $4 = 'personal'
-              OR ($4 = 'admin-shared' AND actor.role = ANY($10::text[]))
+              $5::uuid IS NULL
               OR (
-                $4 = 'matter-team'
-                AND $5::uuid IS NOT NULL
-                AND EXISTS (
+                EXISTS (
                   SELECT 1
                   FROM allowed_matter_ids allowed
                   WHERE allowed.matter_id = $5::uuid
@@ -619,6 +649,11 @@ export class SearchService {
                   WHERE blocked.matter_id = $5::uuid
                 )
               )
+            )
+            AND (
+              $4 = 'personal'
+              OR ($4 = 'admin-shared' AND actor.role = ANY($10::text[]))
+              OR ($4 = 'matter-team' AND $5::uuid IS NOT NULL)
             )
           ON CONFLICT (tenant_id, user_id, name)
           DO UPDATE SET

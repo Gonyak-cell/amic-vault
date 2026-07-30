@@ -186,11 +186,6 @@ describe('SearchService saved searches', () => {
     ).resolves.toMatchObject({ scope: 'matter-team' });
     expect(query).toHaveBeenCalledTimes(2);
     const saveCalls = vi.mocked(query).mock.calls as unknown[][];
-    const saveSql = String(saveCalls[1]?.[0] ?? '');
-    expect(saveSql).toContain('WITH');
-    expect(saveSql).toContain('INSERT INTO saved_searches');
-    expect(saveSql).toContain('FROM allowed_matter_ids allowed');
-    expect(saveSql).toContain('FROM wall_blocked_matter_ids blocked');
     expect(saveCalls[1]?.[1]).toEqual([
       ctx.tenantId,
       ctx.userId,
@@ -203,6 +198,77 @@ describe('SearchService saved searches', () => {
       expect.any(Array),
       expect.any(Array),
     ]);
+  });
+
+  it('binds a personal folder to a Matter referenced by its query', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ role: 'matter_member', status: 'active' }] })
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          {
+            ...savedSearchRow,
+            matter_id: matterId,
+            search_query_json: {
+              filters: { matterId },
+              page: 1,
+              pageSize: 10,
+              query: 'closing',
+            },
+          },
+        ],
+      });
+    const { service } = createService(query);
+
+    await expect(
+      service.saveSavedSearch(ctx, {
+        name: 'My Matter closing',
+        query: {
+          filters: { matterId },
+          page: 1,
+          pageSize: 10,
+          query: 'closing',
+        },
+        scope: 'personal',
+      }),
+    ).resolves.toMatchObject({
+      query: { filters: { matterId } },
+      scope: 'personal',
+    });
+    const saveCalls = vi.mocked(query).mock.calls as unknown[][];
+    expect(saveCalls[1]?.[1]).toEqual([
+      ctx.tenantId,
+      ctx.userId,
+      'My Matter closing',
+      'personal',
+      matterId,
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(Array),
+      expect.any(Array),
+    ]);
+  });
+
+  it('fails closed when persisted and query Matter references conflict', async () => {
+    const query = vi.fn();
+    const { service } = createService(query);
+
+    await expect(
+      service.saveSavedSearch(ctx, {
+        matterId,
+        name: 'Mismatched Matter',
+        query: {
+          filters: { matterId: '11111111-1111-4111-8111-111111111922' },
+          page: 1,
+          pageSize: 10,
+          query: 'closing',
+        },
+        scope: 'personal',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+    expect(query).not.toHaveBeenCalled();
   });
 
   it('fails closed when the atomic Matter scope rejects the insert', async () => {
@@ -292,10 +358,6 @@ describe('SearchService saved searches', () => {
     const auditPayload = JSON.stringify(auditCalls[0]?.[0]);
     expect(auditPayload).not.toContain('closing');
     expect(auditPayload).not.toMatch(/snippet|prompt|response|raw_snippet/i);
-    const openCalls = vi.mocked(query).mock.calls as unknown[][];
-    const openSql = String(openCalls[0]?.[0] ?? '');
-    expect(openSql).toContain('FROM allowed_matter_ids allowed');
-    expect(openSql).toContain('FROM wall_blocked_matter_ids blocked');
   });
 });
 

@@ -26,6 +26,7 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('권한/정책 알림');
     expect(html).toContain('데이터를 불러오는 중입니다.');
     expect(html).toContain('업무 상태 연결 대기 중입니다.');
+    expect(html).not.toContain('href="/audit"');
 
     expect(html).not.toContain('접근 가능한 항목만 표시됩니다');
     expect(html).not.toContain('보호됨');
@@ -122,6 +123,7 @@ describe('VaultActivityClient', () => {
 
     expect(html).toContain('Board minutes');
     expect(html).toContain('Document viewed');
+    expect(html).toContain('M-001 · Governance · Success');
     expect(html).toContain('검토 의견 제출');
     expect(html).toContain('문서 정보 확인');
     expect(html).toContain('dateTime="2026-07-31T09:00:00.000+09:00"');
@@ -132,7 +134,7 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('href="/files"');
     expect(html).not.toContain('title=Board');
     expect(html).toContain('문서함 열기');
-    expect(html).toContain('감사 열기');
+    expect(html).not.toContain('href="/audit"');
     expect(html).toContain('알림 열기');
     expect(html.match(/href="\/work\?view=notifications"/g) ?? []).toHaveLength(2);
     expect(html).not.toContain('href="/notifications"');

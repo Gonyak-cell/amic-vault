@@ -198,8 +198,6 @@ export function VaultActivityContent({
           )}
         />
         <DashboardSection<DashboardRecentActivity>
-          actionHref="/audit"
-          actionLabel="감사 열기"
           icon={<Clock3 className="h-4 w-4" />}
           title={dashboardSectionLabels.recentActivity}
           state={dashboardState.recentActivity}
@@ -208,8 +206,6 @@ export function VaultActivityContent({
             <DashboardList>
               {items.map((item) => (
                 <DashboardListItem
-                  actionHref="/audit"
-                  actionLabel="감사"
                   key={`${item.actionLabel}-${item.occurredAt}`}
                 >
                   <div className="min-w-0">

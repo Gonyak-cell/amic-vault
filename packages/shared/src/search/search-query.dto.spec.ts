@@ -142,6 +142,17 @@ describe('search query DTO', () => {
     ).toThrow();
     expect(() =>
       createSavedSearchSchema.parse({
+        matterId: '11111111-1111-4111-8111-111111111901',
+        name: 'Mismatched Matter references',
+        query: {
+          filters: { matterId: '11111111-1111-4111-8111-111111111902' },
+          query: 'closing',
+        },
+        scope: 'matter-team',
+      }),
+    ).toThrow();
+    expect(() =>
+      createSavedSearchSchema.parse({
         name: '',
         query: { query: 'closing' },
       }),

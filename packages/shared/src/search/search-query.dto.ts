@@ -134,6 +134,14 @@ export const createSavedSearchSchema = z
         path: ['matterId'],
       });
     }
+    const queryMatterId = value.query.filters?.matterId;
+    if (value.matterId && queryMatterId && value.matterId !== queryMatterId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'saved search Matter references must match',
+        path: ['query', 'filters', 'matterId'],
+      });
+    }
   });
 
 export const searchPrivacySettingsSchema = z
