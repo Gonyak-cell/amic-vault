@@ -1,6 +1,6 @@
 # 소규모 로펌용 OSS SaaS UI 실행 계획 — `b3681493`
 
-> 상태: **ACTIVE IMPLEMENTATION**
+> 상태: **LOCAL IMPLEMENTATION COMPLETE — NOT RELEASED**
 >
 > 기준선: `origin/main@b3681493970714fa2d1f583a2a16f7c5d4a26582`
 >
@@ -87,26 +87,26 @@ persona는 새 backend role이 아니라 기존 role을 같은 정보 구조로 
 | ID | 상태 | 현재 관찰 | 완료 전 남은 증빙 |
 |---|---|---|---|
 | `SF-B368-001` | 완료(계획) | exact-main, 세 UI persona, route 소유권, 완료 기반을 이 문서에 고정 | 코드 완료가 아니라 계획 증빙 |
-| `SF-B368-002` | 진행 중/부분 | 일반 사용자 rail이 홈·Matter·Client·문서·업무 5개로 축소되는 편집 | 역할별 route·모바일·키보드 검증 |
-| `SF-B368-003` | 진행 중/부분 | search/folders/notifications의 일반 nav 중복 항목 숨김 | 전역 검색·알림·saved search의 유일 진입점과 deep-link 회귀 |
-| `SF-B368-004` | 진행 중/부분 | Matter/Client에서 중복 helper와 raw ID 노출을 줄이는 편집 | 공통 data state/error copy 회귀 |
-| `SF-B368-005` | 대기 | 공통 UI primitive는 기준선에 있으나 이번 밀도 조정 증빙 없음 | 네 viewport와 token/primitives 사용 검증 |
-| `SF-B368-006` | 진행 중/부분 | 홈이 내 작업·마감·Matter 중심으로 단순화되는 편집 | 부분 실패·빈/거부·실데이터 의미 테스트 |
-| `SF-B368-007` | 진행 중/부분 | 홈 quick action과 관리/연동 패널 축소 편집 | capability gate와 dead-action 검증 |
-| `SF-B368-008` | 진행 중/부분 | Matter 표가 업무 중심 열과 간결한 행 action으로 재구성되는 편집 | 접근성·상태·좁은 폭 회귀 |
-| `SF-B368-009` | 대기 | 기존 API는 `status/matterType/clientId/page/pageSize`만 지원 | 필요한 최소 q/owner/due/cursor 계약과 permission-query 테스트 |
-| `SF-B368-010` | 대기 | 기존 detail/workstream route는 있으나 5-tab IA 증빙 없음 | 탭 ownership와 deep-link 호환 |
-| `SF-B368-011` | 진행 중/부분 | Matter 정상 상태의 상시 보안 배너/배지 축소 편집 | restricted/conflict/Wall/hold 차단 상태 회귀 |
-| `SF-B368-012` | 진행 중/부분 | Client raw ID 제거와 목록/상세 copy 편집 | list-first 생성 흐름·상세 회귀 |
-| `SF-B368-013` | 대기 | `getClient + listMatters(clientId)` 기반만 확인 | 정확한 portfolio 집계 또는 `C02` 조건 판정 |
-| `SF-B368-014` | 대기 | Document Workbench/Search 기반은 완료 제외 항목 | trim 뒤 기능 보존 렌더 증빙 |
-| `SF-B368-015` | 진행 중/부분 | search/folders nav 중복 숨김 편집 | saved-search 단일 소유권과 `/search/folders` 호환 |
-| `SF-B368-016` | 대기 | Work와 Notifications가 별도 shell로 존재 | 통합 Inbox shell 및 old route 호환 |
-| `SF-B368-017` | 대기(기반 존재) | Work 기본값 `mine`과 `work_items`의 assignment/due 영속화는 이미 존재 | 소규모 기본값 검증과 `C03` 불필요 여부 |
-| `SF-B368-018` | 진행 중/부분 | 5-item 일반 nav와 기존 `/admin` 단일 허브 방향 | 세 persona UI 행렬·backend role 불변 테스트 |
-| `SF-B368-019` | 대기 | 기존 direct route가 남아 있음 | redirect/compatibility/deep-link 회귀 팩 |
-| `SF-B368-020` | 대기 | 구현 closeout 증빙 없음 | 자동·렌더·보안·AI slop 전체 gate |
-| `SF-B368-C01~C03` | 조건부/미착수 | permission/schema/read-model 확장 필요 여부 미확정 | 해당 trigger와 canonical gate 충족 전 착수 금지 |
+| `SF-B368-002` | 구현 완료 | 일반 사용자 rail을 홈·Matter·고객·문서함·작업함 5개로 고정하고 관리자만 관리자 설정을 추가 | 역할별 route·모바일·키보드 검증 완료 |
+| `SF-B368-003` | 구현 완료 | 전역 검색, Work 알림, Search saved-search로 진입점 소유권 통합 | deep-link 회귀 완료 |
+| `SF-B368-004` | 구현 완료 | 공통 loading/error/forbidden/blocked 상태와 자연스러운 한국어 접근 범위 문구 적용 | 공통 상태·seed 회귀 완료 |
+| `SF-B368-005` | 구현 완료 | 고정 최소 폭을 제거하고 좁은 화면에서 핵심 열을 우선 노출 | 네 viewport와 primitive 검증 완료 |
+| `SF-B368-006` | 구현 완료 | 홈을 내 작업·마감·Matter·문서 복귀 경로로 단순화 | 부분 실패·빈 상태 의미 테스트 완료 |
+| `SF-B368-007` | 구현 완료 | 빠른 작업을 업로드·검색·작업함으로 한정하고 관리/연동 홍보 패널 제거 | dead action 회귀 완료 |
+| `SF-B368-008` | 구현 완료 | Matter 표를 업무 식별·상태 중심으로 정리 | 접근성·좁은 폭 회귀 완료 |
+| `SF-B368-009` | 구현 완료 | 권한 쿼리와 같은 WHERE에 code/name/client 이름의 최소 `q` 검색 추가 | explicit DENY·조건부 권한·insider-required Wall negative test 및 전체 통합 회귀 통과 |
+| `SF-B368-010` | 구현 완료 | Matter 상세를 개요·문서·업무·팀·활동 5탭으로 통합 | 탭 keyboard·URL·history·legacy anchor 회귀 완료 |
+| `SF-B368-011` | 구현 완료 | 정상 Matter의 상시 보안 장식은 제거하고 실제 제한·Wall·hold 의미는 보존 | 차단 상태 회귀 완료 |
+| `SF-B368-012` | 구현 완료 | 고객 화면을 검색 가능한 목록 우선 흐름과 접을 수 있는 생성 폼으로 정리 | 목록·생성·상세 회귀 완료 |
+| `SF-B368-013` | 구현 완료 | `getClient + listMatters(clientId)`의 정확한 total/items/partial 의미만 노출 | fake aggregate 없음 검증 완료 |
+| `SF-B368-014` | 구현 완료 | 문서 Workbench 중복 helper를 줄이고 기존 기능 보존 | 렌더·기능 회귀 완료 |
+| `SF-B368-015` | 구현 완료 | saved search 소유권을 `/search`로 통일하고 `/search/folders` 호환 redirect 유지 | matter-team·personal·admin-shared list/open/save/revoke와 legacy Matter 참조의 현재 권한·Wall negative test 통과 |
+| `SF-B368-016` | 구현 완료 | `/work?view=mine|notifications` 단일 Inbox shell 제공 | 기존 route 호환 완료 |
+| `SF-B368-017` | 구현 완료 | 소규모 기본값을 `mine`으로 유지하고 기존 서버 영속 assignment/due 계약 재사용 | `C03` 불필요 판정 완료 |
+| `SF-B368-018` | 구현 완료 | 기존 7개 backend role을 바꾸지 않고 일반/관리 UI 행렬 고정 | persona·role 회귀 완료 |
+| `SF-B368-019` | 구현 완료 | 숨긴 고급 route의 직접 접근 guard와 기존 deep link 보존 | 관리자 허용·일반 사용자 차단·조회 오류 fail-closed 동작 테스트와 실화면 통과 |
+| `SF-B368-020` | 구현 완료 | 자동·보안·렌더·접근성·AI slop closeout 수행 | exact 코드 SHA 검증 기록 연결 |
+| `SF-B368-C01~C03` | 종결(코드 불필요) | canonical 권한과 기존 read/work 계약이 trigger를 해소 | §10.3 결정 근거 완료 |
 
 ## 4. 불변 보안·데이터 규칙
 
@@ -212,7 +212,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-002` — 일반 사용자 5-item 내비게이션
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / H / M(1일)
 - 의존성: `001`
 - Files: `apps/web/src/lib/features.ts`, `apps/web/src/lib/features.test.ts`, `apps/web/src/lib/navigation.ts`, `apps/web/src/lib/navigation.test.ts`, `apps/web/src/app/(app)/app-shell.test.tsx`
 - 목표: 일반 사용자 rail을 **홈·Matter·Client·문서·업무** 다섯 항목으로 고정한다.
@@ -227,7 +227,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-003` — 검색·알림·saved-search 중복 진입점 통합
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / H / M(1일)
 - 의존성: `001`, `002`
 - Files: `apps/web/src/app/(app)/app-shell.tsx`, `apps/web/src/app/(app)/app-shell.test.tsx`, `apps/web/src/lib/navigation.ts`, `apps/web/src/lib/navigation.test.ts`, `apps/web/src/components/search/search-workbench-rail.tsx`, `apps/web/src/components/search/search-workbench-rail.test.tsx`
 - 목표: 전역 검색은 shell, saved search는 `/search`, 알림은 `/work` Inbox가 각각 한 번만 소유하게 한다.
@@ -242,7 +242,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-004` — 사용자 copy와 data-state 중앙화
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / H / M(1일)
 - 의존성: `001`
 - Files: `apps/web/src/lib/data-state.ts`, `apps/web/src/lib/api/error-messages.ts`, `apps/web/src/lib/api/error-messages.spec.ts`, `apps/web/src/components/ui/empty-state.tsx`, `apps/web/src/components/ui/empty-state.test.tsx`, `apps/web/src/lib/i18n.tsx`, `apps/web/src/lib/i18n.test.tsx`
 - 목표: loading, empty, error, denied의 의미와 안전한 한국어 copy를 공통 소유자에서 재사용한다.
@@ -259,7 +259,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-005` — 정보 밀도와 design-system 보정
 
-- 상태 / Risk / 크기: **대기** / M / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / M / M(1일)
 - 의존성: `001`, `004`
 - Files: `apps/web/src/styles/globals.css`, `apps/web/src/components/ui/page-shell.tsx`, `apps/web/src/components/ui/section-card.tsx`, `apps/web/src/components/ui/filter-bar.tsx`, `apps/web/src/components/ui/filter-bar.test.tsx`, `apps/web/src/components/ui/data-table.tsx`, `apps/web/src/components/ui/data-table.test.tsx`, `apps/web/src/components/ui/layout-primitives.test.tsx`
 - 목표: 기존 token/primitives로 10명 로펌의 촘촘한 표·필터·섹션 리듬을 맞추고 새 디자인 시스템을 만들지 않는다.
@@ -274,7 +274,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-006` — daily-work Home
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / H / M(1일)
 - 의존성: `004`; `005`와 병렬 가능
 - Files: `apps/web/src/app/(app)/dashboard/vault-activity-client.tsx`, `apps/web/src/app/(app)/dashboard/vault-activity-client.test.tsx`, `apps/web/src/components/dashboard/dashboard-work-queue.tsx`, `apps/web/src/lib/api/work-ops.ts`, `apps/web/src/lib/api/work-ops.spec.ts`, `apps/web/src/lib/api/dashboard.ts`, `apps/web/src/lib/api/dashboard.spec.ts`
 - 목표: 홈을 내 작업·임박 마감·Matter/문서 복귀 순서의 하루 업무 화면으로 만든다.
@@ -290,7 +290,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-007` — Home quick action과 capability gate
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / H / M(1일)
 - 의존성: `002`, `006`
 - Files: `apps/web/src/app/(app)/dashboard/vault-activity-client.tsx`, `apps/web/src/app/(app)/dashboard/vault-activity-client.test.tsx`, `apps/web/src/lib/features.ts`, `apps/web/src/lib/features.test.ts`
 - 목표: 홈 quick action을 Matter 생성·문서 업로드 등 실제 가능한 소수 행동으로 줄이고 기존 route/capability gate를 적용한다.
@@ -305,7 +305,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-008` — Matter 목록 UI
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / H / L(2일)
 - 의존성: `004`; filter data는 `009`, 공통 밀도 보정은 `005`와 병렬 가능
 - Files: `apps/web/src/app/(app)/matters/page.tsx`, `apps/web/src/app/(app)/matters/page.test.tsx`, `apps/web/src/components/matter/matter-list-table.tsx`
 - 목표: Matter code/이름, Client, 담당자, 상태, 다음 기한/최근 변경과 간결한 행 action을 중심으로 목록을 정리한다.
@@ -320,7 +320,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-009` — Matter 목록 query/read API
 
-- 상태 / Risk / 크기: **대기** / C / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / C / L(2일)
 - 의존성: `008`; read model 부족 시 `C02`
 - Files: `packages/shared/src/matter/matter.dto.ts`, `packages/shared/src/matter/matter-validation.spec.ts`, `apps/api/src/modules/matter/dto/list-matters.query.ts`, `apps/api/src/modules/matter/matter.controller.ts`, `apps/api/src/modules/matter/matter.service.ts`, `apps/api/src/modules/matter/matter.service.spec.ts`, `apps/web/src/lib/api-client.ts`, `apps/web/src/lib/api-client.spec.ts`, `apps/web/src/app/(app)/matters/matter-list-query.ts`, `apps/web/src/app/(app)/matters/page.test.tsx`
 - 목표: 기존 `status/matterType/clientId/page/pageSize`를 우선 재사용하고, UI에 꼭 필요한 `q/status/owner/due/cursor` 중 최소 계약만 permission-scoped read API에 추가한다.
@@ -336,7 +336,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-010` — Matter detail 5-tab IA
 
-- 상태 / Risk / 크기: **대기** / H / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / H / L(2일)
 - 의존성: `004`, `008`
 - Files: `apps/web/src/app/(app)/matters/[matterId]/page.tsx`, `apps/web/src/app/(app)/matters/[matterId]/page.test.tsx`, `apps/web/src/components/matter/matter-detail-tabs.tsx`(신규), `apps/web/src/components/matter/matter-detail-tabs.test.tsx`(신규), `apps/web/src/components/matter/matter-workstream-tabs.tsx`
 - 목표: Matter detail을 **개요·문서·업무·팀·활동** 다섯 기본 탭으로 정리하고 전문 workstream은 2차 링크로 유지한다.
@@ -351,7 +351,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-011` — normal/restricted Matter와 conflict 표현
 
-- 상태 / Risk / 크기: **진행 중/부분** / C / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / C / L(2일)
 - 의존성: `004`, `008`, `010`
 - Files: `apps/web/src/app/(app)/matters/page.tsx`, `apps/web/src/app/(app)/matters/page.test.tsx`, `apps/web/src/app/(app)/matters/[matterId]/page.tsx`, `apps/web/src/app/(app)/matters/[matterId]/page.test.tsx`, `apps/web/src/components/matter/matter-list-table.tsx`, `apps/web/src/components/matter/matter-conflicts-panel.tsx`, `apps/web/src/components/matter/matter-conflicts-panel.test.tsx`(신규), `apps/web/src/components/matter/matter-status-badge.tsx`, `apps/web/src/components/matter/matter-status-badge.test.tsx`
 - 목표: 정상 Matter에서는 보안 장식을 최소화하고 restricted/conflict/Wall/hold 상태는 강하고 안전하게 구분한다.
@@ -368,7 +368,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-012` — Client list/detail workflow
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / H / L(2일)
 - 의존성: `004`, `005`
 - Files: `apps/web/src/app/(app)/clients/page.tsx`, `apps/web/src/app/(app)/clients/page.test.tsx`, `apps/web/src/app/(app)/clients/client-list-table.tsx`, `apps/web/src/app/(app)/clients/client-create-contract.ts`, `apps/web/src/app/(app)/clients/[clientId]/page.tsx`, `apps/web/src/app/(app)/clients/[clientId]/page.test.tsx`, `apps/web/src/app/(app)/clients/[clientId]/client-detail-view.tsx`
 - 목표: Client는 목록 우선으로 열고 생성은 명시적 dialog/route action, 상세는 portfolio와 Matter 복귀에 집중한다.
@@ -383,7 +383,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-013` — Client portfolio aggregation read model
 
-- 상태 / Risk / 크기: **대기** / H / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / H / M(1일)
 - 의존성: `012`; API 부족 시 `C02`
 - Files: `apps/web/src/app/(app)/clients/[clientId]/page.tsx`, `apps/web/src/app/(app)/clients/[clientId]/page.test.tsx`, `apps/web/src/app/(app)/clients/[clientId]/client-detail-view.tsx`, `apps/web/src/lib/api-client.ts`, `apps/web/src/lib/api-client.spec.ts`
 - 목표: 기존 `getClient + listMatters({ clientId })`로 정확히 표현 가능한 Client별 Matter 구성과 상태 요약을 만든다.
@@ -398,7 +398,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-014` — 기존 Document Workbench trim
 
-- 상태 / Risk / 크기: **대기** / H / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / H / L(2일)
 - 의존성: `004`, `005`, `012`
 - Files: `apps/web/src/app/(app)/files/page.tsx`, `apps/web/src/app/(app)/files/page.test.tsx`, `apps/web/src/components/document/document-workbench-shell.tsx`, `apps/web/src/components/document/document-workbench-rail.tsx`, `apps/web/src/components/document/document-vault-list.tsx`, `apps/web/src/components/document/document-vault-list.test.tsx`, `apps/web/src/components/document/document-workbench.test.tsx`
 - 목표: 완성된 3-pane Workbench를 재구축하지 않고, 중복 helper·빈 장식 패널·과도한 control만 줄인다.
@@ -413,22 +413,24 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-015` — saved-search 단일 소유권과 `/search/folders` 호환
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / H / L(2일)
 - 의존성: `003`, `004`
-- Files: `apps/web/src/app/(app)/search/search-client.tsx`, `apps/web/src/app/(app)/search/search-client.flow.test.ts`, `apps/web/src/components/search/search-workbench-rail.tsx`, `apps/web/src/components/search/search-workbench-rail.test.tsx`, `apps/web/src/app/(app)/search/folders/page.tsx`, `apps/web/src/app/(app)/search/folders/search-folders-client.tsx`, `apps/web/src/app/(app)/search/folders/search-folders-client.test.tsx`
+- Files: `apps/web/src/app/(app)/search/search-client.tsx`, `apps/web/src/app/(app)/search/search-client.flow.test.ts`, `apps/web/src/components/search/search-workbench-rail.tsx`, `apps/web/src/components/search/search-workbench-rail.test.tsx`, `apps/web/src/app/(app)/search/folders/page.tsx`, `apps/web/src/app/(app)/search/folders/search-folders-client.tsx`, `apps/web/src/app/(app)/search/folders/search-folders-client.test.tsx`, `packages/shared/src/search/search-query.dto.ts`, `packages/shared/src/search/search-validation.spec.ts`, `apps/api/src/modules/search/search.service.ts`, `apps/api/src/modules/search/search.service.spec.ts`, `tests/integration/search-permission/saved-search-authorization.spec.ts`
 - 목표: saved search 생성·정렬·실행은 `/search` Workbench가 단독 소유하고 `/search/folders` old link는 안전하게 호환한다.
 - Acceptance:
   - 홈/rail/별도 folder screen에 saved-search 상태를 복제하지 않는다.
   - `/search/folders`는 기존 bookmark를 깨지 않고 `/search`의 동일 권한 결과/선택으로 연결한다.
   - allowlist filter만 URL에 담고 문서 제목/본문·tenant/user raw ID를 넣지 않는다.
   - 권한 철회된 saved search는 존재를 누설하지 않는 안전한 상태가 된다.
+  - matter-team뿐 아니라 Matter에 묶인 personal/admin-shared 검색도 list/open/save/revoke 시 현재 membership, explicit DENY, excluded/insider-required Wall을 다시 평가한다.
+  - top-level/query Matter 참조 불일치와 malformed legacy UUID는 fail-closed하고, Matter에 묶이지 않은 personal/admin-shared 검색은 기존 동작을 유지한다.
 - Verification: V-WEB, V-SEC, V-UI; create/run/reorder, empty/denied, old folder deep-link, URL privacy tests.
 - Edge/stop: compatibility가 server contract 변경을 요구하면 silent fallback 대신 `019`에 명시한다.
 - Security/External: permission-before-search 포함 §4 전부, §5 전부.
 
 #### `SF-B368-016` — Work·Notifications 통합 Inbox shell
 
-- 상태 / Risk / 크기: **대기** / H / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / H / L(2일)
 - 의존성: `003`, `004`, `017`
 - Files: `apps/web/src/app/(app)/work/page.tsx`, `apps/web/src/app/(app)/work/work-queue-client.tsx`, `apps/web/src/app/(app)/work/work-queue-client.test.tsx`, `apps/web/src/app/(app)/notifications/page.tsx`, `apps/web/src/app/(app)/notifications/notifications-client.tsx`, `apps/web/src/app/(app)/notifications/notifications-client.test.tsx`, `apps/web/src/lib/api/work-ops.ts`, `apps/web/src/lib/api/work-ops.spec.ts`
 - 목표: `/work` 안에서 **내 업무 / 알림** 두 보기를 제공하고, 같은 항목을 여러 카드·rail·페이지에서 반복하지 않는다.
@@ -444,7 +446,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-017` — 소규모 업무 기본값과 필요한 경우에만 persistence
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / H / M(1일)
 - 의존성: `004`; persistence 부족 시 `C03`
 - Files: `apps/web/src/app/(app)/work/work-queue-client.tsx`, `apps/web/src/app/(app)/work/work-queue-client.test.tsx`, `apps/web/src/lib/api/work-ops.ts`, `apps/web/src/lib/api/work-ops.spec.ts`, `apps/api/src/modules/work/work.service.ts`, `apps/api/src/modules/work/work.service.spec.ts`
 - 목표: 기본 필터를 **내 미완료 업무·임박 순**으로 맞추고 기존 `work_items.assigned_to_user_id`와 `due_at`가 충분하면 새 저장 계약을 만들지 않는다.
@@ -462,7 +464,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-018` — 세 UI persona와 단일 관리자 허브
 
-- 상태 / Risk / 크기: **진행 중/부분** / H / M(1일)
+- 상태 / Risk / 크기: **구현 완료** / H / M(1일)
 - 의존성: `002`, `003`, `004`
 - Files: `apps/web/src/app/(app)/admin/admin-route-hub.tsx`, `apps/web/src/app/(app)/admin/page.tsx`, `apps/web/src/app/(app)/admin/page.test.tsx`, `apps/web/src/lib/features.ts`, `apps/web/src/lib/features.test.ts`, `apps/web/src/lib/navigation.ts`, `apps/web/src/lib/navigation.test.ts`, `apps/web/src/app/(app)/app-shell.test.tsx`
 - 목표: 기존 backend role은 그대로 두고 담당 실무자·업무 지원자·관리자 세 UI persona에 맞는 한 개의 shell과 한 개의 `/admin` 진입점을 제공한다.
@@ -478,7 +480,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-019` — 기존 route·deep-link 호환
 
-- 상태 / Risk / 크기: **대기** / H / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / H / L(2일)
 - 의존성: `002`, `003`, `010`, `015`, `016`, `018`
 - Files: `apps/web/src/lib/features.ts`, `apps/web/src/lib/features.test.ts`, `apps/web/src/app/(app)/app-shell.test.tsx`, `apps/web/src/app/(app)/search/folders/page.tsx`, `apps/web/src/app/(app)/search/folders/search-folders-client.test.tsx`, `apps/web/src/app/(app)/notifications/page.tsx`, `apps/web/src/app/(app)/notifications/notifications-client.test.tsx`, `apps/web/src/app/(app)/matters/[matterId]/page.test.tsx`
 - 목표: 메뉴 통합 뒤에도 기존 bookmark, 브라우저 history, 공유된 내부 direct URL과 권한 결과를 깨지 않는다.
@@ -494,9 +496,9 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-020` — 자동·렌더·보안·AI slop closeout
 
-- 상태 / Risk / 크기: **대기** / H / L(2일)
+- 상태 / Risk / 크기: **구현 완료** / H / L(2일)
 - 의존성: `002~019`, 실행된 조건부 `C01~C03`
-- Files: `docs/ui/2026-07-30-small-firm-oss-saas-plan-b3681493.md`, 관련 기존 test/QA receipt 경로만 사용
+- Files: `docs/ui/2026-07-30-small-firm-oss-saas-plan-b3681493.md`, `docs/ui/2026-07-31-small-firm-oss-saas-verification-b3681493.md`, `docs/ui/evidence/sf-b368-final/**`, 관련 기존 test/QA receipt 경로만 사용
 - 목표: 모든 TUW의 자동 테스트, 실제 렌더, 보안 negative test, 접근성, AI slop 검증을 한 exact SHA에 묶고 구현 완료와 배포 완료를 구분한다.
 - Acceptance:
   - V-WEB, V-UI, V-ROOT와 API 영향이 있는 경우 V-SEC가 green이다.
@@ -513,7 +515,8 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-C01` — `firm_open` 적격 내부 구성원 자동 등록 계약
 
-- 상태 / Risk / 크기: **조건부/대기** / C / L(2일)
+- 상태 / Risk / 크기: **종결(코드 불필요)** / C / L(2일)
+- 결정: Trigger를 결함으로 채택하지 않는다. `docs/package/codex/00_Master_Brief.md` §5.4와 `docs/ledger/execution.md`의 `NONIDENTITY-AGGREGATE-RECOVERY`는 모든 ALLOW에 `matter_members`를 필요조건으로 확정한다. 자동 등록은 구성원 provenance·퇴사/role 변경·철회·감사 계약 없이 권한을 넓히므로 이번 UI tranche에서 구현하지 않는다.
 - Trigger: 소규모 로펌의 `firm_open` Matter가 현재도 `matter_members` 누락 때문에 적격 내부 사용자에게 보이지 않는다는 통합 fixture가 재현될 때만 착수한다.
 - 의존성: `001`, `011`; canonical Matter/Permission PACK 매핑
 - Files: `packages/shared/src/matter/**`, `apps/api/src/modules/matter/**`, `apps/api/src/modules/permission/**`, `tests/integration/permission/**`, `tests/integration/search-permission/**`, 필요 시 `db/migrations/**`(별도 canonical 승인 후)
@@ -531,7 +534,8 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-C02` — Dashboard·Matter·Client portfolio read model
 
-- 상태 / Risk / 크기: **조건부/대기** / C / L(2일)
+- 상태 / Risk / 크기: **종결(코드 불필요)** / C / L(2일)
+- 결정: 기존 `getWorkQueue`, `listMatters`, dashboard overview, `getClient + listMatters(clientId)`로 검증 가능한 최소 view를 구성했다. 출처가 확인되지 않은 recent·aggregate·KPI는 만들지 않았고, Client는 동일 필터의 `total/items/partial` 의미만 표시한다.
 - Trigger: `006`, `008~010`, `013`이 기존 `getWorkQueue`, `listMatters`, dashboard overview, `getClient + listMatters(clientId)`로 정확한 라벨·집계를 만들 수 없다는 테스트가 있을 때만 착수한다.
 - 의존성: 해당 소비 TUW; canonical API/Permission PACK 매핑
 - Files: `packages/shared/src/dashboard/**`, `packages/shared/src/matter/**`, `packages/shared/src/client/**`, `apps/api/src/modules/dashboard/**`, `apps/api/src/modules/matter/**`, `apps/api/src/modules/client/**`, `apps/web/src/lib/api/**`, 관련 service/API/integration tests
@@ -549,7 +553,8 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 #### `SF-B368-C03` — assignment·due 영속성 보강
 
-- 상태 / Risk / 크기: **조건부/기반 확인 중** / C / L(2일)
+- 상태 / Risk / 크기: **종결(기존 계약 충족)** / C / L(2일)
+- 결정: 기존 `work_items.assigned_to_user_id`, `due_at`, 서버 query와 audited reassignment가 `017`의 소규모 기본값·reload 계약을 충족한다. 새 migration, endpoint, localStorage 또는 브라우저 권위 상태를 추가하지 않는다.
 - Trigger: `work_items.assigned_to_user_id`, `due_at`, 기존 reassignment mutation/audit가 `017`의 reload·권한·기한 테스트를 충족하지 못할 때만 착수한다.
 - 의존성: `017`; canonical Work/Audit PACK 매핑
 - Files: `packages/shared/src/work/**`, `apps/api/src/modules/work/**`, `apps/web/src/lib/api/work-ops.ts`, `apps/web/src/lib/api/work-ops.spec.ts`, `db/migrations/**`(정말 필요한 경우 별도 승인), `tests/integration/**`
@@ -596,7 +601,67 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 3. 일반 화면의 관리/보안 장식은 줄었지만 실제 거부·Wall·hold·admin guard는 그대로 강하다.
 4. fake recent/deadline/count 없이 서버 권위 데이터만 사용한다.
 5. raw UUID와 민감 제목/본문이 화면·URL·log에 새로 노출되지 않는다.
-6. 네 viewport, keyboard, denied/empty/error, 전체 회귀와 독립 보안 검토가 green이다.
-7. exact SHA와 검증 receipt가 ledger/PR에 연결된다.
+6. 네 viewport, keyboard, denied/empty/error, 전체 회귀와 독립 Codex 품질 검토가 green이다.
+7. exact 구현 코드 SHA와 추적 가능한 검증 문서가 이 계획에 연결된다. ledger/PR 연결은 push·PR을 요청받는 시점의 별도 머지 단계다.
 
 그 뒤에도 external authenticated smoke, 배포 artifact, 로그인된 실제 앱, 운영자 승인, 릴리스/GA는 별도 gate다.
+
+## 10. 구현 closeout 증빙
+
+### 10.1 기준선·브랜치·구현 범위
+
+- 유일한 기준선: `origin/main@b3681493970714fa2d1f583a2a16f7c5d4a26582`
+- 구현 브랜치: `codex/small-firm-oss-saas-b3681493`
+- 구현 코드 SHA: `1d0333c9ba957dfced1d4d893ef30e0261b9e39d`
+- 검증 기록: `docs/ui/2026-07-31-small-firm-oss-saas-verification-b3681493.md`
+- 세부 증거: `docs/ui/evidence/sf-b368-final/`
+- `SF-B368-001~020`은 이 문서와 브랜치의 코드·테스트로 종결했다. 구현은 기존 helper와 route를 재사용했고 신규 dependency·상태 저장소·외부 연결·마이그레이션을 추가하지 않았다.
+- shell/Home: `apps/web/src/lib/features.ts`, `apps/web/src/lib/navigation.ts`, `apps/web/src/app/(app)/app-shell.tsx`, `apps/web/src/app/(app)/dashboard/vault-activity-client.tsx`
+- 공통 상태/표현: `apps/web/src/lib/i18n.tsx`, `apps/web/src/components/ui/empty-state.tsx`, `apps/web/src/components/ui/page-header.tsx`, Matter/Client 목록 컴포넌트와 seed fixture
+- Matter: shared query schema, permission-scoped API query/service, Matter 목록·5-tab 상세·workspace action과 관련 unit/integration tests
+- Client/문서/검색/업무: list-first Client, Workbench helper trim, `/search` saved-search 단일 소유권, `/search/folders` opaque-reference compatibility redirect, `/work?view=mine|notifications`
+- route 보존: 숨긴 전문 route의 정책·role guard·직접 접근을 유지했다. `/clients`, `/work`, `/notifications`도 middleware session guard와 회귀 테스트에 포함했다.
+
+### 10.2 자동 검증
+
+아래는 외부 계정·배포 없이 이 브랜치에서 실행한 로컬 기술 증빙이다.
+
+| Gate | 결과 |
+|---|---|
+| `pnpm install --frozen-lockfile` | 통과; dependency 변경 없음 |
+| `pnpm lint` | 6/6 workspace 통과 |
+| `pnpm typecheck` | 9/9 task 통과 |
+| `pnpm test` | domain 18, desktop 18, shared 213, AI 13, API 1,012, Web 429 — 합계 1,703 통과 |
+| `pnpm build` | 6/6 workspace 통과; Next 31개 static page 생성 포함 |
+| `pnpm docs:frozen` | frozen package 51개 불변 통과 |
+| `pnpm backlog:validate` | 174·266 TUW registry 통과 |
+| `pnpm check:production-ui-literals` | 통과 |
+| `pnpm check:ui-pr-checklist` | 통과 |
+| `pnpm ui:production-smoke` | 5-item navigation·단일 소유권 inventory로 갱신 후 통과 |
+| `git diff --check` | 통과 |
+| migration | 격리 PostgreSQL에서 `migrate → rollback → migrate` 왕복 후 `0000`부터 `0211`까지 205개 통과 |
+| seed | `tenants=2`, `users=11` 통과 |
+| `pnpm test:integration` | versioning이 활성화된 새 MinIO bucket과 새 DB에서 131 files / 417 tests 통과 |
+
+첫 격리 실행의 임시 bucket은 versioning이 꺼져 있어 document-revision fixture가 worker의 object-version fingerprint를 만들지 못했다. bucket versioning을 켠 뒤 해당 테스트가 통과했고, 생성 시점부터 versioning을 켠 두 번째 새 DB·bucket의 전체 suite로 환경 설정 원인임을 재확인했다. 진단용 임시 assertion은 전부 되돌렸고 테스트 skip·quarantine·timeout 완화는 사용하지 않았다.
+
+### 10.3 조건부 계약 판정
+
+| ID | 판정 | 근거 |
+|---|---|---|
+| `SF-B368-C01` | 코드 불필요 | Master Brief의 `matter_members` 필요조건과 `NONIDENTITY-AGGREGATE-RECOVERY` 결정을 유지한다. `firm_open` non-member ALLOW나 자동 권한 확대를 만들지 않는다. |
+| `SF-B368-C02` | 코드 불필요 | 기존 권한 범위 read API로 확인 가능한 최소 정보만 표시하고 출처 없는 recent·aggregate·KPI를 생략했다. |
+| `SF-B368-C03` | 기존 계약 충족 | 서버의 `work_items.assigned_to_user_id`, `due_at`, audited reassignment를 재사용한다. 신규 schema/API/browser 영속 상태가 필요하지 않다. |
+
+### 10.4 실제 화면·접근성 검증
+
+- `/dashboard`, `/matters`, Matter 상세, `/clients`, `/files`, `/search`, `/work`, `/admin`, `/integrations/matter-app` 9개 surface를 `1440x900`, `1024x768`, `768x1024`, `390x844`의 36개 route/viewport 조합에서 확인했다. document/body 폭은 모두 viewport 폭과 같고 페이지 수준 unsafe horizontal overflow는 0이었다. 원시 값은 `docs/ui/evidence/sf-b368-final/browser-matrix.json`에 보존했다.
+- 200% 확대는 in-app browser가 브라우저 zoom API를 제공하지 않아 `1440px` 물리 폭의 200% 등가 CSS viewport인 `720x450` reflow로 Home·Matter·Work를 검증했다. 세 화면 모두 overflow가 없었다.
+- 모바일 메뉴의 focus trap·Escape·trigger focus return, Matter 탭 ArrowRight·뒤로/앞으로·reload URL 보존, 긴 한국어와 모든 visible form control의 accessible name을 확인했다.
+- 브라우저 console error/warning은 0이었다. `권한으로 보호됨`, 중복 연동 설명, raw UUID, normal-state 보안 배너는 검사한 일반 화면에서 나타나지 않았다.
+- 최종 `sloplint.py --changed`는 finding 0으로 통과했다. 전체 기준선 코드 diff 검사에서만 통합 테스트의 표준 바이너리 업로드 생성자 이름을 배경 장식으로 오인한 비제품 weak false positive 1건이 있었다. App Shell의 반투명 white/glass signal은 불투명 brand token 표면으로 제거했고 `768x1024`와 `390x844` 실제 화면에서 대비·계층을 재확인했다.
+- 키보드·역할·직접 경로·API 장애/복구 기록과 대표 캡처는 `docs/ui/evidence/sf-b368-final/browser-interactions.md` 및 같은 디렉터리의 JPEG 두 개에 보존했다.
+
+### 10.5 완료와 비완료의 경계
+
+이 closeout은 **로컬 구현 완료**다. 외부 전자서명·Microsoft 365·외부 포털·외부 링크·외부 AI는 연결하거나 호출하지 않았다. production/staging 배포, 패키지, push/PR, merge, 운영 로그인 smoke, 릴리스/GA는 수행하지 않았으며 별도 gate다. 사용자의 명시적 지시에 따라 독립 Claude/인간 검토는 구현 차단 조건으로 실행하지 않았지만 Risk=C 변경의 머지 전 canonical review 요건과 Codex 자체 머지 금지는 그대로 남는다.
