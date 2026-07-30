@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  canRoleViewRoute,
-  findRouteVisibilityPolicy,
-  routeVisibilityPolicies,
-} from './features';
+import { canRoleViewRoute, findRouteVisibilityPolicy, routeVisibilityPolicies } from './features';
 
 describe('route visibility policies', () => {
   it('uses /admin as the canonical admin settings route with /enterprise as a hidden compatibility route', () => {
@@ -148,6 +144,30 @@ describe('route visibility policies', () => {
 
     expect(staleRoutes).toEqual([]);
     expect(findRouteVisibilityPolicy('/enterprise')?.showInNavigation).toBe(false);
+  });
+
+  it('keeps old internal deep links governed even when they are absent from primary navigation', () => {
+    const roleMatrix = {
+      '/notifications': { allowed: 'matter_member', denied: 'external_user' },
+      '/records': { allowed: 'matter_owner', denied: 'matter_member' },
+      '/audit': { allowed: 'firm_admin', denied: 'matter_owner' },
+      '/walls': { allowed: 'security_admin', denied: 'matter_member' },
+      '/enterprise': { allowed: 'firm_admin', denied: 'matter_owner' },
+      '/contracts': { allowed: 'matter_member', denied: 'external_user' },
+      '/dd': { allowed: 'matter_member', denied: 'external_user' },
+      '/litigation': { allowed: 'matter_member', denied: 'external_user' },
+    } as const;
+
+    for (const [route, roles] of Object.entries(roleMatrix)) {
+      const policy = findRouteVisibilityPolicy(route);
+      expect(policy, `${route} policy`).toBeDefined();
+      if (!policy) continue;
+
+      expect(policy.showInNavigation, route).toBe(false);
+      expect(canRoleViewRoute(policy, roles.allowed), `${route} allowed`).toBe(true);
+      expect(canRoleViewRoute(policy, roles.denied), `${route} denied`).toBe(false);
+      expect(canRoleViewRoute(policy, undefined), `${route} loading`).toBe(false);
+    }
   });
 
   it('keeps external portal routes out of internal production navigation policy', () => {

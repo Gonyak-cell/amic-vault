@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { UserRole } from '@amic-vault/shared';
 import { getNavigationGroups } from './navigation';
 
 function labelsForRole(role: Parameters<typeof getNavigationGroups>[0]) {
@@ -28,5 +29,21 @@ describe('navigation visibility', () => {
 
     expect(groups.map((group) => group.key)).toEqual(['Vault', 'Admin']);
     expect(labels).toEqual(['홈', 'Matter', '고객', '문서함', '작업함', '관리자 설정']);
+  });
+
+  it('maps all seven backend roles to the small-firm presentation without changing role semantics', () => {
+    const expectedByRole = {
+      firm_admin: ['홈', 'Matter', '고객', '문서함', '작업함', '관리자 설정'],
+      security_admin: ['홈', 'Matter', '고객', '문서함', '작업함', '관리자 설정'],
+      matter_owner: ['홈', 'Matter', '고객', '문서함', '작업함'],
+      matter_member: ['홈', 'Matter', '고객', '문서함', '작업함'],
+      limited_reviewer: ['홈', 'Matter', '고객', '문서함', '작업함'],
+      knowledge_manager: ['홈', 'Matter', '고객', '문서함', '작업함'],
+      external_user: [],
+    } satisfies Record<UserRole, string[]>;
+
+    for (const [role, expected] of Object.entries(expectedByRole) as [UserRole, string[]][]) {
+      expect(labelsForRole(role), role).toEqual(expected);
+    }
   });
 });
