@@ -1,11 +1,15 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { LanguageProvider } from '@/lib/i18n';
 import IntegrationsPage from '../page';
 import MatterAppIntegrationPage from '../matter-app/page';
 import OutlookIntegrationPage from './page';
 import { OutlookIntegrationStatusContent } from './outlook-integration-status-client';
+
+vi.mock('@/components/security/route-visibility-guard', () => ({
+  RouteVisibilityGuard: ({ children }: { children: React.ReactNode }) => children,
+}));
 
 describe('integration status routes', () => {
   it('renders only empty operational states before integration APIs are connected', () => {

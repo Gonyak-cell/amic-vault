@@ -19,6 +19,30 @@ import {
 } from './document-api-helpers';
 import { createOwnerClient, tenantBetaId, withClient } from '../helpers/db';
 
+const unrelatedWorkerEnvironmentKeys = [
+  'AI_PREP_QUEUE_WORKER_ENABLED',
+  'AUDIT_ANCHOR_QUEUE_WORKER_ENABLED',
+  'BULK_UPLOAD_QUEUE_WORKER_ENABLED',
+  'CONTRACT_AI_REVIEW_QUEUE_WORKER_ENABLED',
+  'DD_EXPORT_QUEUE_WORKER_ENABLED',
+  'DD_RFI_NOTIFICATION_SWEEPER_ENABLED',
+  'DLP_BULK_DOWNLOAD_MONITOR_WORKER_ENABLED',
+  'DOCUMENT_BULK_ACTION_QUEUE_WORKER_ENABLED',
+  'EDIT_SESSION_SWEEPER_ENABLED',
+  'EMAIL_REPARSE_QUEUE_WORKER_ENABLED',
+  'EXTRACTION_QUEUE_WORKER_ENABLED',
+  'FILE_SECURITY_RECONCILIATION_WORKER_ENABLED',
+  'FILE_SECURITY_SCAN_WORKER_ENABLED',
+  'GRAPH_SYNC_OUTBOX_WORKER_ENABLED',
+  'LAW_AMENDMENT_REFRESH_WORKER_ENABLED',
+  'LITIGATION_DEADLINE_NOTIFICATION_SWEEPER_ENABLED',
+  'OCR_QUEUE_WORKER_ENABLED',
+  'PREVIEW_CONVERT_QUEUE_WORKER_ENABLED',
+  'RECORDS_DISPOSAL_WORKER_ENABLED',
+  'RETENTION_REVIEW_QUEUE_WORKER_ENABLED',
+  'SEARCH_INDEX_QUEUE_WORKER_ENABLED',
+] as const;
+
 interface VersionListResponse {
   items: Array<{
     versionId: string;
@@ -183,17 +207,14 @@ describe('document comparison integration', () => {
   let baseUrl: string;
   let ownerCookie: string;
   let memberCookie: string;
-  let previousQueueWorkerEnabled: string | undefined;
-  let previousComparisonQueueWorkerEnabled: string | undefined;
-  let previousProcessRole: string | undefined;
+  const previousEnv = { ...process.env };
   const createdDocumentIds: string[] = [];
 
   beforeAll(async () => {
-    previousQueueWorkerEnabled = process.env.EXTRACTION_QUEUE_WORKER_ENABLED;
-    previousComparisonQueueWorkerEnabled = process.env.DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED;
-    previousProcessRole = process.env.PROCESS_ROLE;
-    process.env.EXTRACTION_QUEUE_WORKER_ENABLED = '0';
-    process.env.DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED = '1';
+    // bootstrapWorker starts the complete worker application. Keep this test's
+    // comparison consumer isolated from jobs left by other integration suites.
+    for (const key of unrelatedWorkerEnvironmentKeys) process.env[key] = 'false';
+    process.env.DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED = 'true';
     process.env.PROCESS_ROLE = 'api';
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
@@ -216,18 +237,7 @@ describe('document comparison integration', () => {
     }
     await workerApp.close();
     await app.close();
-    if (previousQueueWorkerEnabled === undefined) {
-      delete process.env.EXTRACTION_QUEUE_WORKER_ENABLED;
-    } else {
-      process.env.EXTRACTION_QUEUE_WORKER_ENABLED = previousQueueWorkerEnabled;
-    }
-    if (previousComparisonQueueWorkerEnabled === undefined) {
-      delete process.env.DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED;
-    } else {
-      process.env.DOCUMENT_COMPARISON_QUEUE_WORKER_ENABLED = previousComparisonQueueWorkerEnabled;
-    }
-    if (previousProcessRole === undefined) delete process.env.PROCESS_ROLE;
-    else process.env.PROCESS_ROLE = previousProcessRole;
+    process.env = previousEnv;
   });
 
   it('creates a clause-level comparison for uploaded v1/v2 DOCX versions and blocks unauthorized users', async () => {

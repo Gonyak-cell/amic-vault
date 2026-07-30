@@ -224,7 +224,7 @@ export function VaultActivityContent({
           )}
         />
         <DashboardSection<DashboardPolicyAlert>
-          actionHref="/notifications"
+          actionHref="/work?view=notifications"
           actionLabel="알림 열기"
           icon={<Bell className="h-4 w-4" />}
           title={dashboardSectionLabels.permissionPolicyAlerts}
@@ -233,7 +233,11 @@ export function VaultActivityContent({
           renderItems={(items) => (
             <DashboardList>
               {items.map((item) => (
-                <DashboardListItem actionHref="/notifications" actionLabel="알림" key={item.title}>
+                <DashboardListItem
+                  actionHref="/work?view=notifications"
+                  actionLabel="알림"
+                  key={item.title}
+                >
                   <div className="min-w-0">
                     <div className="font-medium text-foreground">{item.title}</div>
                     <div className="mt-1 text-[12px] text-muted-foreground">{item.description}</div>

@@ -1,9 +1,11 @@
 export const protectedPaths = [
   '/dashboard',
   '/matters',
+  '/clients',
   '/documents',
   '/files',
   '/search',
+  '/work',
   '/contracts',
   '/dd',
   '/litigation',
@@ -14,6 +16,7 @@ export const protectedPaths = [
   '/scale',
   '/audit',
   '/walls',
+  '/notifications',
 ] as const;
 
 export function isProtectedAppPath(pathname: string): boolean {

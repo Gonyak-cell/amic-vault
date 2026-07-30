@@ -109,6 +109,7 @@ describe('MatterDetailPage', () => {
     expect(source).toContain('<MatterWorkstreamTabs matterId={matter.matterId} />');
     expect(source).toContain('href={`/matters/${encodeURIComponent(matterId)}/team`}');
     expect(source).not.toContain('권한으로 보호됨');
+    expect(source).not.toContain('href="/walls"');
   });
 
   it('renders matter issues and near-term key dates with visible status cues', () => {

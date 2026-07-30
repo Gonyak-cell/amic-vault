@@ -59,7 +59,7 @@ type MatterWikiReviewHandler = (pageId: string, action: MatterWikiReviewAction) 
 const workPageSize = 20;
 
 const selectClassName =
-  'flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
+  'flex h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
 
 const sourceFilterLabels = {
   all: '전체 구분',
@@ -305,8 +305,8 @@ export function WorkQueueContent({
       />
       <WorkInboxTabs activeView="mine" />
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="grid min-w-0 gap-4">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
           <section
             aria-label="작업함 조치 콘솔"
             className="rounded-lg border bg-card p-3 shadow-none sm:p-4"
@@ -342,7 +342,7 @@ export function WorkQueueContent({
                   </Button>
                 ) : null}
               </div>
-              <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <FilterField htmlFor="work-kind-filter" label="작업 종류">
                   <select
                     id="work-kind-filter"

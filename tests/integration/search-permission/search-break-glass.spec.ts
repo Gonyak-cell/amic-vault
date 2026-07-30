@@ -135,6 +135,31 @@ describe('search break glass permission filter integration', () => {
     await expect(search(baseUrl, ownerCookie, marker)).resolves.toEqual(
       expect.arrayContaining(fixture.alphaDocumentIds.slice(0, 2)),
     );
+    await withClient(createOwnerClient(), async (client) => {
+      const audit = await client.query<{
+        actor_id: string;
+        matter_id: string;
+        target_id: string;
+      }>(
+        `
+          SELECT actor_id, matter_id, target_id
+          FROM audit_events
+          WHERE tenant_id = $1
+            AND action = 'BREAK_GLASS_USED'
+            AND target_type = 'break_glass_request'
+            AND target_id = $2
+          ORDER BY created_at DESC
+        `,
+        [tenantAlphaId, requestId],
+      );
+      expect(audit.rows).toEqual([
+        {
+          actor_id: alphaOwnerUserId,
+          matter_id: fixture.alphaMatterId,
+          target_id: requestId,
+        },
+      ]);
+    });
 
     await withClient(createOwnerClient(), async (client) => {
       await client.query(

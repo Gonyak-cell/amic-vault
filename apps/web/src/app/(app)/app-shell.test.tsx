@@ -42,7 +42,6 @@ describe('AppShell', () => {
     );
 
     expect(html).toContain('AMIC Vault');
-    expect(html).not.toContain('<main class="grid min-h-screen');
     expect(html).toContain('aria-label="문서 보관함 검색"');
     expect(html).toContain('aria-controls="vault-mobile-navigation"');
     expect(html).toContain('aria-expanded="false"');

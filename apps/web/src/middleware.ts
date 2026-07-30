@@ -28,8 +28,10 @@ export const config = {
     '/v1/:path*',
     '/dashboard/:path*',
     '/matters/:path*',
+    '/clients/:path*',
     '/files/:path*',
     '/search/:path*',
+    '/work/:path*',
     '/documents/:path*',
     '/audit/:path*',
     '/records/:path*',
@@ -42,6 +44,7 @@ export const config = {
     '/integrations/:path*',
     '/scale/:path*',
     '/walls/:path*',
+    '/notifications/:path*',
     '/external/:path*',
   ],
 };

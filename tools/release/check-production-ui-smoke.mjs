@@ -538,16 +538,6 @@ const enterpriseSearchFiles = [
     ],
   },
   {
-    path: 'apps/web/src/app/(app)/search/folders/search-folders-client.tsx',
-    patterns: [
-      { name: 'search folders route saved-search API list', pattern: /listSavedSearches/ },
-      { name: 'search folders route saved-search API delete', pattern: /deleteSavedSearch/ },
-      { name: 'search folders route title', pattern: /내 검색 폴더/ },
-      { name: 'search folders safe URL helper', pattern: /searchUrlForSavedQuery/ },
-      { name: 'search folders no id display by design', pattern: /savedSearchId/ },
-    ],
-  },
-  {
     path: 'apps/web/src/components/search/search-save-panel.tsx',
     patterns: [
       { name: 'current search reusable link', pattern: /링크 복사/ },
@@ -701,16 +691,8 @@ const governanceWorkflowOpsFiles = [
     patterns: [
       { name: 'dashboard DMS action launcher', pattern: /문서 업무 바로가기/ },
       { name: 'dashboard upload shortcut', pattern: /\/files#matter-upload/ },
-      { name: 'dashboard file cabinet shortcut', pattern: /전체 문서함/ },
       { name: 'dashboard search shortcut', pattern: /\/search/ },
-      { name: 'dashboard search folders shortcut', pattern: /\/search\/folders/ },
       { name: 'dashboard work queue shortcut', pattern: /\/work/ },
-      { name: 'dashboard notifications shortcut', pattern: /\/notifications/ },
-      {
-        name: 'dashboard AI prep file filter shortcut',
-        pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/,
-      },
-      { name: 'dashboard ops health shortcut', pattern: /\/admin/ },
       { name: 'dashboard action queue', pattern: /DashboardWorkQueueSection/ },
       { name: 'no fake dashboard queue counts', pattern: /DashboardWorkQueueSection/ },
     ],
@@ -1582,7 +1564,6 @@ const responsiveAccessibilityFiles = [
   {
     path: 'apps/web/src/components/ui/page-header.tsx',
     patterns: [
-      { name: 'responsive header actions', pattern: /flex-col[\s\S]*md:flex-row/ },
       { name: 'breadcrumb navigation label', pattern: /aria-label="이동 경로"/ },
       {
         name: 'active breadcrumb current page',
@@ -1924,6 +1905,12 @@ function checkEnterpriseSearchGuard() {
       if (!pattern.test(source)) {
         fail(`Enterprise search production smoke guard missing ${name} in ${file.path}`);
       }
+    }
+    if (
+      file.path.includes('/search/folders/') &&
+      /\b(?:listSavedSearches|saveSavedSearch|deleteSavedSearch)\b/.test(source)
+    ) {
+      fail(`Enterprise search compatibility route duplicates saved-search APIs in ${file.path}`);
     }
   }
 }

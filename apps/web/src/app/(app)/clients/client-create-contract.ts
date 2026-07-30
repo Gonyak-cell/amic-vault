@@ -1,10 +1,19 @@
-import { createClientSchema, type ClientConfidentialityLevel, type ClientType } from '@amic-vault/shared';
+import {
+  createClientSchema,
+  type ClientConfidentialityLevel,
+  type ClientDto,
+  type ClientType,
+} from '@amic-vault/shared';
 
 export interface NewClientFormState {
   name: string;
   aliasesText: string;
   clientType: ClientType;
   confidentialityLevel: ClientConfidentialityLevel;
+}
+
+export function prependCreatedClient(current: ClientDto[], created: ClientDto): ClientDto[] {
+  return [created, ...current.filter((client) => client.clientId !== created.clientId)];
 }
 
 export function parseClientAliases(value: string): string[] {

@@ -19,7 +19,11 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
-import { buildCreateClientInput, type NewClientFormState } from './client-create-contract';
+import {
+  buildCreateClientInput,
+  prependCreatedClient,
+  type NewClientFormState,
+} from './client-create-contract';
 import { ClientListTable } from './client-list-table';
 
 type ClientLoadState = DataState<ClientDto[]>['status'];
@@ -115,11 +119,21 @@ export default function ClientsPage() {
 
     setSubmitState('submitting');
     try {
-      await createClient(input);
+      const client = await createClient(input);
       setForm(initialForm);
       setSubmitState('idle');
       setSearchQuery('');
-      setActiveSearchQuery('');
+      if (activeSearchQuery) {
+        setActiveSearchQuery('');
+        return;
+      }
+      setClients((current) => prependCreatedClient(current, client));
+      setListMeta((current) =>
+        current
+          ? { ...current, totalCount: current.totalCount + 1 }
+          : { page: 1, pageSize: 100, totalCount: 1 },
+      );
+      setLoadState('ready');
     } catch (error) {
       setSubmitError(error);
       setSubmitState('error');

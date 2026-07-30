@@ -65,9 +65,9 @@ describe('matter conservative guards', () => {
     expect(sql).toContain('FROM matter_members');
     expect(sql).toContain('ethical_wall_memberships');
     expect(sql).toContain('WHERE matters.tenant_id = $1');
-    expect(sql).toContain("matters.matter_code ILIKE $7 ESCAPE '\\'");
-    expect(sql).toContain("matters.matter_name ILIKE $7 ESCAPE '\\'");
-    expect(sql).toContain("clients.name ILIKE $7 ESCAPE '\\'");
+    expect(sql).toContain("matters.matter_code ILIKE $8 ESCAPE '\\'");
+    expect(sql).toContain("matters.matter_name ILIKE $8 ESCAPE '\\'");
+    expect(sql).toContain("clients.name ILIKE $8 ESCAPE '\\'");
     expect(sql).not.toContain('documents');
     expect(sql).not.toContain('document_versions');
     expect(sql).not.toContain('content_text');
@@ -76,6 +76,7 @@ describe('matter conservative guards', () => {
       tenantId,
       actorUserId,
       actorUserId,
+      'matter_owner',
       'open',
       'contract',
       clientId,

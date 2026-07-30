@@ -8,7 +8,7 @@ import {
 } from './matter-detail-tabs';
 
 describe('MatterDetailTabs', () => {
-  it('keeps the five primary tabs keyboard and screen-reader addressable', () => {
+  it('exposes the five primary tabs with screen-reader semantics', () => {
     const html = renderToStaticMarkup(
       <MatterDetailTabs
         panels={{

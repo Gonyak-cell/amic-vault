@@ -2,7 +2,11 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { ClientDto } from '@amic-vault/shared';
-import { buildCreateClientInput, parseClientAliases } from './client-create-contract';
+import {
+  buildCreateClientInput,
+  parseClientAliases,
+  prependCreatedClient,
+} from './client-create-contract';
 import { ClientListTable, clientDetailPath } from './client-list-table';
 import ClientsPage from './page';
 
@@ -79,6 +83,19 @@ describe('ClientsPage', () => {
 
   it('parses alias text without keeping blanks', () => {
     expect(parseClientAliases(' AMIC,\n, 에이믹 ')).toEqual(['AMIC', '에이믹']);
+  });
+
+  it('prepends a newly created client to the unfiltered list without duplicates', () => {
+    const createdClient = { ...clientFixture, clientId: '22222222-2222-4222-8222-222222222222' };
+
+    expect(prependCreatedClient([clientFixture], createdClient)).toEqual([
+      createdClient,
+      clientFixture,
+    ]);
+    expect(prependCreatedClient([createdClient, clientFixture], createdClient)).toEqual([
+      createdClient,
+      clientFixture,
+    ]);
   });
 });
 

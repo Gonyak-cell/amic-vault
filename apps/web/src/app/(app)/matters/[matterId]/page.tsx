@@ -14,8 +14,6 @@ import {
   Scale,
   Share2,
   Trash2,
-  TriangleAlert,
-  Users,
 } from 'lucide-react';
 import type {
   AiPrepMatterReadinessDto,
@@ -242,20 +240,7 @@ export default function MatterDetailPage({
         title={matter?.matterName ?? 'Matter'}
         actions={
           matter ? (
-            <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/matters/${params.matterId}/team`}>
-                  <Users className="h-4 w-4" />팀 권한
-                </Link>
-              </Button>
-              {matter.ethicalWallActive || matter.accessScope === 'restricted' ? (
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/walls">
-                    <TriangleAlert className="h-4 w-4" />
-                    정보 차단
-                  </Link>
-                </Button>
-              ) : null}
+            <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
               <MatterWorkspaceActions matter={matter} />
               <MatterStatusBadge status={matter.status} />
             </div>
@@ -296,43 +281,45 @@ export default function MatterDetailPage({
           panels={{
             overview: (
               <>
-                <dl className="grid gap-3 text-sm sm:grid-cols-4">
-                  <div className="rounded-md border bg-card p-3">
+                <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="min-w-0 rounded-md border bg-card p-3">
                     <dt className="text-xs uppercase text-muted-foreground">고객</dt>
-                    <dd className="mt-1 font-medium">
+                    <dd className="mt-1 break-words font-medium">
                       {matter.clientDisplayName ?? '고객 표시명 없음'}
                     </dd>
                   </div>
-                  <div className="rounded-md border bg-card p-3">
+                  <div className="min-w-0 rounded-md border bg-card p-3">
                     <dt className="text-xs uppercase text-muted-foreground">유형</dt>
-                    <dd className="mt-1 font-medium">{matter.matterType}</dd>
+                    <dd className="mt-1 break-words font-medium">{matter.matterType}</dd>
                   </div>
-                  <div className="rounded-md border bg-card p-3">
+                  <div className="min-w-0 rounded-md border bg-card p-3">
                     <dt className="text-xs uppercase text-muted-foreground">그룹</dt>
-                    <dd className="mt-1 font-medium">
+                    <dd className="mt-1 break-words font-medium">
                       {matter.practiceGroup ?? '표시할 항목이 없습니다.'}
                     </dd>
                   </div>
-                  <div className="rounded-md border bg-card p-3">
+                  <div className="min-w-0 rounded-md border bg-card p-3">
                     <dt className="text-xs uppercase text-muted-foreground">보안 등급</dt>
-                    <dd className="mt-1 font-medium">
+                    <dd className="mt-1 break-words font-medium">
                       {matterConfidentialityLabels[matter.confidentialityLevel]}
                       {matter.ethicalWallActive ? ' · Wall 활성' : ''}
                     </dd>
                   </div>
-                  <div className="rounded-md border bg-card p-3">
+                  <div className="min-w-0 rounded-md border bg-card p-3">
                     <dt className="text-xs uppercase text-muted-foreground">보존 제한</dt>
-                    <dd className="mt-1 font-medium">{matter.legalHold ? '적용됨' : '없음'}</dd>
+                    <dd className="mt-1 break-words font-medium">
+                      {matter.legalHold ? '적용됨' : '없음'}
+                    </dd>
                   </div>
-                  <div className="rounded-md border bg-card p-3">
+                  <div className="min-w-0 rounded-md border bg-card p-3">
                     <dt className="text-xs uppercase text-muted-foreground">리드 파트너</dt>
-                    <dd className="mt-1 font-medium">
+                    <dd className="mt-1 break-words font-medium">
                       {matter.leadPartnerDisplayName ?? matter.leadLawyerDisplayName ?? '미지정'}
                     </dd>
                   </div>
-                  <div className="rounded-md border bg-card p-3">
+                  <div className="min-w-0 rounded-md border bg-card p-3">
                     <dt className="text-xs uppercase text-muted-foreground">리드 어소</dt>
-                    <dd className="mt-1 font-medium">
+                    <dd className="mt-1 break-words font-medium">
                       {matter.leadAssociateDisplayName ?? '미지정'}
                     </dd>
                   </div>
@@ -699,10 +686,10 @@ function MatterRelationsPanel({
   onRemove: (item: MatterRelatedMatterDto) => void;
 }) {
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_160px_auto]">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[minmax(220px,1fr)_160px_auto]">
         <select
-          className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={selectedRelatedMatterId}
           disabled={busy}
           onChange={(event) => onSelectMatter(event.target.value)}
@@ -716,7 +703,7 @@ function MatterRelationsPanel({
           ))}
         </select>
         <select
-          className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={selectedRelationType}
           disabled={busy}
           onChange={(event) => onSelectRelation(event.target.value as MatterRelationType)}
@@ -728,12 +715,18 @@ function MatterRelationsPanel({
             </option>
           ))}
         </select>
-        <Button type="button" size="sm" disabled={!selectedRelatedMatterId || busy} onClick={onAdd}>
+        <Button
+          type="button"
+          size="sm"
+          className="w-full md:w-auto"
+          disabled={!selectedRelatedMatterId || busy}
+          onClick={onAdd}
+        >
           <Plus className="h-4 w-4" />
           추가
         </Button>
       </div>
-      <div className="grid gap-2">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
         {relatedMatters.map((item) => (
           <div
             key={`${item.linkId}:${item.relationType}`}

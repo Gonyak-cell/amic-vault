@@ -135,7 +135,21 @@ export const routeVisibilityPolicies = [
     showInNavigation: false,
   },
   {
+    route: '/integrations',
+    group: 'Integrations',
+    production: 'visible_admin_only',
+    roles: adminRoles,
+    showInNavigation: false,
+  },
+  {
     route: '/integrations/outlook',
+    group: 'Integrations',
+    production: 'visible_admin_only',
+    roles: adminRoles,
+    showInNavigation: false,
+  },
+  {
+    route: '/integrations/matter-app',
     group: 'Integrations',
     production: 'visible_admin_only',
     roles: adminRoles,

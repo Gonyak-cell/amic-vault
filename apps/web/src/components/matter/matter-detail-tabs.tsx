@@ -186,7 +186,10 @@ export function MatterDetailTabs({
   }
 
   return (
-    <section className="grid gap-4" aria-label="Matter 기본 탭">
+    <section
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4"
+      aria-label="Matter 기본 탭"
+    >
       <div
         className="flex min-w-0 overflow-x-auto border-b"
         role="tablist"
@@ -228,7 +231,7 @@ export function MatterDetailTabs({
           aria-labelledby={`${tab.key}-tab`}
           tabIndex={-1}
           hidden={activeTab !== tab.key}
-          className="grid min-w-0 gap-4 scroll-mt-6"
+          className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 scroll-mt-6"
         >
           {activeTab === tab.key ? panels[tab.key] : null}
         </section>

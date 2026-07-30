@@ -8,28 +8,11 @@ import { NestFactory } from '@nestjs/core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
-import { SESSION_COOKIE_NAME } from '../../apps/api/src/modules/auth/session.repository';
-import { createOwnerClient, tenantBetaId, withClient } from './helpers/db';
+import { createOwnerClient, tenantAlphaId, withClient } from './helpers/db';
+import { loginSearchUser } from './search-permission/search-http-helpers';
 
-const betaOwnerUserId = '22222222-2222-4222-8222-222222222201';
+const alphaFirmAdminUserId = '11111111-1111-4111-8111-111111111100';
 const expectedAxisCounts = JSON.stringify({ Advisory: 1, LIT: 1, Dispute: 1, DEAL: 1 });
-
-async function loginBetaOwner(baseUrl: string): Promise<string> {
-  const response = await fetch(`${baseUrl}/v1/auth/login`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      tenantId: tenantBetaId,
-      email: 'beta-matter-owner@test.local',
-      password: 'dev-beta-owner-password',
-    }),
-  });
-  const body = await response.text();
-  expect(response.status, body).toBe(201);
-  const cookie = response.headers.get('set-cookie')?.split(';')[0] ?? '';
-  expect(cookie).toMatch(new RegExp(`^${SESSION_COOKIE_NAME}=`));
-  return cookie;
-}
 
 function sourceMatter(
   token: string,
@@ -113,7 +96,11 @@ async function writeArtifact(token: string, revision: string): Promise<string> {
   return filePath;
 }
 
-function runReflection(input: { artifactPath: string; mode: 'dry-run' | 'execute'; revision: string }) {
+function runReflection(input: {
+  artifactPath: string;
+  mode: 'dry-run' | 'execute';
+  revision: string;
+}) {
   return spawnSync(
     process.execPath,
     [
@@ -121,9 +108,9 @@ function runReflection(input: { artifactPath: string; mode: 'dry-run' | 'execute
       '--mode',
       input.mode,
       '--tenant-id',
-      tenantBetaId,
+      tenantAlphaId,
       '--operator-user-id',
-      betaOwnerUserId,
+      alphaFirmAdminUserId,
       '--approval-ref',
       `A14-${input.revision}`,
       '--source-artifact',
@@ -159,7 +146,7 @@ async function syncState() {
           AND source_ref = 'lawos_lazycodex_canonical_identity'
         LIMIT 1
       `,
-      [tenantBetaId],
+      [tenantAlphaId],
     );
     return result.rows[0];
   });
@@ -168,14 +155,24 @@ async function syncState() {
 describe('matter app sync health integration', () => {
   let app: INestApplication;
   let baseUrl: string;
-  let betaOwnerCookie: string;
+  let firmAdminCookie: string;
+  let memberCookie: string;
 
   beforeAll(async () => {
     app = await NestFactory.create(AppModule, { logger: false });
     configureApp(app);
     await app.listen(0);
     baseUrl = await app.getUrl();
-    betaOwnerCookie = await loginBetaOwner(baseUrl);
+    firmAdminCookie = await loginSearchUser(baseUrl, {
+      tenantId: tenantAlphaId,
+      email: 'alpha-firm-admin@test.local',
+      password: 'dev-alpha-firm-admin-password',
+    });
+    memberCookie = await loginSearchUser(baseUrl, {
+      tenantId: tenantAlphaId,
+      email: 'alpha-member@test.local',
+      password: 'dev-alpha-member-password',
+    });
   });
 
   afterAll(async () => {
@@ -214,7 +211,7 @@ describe('matter app sync health integration', () => {
     );
 
     const response = await fetch(`${baseUrl}/v1/integrations/matter-app/status`, {
-      headers: { cookie: betaOwnerCookie },
+      headers: { cookie: firmAdminCookie },
     });
     const body = (await response.json()) as {
       driftCount?: number;
@@ -229,5 +226,18 @@ describe('matter app sync health integration', () => {
       syncStateAvailable: true,
     });
     expect(body.lastSyncAt).toBe(stateAfterExecute?.last_sync_at.toISOString());
+  });
+
+  it('blocks ordinary members from Matter app operational status fields', async () => {
+    const response = await fetch(`${baseUrl}/v1/integrations/matter-app/status`, {
+      headers: { cookie: memberCookie },
+    });
+    const body = await response.text();
+
+    expect(response.status, body).toBe(403);
+    expect(body).toContain('PERMISSION_DENIED');
+    expect(body).not.toContain('lastSyncAt');
+    expect(body).not.toContain('reflectedCount');
+    expect(body).not.toContain('driftCount');
   });
 });

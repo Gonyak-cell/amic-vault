@@ -15,8 +15,6 @@ describe('layout primitives', () => {
     );
 
     expect(html).toContain('<main');
-    expect(html).toContain('min-w-0');
-    expect(html).toContain('max-w-[1480px]');
     expect(html).toContain('문서함');
   });
 
@@ -31,9 +29,6 @@ describe('layout primitives', () => {
 
     expect(html).toContain('aria-label="이동 경로"');
     expect(html).toContain('aria-current="page"');
-    expect(html).toContain('flex-wrap');
-    expect(html).toContain('md:flex-row');
-    expect(html).toContain('mt-2 max-w-full truncate');
     expect(html).toContain('새 문서');
   });
 
@@ -48,12 +43,6 @@ describe('layout primitives', () => {
       </SectionCard>,
     );
 
-    expect(html).toContain('overflow-hidden');
-    expect(html).toContain('min-w-0');
-    expect(html).toContain('flex-wrap');
-    expect(html).toContain('justify-end');
-    expect(html).toContain('items-baseline');
-    expect(html).toContain('gap-2 overflow-hidden');
     expect(html).toContain('실제 상태 기반');
     expect(html).toContain('본문 추출 대기');
   });

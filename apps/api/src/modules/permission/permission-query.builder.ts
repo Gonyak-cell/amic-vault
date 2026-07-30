@@ -26,7 +26,8 @@ export class PermissionQueryBuilder {
     }
 
     const memberParam = firstParamIndex;
-    const wallParam = firstParamIndex + 1;
+    const subjectParam = firstParamIndex + 1;
+    const roleParam = firstParamIndex + 2;
     return {
       sql: `
         EXISTS (
@@ -38,30 +39,103 @@ export class PermissionQueryBuilder {
         )
         AND NOT EXISTS (
           SELECT 1
+          FROM permissions p
+          WHERE p.tenant_id = ${matterAlias}.tenant_id
+            AND p.resource_type = 'matter'
+            AND p.resource_id = ${matterAlias}.matter_id
+            AND p.action = 'read'
+            AND (p.valid_from IS NULL OR p.valid_from <= now())
+            AND (p.valid_to IS NULL OR p.valid_to >= now())
+            AND (
+              (p.subject_type = 'user' AND p.subject_id = $${subjectParam}::text)
+              OR (p.subject_type = 'role' AND p.subject_id = $${roleParam})
+              OR (
+                p.subject_type = 'group'
+                AND p.subject_id IN (
+                  SELECT gm.group_id::text
+                  FROM group_members gm
+                  WHERE gm.tenant_id = ${matterAlias}.tenant_id
+                    AND gm.user_id = $${subjectParam}::uuid
+                )
+              )
+            )
+            AND (
+              p.effect = 'DENY'
+              OR (p.condition_json IS NOT NULL AND p.condition_json <> '{}'::jsonb)
+            )
+        )
+        AND NOT EXISTS (
+          SELECT 1
           FROM ethical_walls ew
-          JOIN ethical_wall_memberships ewm
-            ON ewm.tenant_id = ew.tenant_id
-           AND ewm.wall_id = ew.wall_id
           WHERE ew.tenant_id = ${matterAlias}.tenant_id
             AND ew.matter_id = ${matterAlias}.matter_id
             AND ew.status = 'active'
             AND (
-              (ewm.subject_type = 'user' AND ewm.subject_id = $${wallParam}::uuid)
+              EXISTS (
+                SELECT 1
+                FROM ethical_wall_memberships excluded
+                WHERE excluded.tenant_id = ew.tenant_id
+                  AND excluded.wall_id = ew.wall_id
+                  AND excluded.membership_type = 'excluded'
+                  AND (
+                    (
+                      excluded.subject_type = 'user'
+                      AND excluded.subject_id = $${subjectParam}::uuid
+                    )
+                    OR (
+                      excluded.subject_type = 'group'
+                      AND excluded.subject_id IN (
+                        SELECT gm.group_id
+                        FROM group_members gm
+                        WHERE gm.tenant_id = ${matterAlias}.tenant_id
+                          AND gm.user_id = $${subjectParam}::uuid
+                      )
+                    )
+                  )
+              )
               OR (
-                ewm.subject_type = 'group'
-                AND ewm.subject_id IN (
-                  SELECT gm.group_id
-                  FROM group_members gm
-                  WHERE gm.tenant_id = ${matterAlias}.tenant_id
-                    AND gm.user_id = $${wallParam}::uuid
+                EXISTS (
+                  SELECT 1
+                  FROM ethical_wall_memberships any_insider
+                  WHERE any_insider.tenant_id = ew.tenant_id
+                    AND any_insider.wall_id = ew.wall_id
+                    AND any_insider.membership_type = 'insider'
+                )
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM ethical_wall_memberships insider
+                  WHERE insider.tenant_id = ew.tenant_id
+                    AND insider.wall_id = ew.wall_id
+                    AND insider.membership_type = 'insider'
+                    AND (
+                      (
+                        insider.subject_type = 'user'
+                        AND insider.subject_id = $${subjectParam}::uuid
+                      )
+                      OR (
+                        insider.subject_type = 'group'
+                        AND insider.subject_id IN (
+                          SELECT gm.group_id
+                          FROM group_members gm
+                          WHERE gm.tenant_id = ${matterAlias}.tenant_id
+                            AND gm.user_id = $${subjectParam}::uuid
+                        )
+                      )
+                    )
                 )
               )
             )
-            AND ewm.membership_type = 'excluded'
         )
       `,
-      params: [ctx.userId, ctx.userId],
-      appliedRules: ['matter_members:required_for_read', 'ethical_wall:excluded_filter'],
+      params: [ctx.userId, ctx.userId, ctx.role],
+      appliedRules: [
+        'matter_members:required_for_read',
+        'matter.permissions:condition_fail_closed',
+        'matter.permissions:explicit_deny',
+        'ethical_wall:excluded_filter',
+        'ethical_wall:insider_required_filter',
+        'ethical_wall:break_glass_requires_audited_read',
+      ],
     };
   }
 }

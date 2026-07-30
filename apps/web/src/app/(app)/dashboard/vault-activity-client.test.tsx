@@ -17,6 +17,8 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('href="/files#matter-upload"');
     expect(html).toContain('href="/search"');
     expect(html).toContain('href="/work"');
+    expect(html).toContain('href="/work?view=notifications"');
+    expect(html).not.toContain('href="/notifications"');
     expect(html).toContain('업무 기한');
     expect(html).toContain('접근 가능한 Matter');
     expect(html).toContain('최근 문서');
@@ -77,7 +79,15 @@ describe('VaultActivityClient', () => {
               },
             ],
           },
-          permissionPolicyAlerts: { status: 'empty' },
+          permissionPolicyAlerts: {
+            status: 'ready',
+            data: [
+              {
+                title: '권한 정책 확인',
+                description: '확인이 필요한 권한 정책 알림입니다.',
+              },
+            ],
+          },
           aiPrepStatus: {
             status: 'ready',
             data: [{ matterLabel: 'M-001 · Governance', statusLabel: '정리 준비 완료 2건' }],
@@ -124,6 +134,8 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('문서함 열기');
     expect(html).toContain('감사 열기');
     expect(html).toContain('알림 열기');
+    expect(html.match(/href="\/work\?view=notifications"/g) ?? []).toHaveLength(2);
+    expect(html).not.toContain('href="/notifications"');
     expect(html.match(/검토 의견 제출/g) ?? []).toHaveLength(2);
     expect(html.match(/문서 정보 확인/g) ?? []).toHaveLength(1);
 

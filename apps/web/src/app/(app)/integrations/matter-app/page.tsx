@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
+import { RouteVisibilityGuard } from '@/components/security/route-visibility-guard';
 import { getMatterAppStatus } from '@/lib/api-client';
 import { matterAppSourceStatus } from '@/lib/matter-app';
 import { useI18n } from '@/lib/i18n';
@@ -23,6 +24,14 @@ function formatSyncTime(value: string | null): string {
 }
 
 export default function MatterAppIntegrationPage() {
+  return (
+    <RouteVisibilityGuard area="Matter 앱 연동" route="/integrations/matter-app">
+      <MatterAppIntegrationContent />
+    </RouteVisibilityGuard>
+  );
+}
+
+function MatterAppIntegrationContent() {
   const { t } = useI18n();
   const localStatus = React.useMemo(
     () =>

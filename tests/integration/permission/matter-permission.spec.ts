@@ -81,17 +81,22 @@ async function addMember(
   expect(response.status, await response.text()).toBe(201);
 }
 
-async function insertExplicitDeny(matterId: string, userId: string) {
+async function insertExplicitPermission(
+  matterId: string,
+  userId: string,
+  effect: 'ALLOW' | 'DENY',
+  conditionJson: Record<string, unknown> | null = null,
+) {
   await withClient(createOwnerClient(), async (client) => {
     await client.query(
       `
         INSERT INTO permissions (
           tenant_id, subject_type, subject_id, resource_type, resource_id,
-          action, effect, created_by
+          action, effect, condition_json, created_by
         )
-        VALUES ($1, 'user', $2, 'matter', $3, 'read', 'DENY', $4)
+        VALUES ($1, 'user', $2, 'matter', $3, 'read', $4, $5, $6)
       `,
-      [tenantAlphaId, userId, matterId, alphaOwnerUserId],
+      [tenantAlphaId, userId, matterId, effect, conditionJson, alphaOwnerUserId],
     );
   });
 }
@@ -342,7 +347,7 @@ describe('matter permission integration', () => {
     expect(wallDeniedBody).toContain('ETHICAL_WALL_BLOCKED');
 
     const deniedMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'firm_open');
-    await insertExplicitDeny(deniedMatterId, alphaOwnerUserId);
+    await insertExplicitPermission(deniedMatterId, alphaOwnerUserId, 'DENY');
     const explicitDenied = await fetch(`${baseUrl}/v1/matters/${deniedMatterId}`, {
       headers: { cookie: ownerCookie },
     });
@@ -367,7 +372,7 @@ describe('matter permission integration', () => {
     expect(parsed.totalCount).toBe(parsed.items.length);
   });
 
-  it('applies q search after membership and ethical-wall filters for rows and total count', async () => {
+  it('applies q search after permission deny overrides for rows and total count', async () => {
     const searchToken = `SFQ${randomUUID().replaceAll('-', '')}`;
     const allowedMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted', {
       matterCode: `${searchToken}-ALLOW`,
@@ -381,8 +386,35 @@ describe('matter permission integration', () => {
       matterCode: `${searchToken}-WALL`,
       matterName: `${searchToken} wall blocked`,
     });
+    const explicitDenyMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted', {
+      matterCode: `${searchToken}-DENY`,
+      matterName: `${searchToken} explicit deny`,
+    });
+    const invalidConditionMatterId = await createMatter(
+      baseUrl,
+      ownerCookie,
+      clientId,
+      'restricted',
+      {
+        matterCode: `${searchToken}-CONDITION`,
+        matterName: `${searchToken} invalid condition`,
+      },
+    );
+    const insiderMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted', {
+      matterCode: `${searchToken}-INSIDER`,
+      matterName: `${searchToken} insider required`,
+    });
     await addMember(baseUrl, ownerCookie, allowedMatterId);
     await addMember(baseUrl, ownerCookie, wallMatterId);
+    await addMember(baseUrl, ownerCookie, explicitDenyMatterId);
+    await addMember(baseUrl, ownerCookie, invalidConditionMatterId);
+    await addMember(baseUrl, ownerCookie, insiderMatterId);
+    await insertExplicitPermission(explicitDenyMatterId, alphaPermissionMemberUserId, 'DENY');
+    await insertExplicitPermission(invalidConditionMatterId, alphaPermissionMemberUserId, 'ALLOW', {
+      attribute: 'matter.billing_rate',
+      operator: 'eq',
+      value: 'secret',
+    });
 
     const wall = await fetch(`${baseUrl}/v1/ethical-walls`, {
       method: 'POST',
@@ -402,6 +434,42 @@ describe('matter permission integration', () => {
     });
     expect(wall.status, await wall.text()).toBe(201);
 
+    const insiderWall = await fetch(`${baseUrl}/v1/ethical-walls`, {
+      method: 'POST',
+      headers: { cookie: securityAdminCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        matterId: insiderMatterId,
+        wallName: `Matter Search Insider Wall ${randomUUID()}`,
+        reason: 'conflict_check',
+        members: [
+          {
+            subjectType: 'user',
+            subjectId: alphaOwnerUserId,
+            membershipType: 'insider',
+          },
+        ],
+      }),
+    });
+    expect(insiderWall.status, await insiderWall.text()).toBe(201);
+
+    const explicitDenyDetail = await fetch(`${baseUrl}/v1/matters/${explicitDenyMatterId}`, {
+      headers: { cookie: memberCookie },
+    });
+    expect(explicitDenyDetail.status, await explicitDenyDetail.text()).toBe(404);
+
+    const invalidConditionDetail = await fetch(
+      `${baseUrl}/v1/matters/${invalidConditionMatterId}`,
+      { headers: { cookie: memberCookie } },
+    );
+    expect(invalidConditionDetail.status, await invalidConditionDetail.text()).toBe(404);
+
+    const insiderDetail = await fetch(`${baseUrl}/v1/matters/${insiderMatterId}`, {
+      headers: { cookie: memberCookie },
+    });
+    const insiderDetailBody = await insiderDetail.text();
+    expect(insiderDetail.status, insiderDetailBody).toBe(403);
+    expect(insiderDetailBody).toContain('ETHICAL_WALL_BLOCKED');
+
     const memberList = await fetch(
       `${baseUrl}/v1/matters?q=${encodeURIComponent(searchToken)}&pageSize=100`,
       { headers: { cookie: memberCookie } },
@@ -412,6 +480,9 @@ describe('matter permission integration', () => {
     expect(parsed.items.map((item) => item.matterId)).toEqual([allowedMatterId]);
     expect(parsed.items.some((item) => item.matterId === nonMemberMatterId)).toBe(false);
     expect(parsed.items.some((item) => item.matterId === wallMatterId)).toBe(false);
+    expect(parsed.items.some((item) => item.matterId === explicitDenyMatterId)).toBe(false);
+    expect(parsed.items.some((item) => item.matterId === invalidConditionMatterId)).toBe(false);
+    expect(parsed.items.some((item) => item.matterId === insiderMatterId)).toBe(false);
     expect(parsed.totalCount).toBe(1);
   });
 

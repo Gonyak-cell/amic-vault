@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { isProtectedAppPath, loginRedirectUrl, protectedPaths } from './auth-guard';
+import {
+  isProtectedAppPath,
+  loginRedirectUrl,
+  protectedPaths,
+  shouldRedirectToLogin,
+} from './auth-guard';
 
 describe('auth guard paths', () => {
   it('protects internal work surfaces while leaving token portal routes isolated', () => {
@@ -8,6 +13,8 @@ describe('auth guard paths', () => {
     expect(isProtectedAppPath('/contracts/rules')).toBe(true);
     expect(isProtectedAppPath('/dd')).toBe(true);
     expect(isProtectedAppPath('/litigation')).toBe(true);
+    expect(isProtectedAppPath('/clients')).toBe(true);
+    expect(isProtectedAppPath('/clients/11111111-1111-4111-8111-111111111199')).toBe(true);
     expect(isProtectedAppPath('/files')).toBe(true);
     expect(isProtectedAppPath('/files/recent')).toBe(true);
     expect(isProtectedAppPath('/documents/11111111-1111-4111-8111-111111111177')).toBe(true);
@@ -16,7 +23,17 @@ describe('auth guard paths', () => {
     expect(isProtectedAppPath('/admin')).toBe(true);
     expect(isProtectedAppPath('/admin/security')).toBe(true);
     expect(isProtectedAppPath('/integrations/outlook')).toBe(true);
+    expect(isProtectedAppPath('/notifications')).toBe(true);
+    expect(isProtectedAppPath('/notifications/unread')).toBe(true);
+    expect(isProtectedAppPath('/work')).toBe(true);
     expect(isProtectedAppPath('/external/opaque-token')).toBe(false);
+  });
+
+  it('requires a session for both the legacy notification route and the canonical work route', () => {
+    expect(shouldRedirectToLogin('/notifications', false)).toBe(true);
+    expect(shouldRedirectToLogin('/notifications', true)).toBe(false);
+    expect(shouldRedirectToLogin('/work', false)).toBe(true);
+    expect(shouldRedirectToLogin('/work', true)).toBe(false);
   });
 
   it('preserves same-origin deep-link query parameters in the login next URL', () => {

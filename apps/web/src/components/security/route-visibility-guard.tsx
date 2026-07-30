@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { UserSummary } from '@amic-vault/shared';
+import React, { useEffect, useState, type ReactNode } from 'react';
+import type { CurrentUserResponseDto, UserSummary } from '@amic-vault/shared';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
@@ -11,10 +11,25 @@ import { canRoleViewRoute, findRouteVisibilityPolicy } from '@/lib/features';
 import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { RouteBlockedState } from './route-blocked-state';
 
-type GuardState =
+export type RouteGuardState =
   | { status: 'loading' }
   | { status: 'allowed'; user: UserSummary }
   | { status: 'blocked' };
+
+export async function resolveRouteVisibility(
+  route: string,
+  loadCurrentUser: () => Promise<CurrentUserResponseDto> = getCurrentUser,
+): Promise<RouteGuardState> {
+  try {
+    const policy = findRouteVisibilityPolicy(route);
+    const { user } = await loadCurrentUser();
+    return policy && canRoleViewRoute(policy, user.role)
+      ? { status: 'allowed', user }
+      : { status: 'blocked' };
+  } catch {
+    return { status: 'blocked' };
+  }
+}
 
 export function RouteVisibilityGuard({
   area,
@@ -28,29 +43,19 @@ export function RouteVisibilityGuard({
   route: string;
 }) {
   const { t } = useI18n();
-  const policy = useMemo(() => findRouteVisibilityPolicy(route), [route]);
   const displayArea = areaKey ? t(areaKey) : (area ?? t('route.blocked.defaultArea'));
-  const [state, setState] = useState<GuardState>({ status: 'loading' });
+  const [state, setState] = useState<RouteGuardState>({ status: 'loading' });
 
   useEffect(() => {
     let active = true;
-    getCurrentUser()
-      .then(({ user }) => {
-        if (!active) return;
-        if (policy && canRoleViewRoute(policy, user.role)) {
-          setState({ status: 'allowed', user });
-          return;
-        }
-        setState({ status: 'blocked' });
-      })
-      .catch(() => {
-        if (active) setState({ status: 'blocked' });
-      });
+    resolveRouteVisibility(route).then((nextState) => {
+      if (active) setState(nextState);
+    });
 
     return () => {
       active = false;
     };
-  }, [policy]);
+  }, [route]);
 
   if (state.status === 'allowed') return children;
 

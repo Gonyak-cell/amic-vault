@@ -8,9 +8,18 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { RouteVisibilityGuard } from '@/components/security/route-visibility-guard';
 import { useI18n } from '@/lib/i18n';
 
 export default function IntegrationsPage() {
+  return (
+    <RouteVisibilityGuard area="연동" route="/integrations">
+      <IntegrationsContent />
+    </RouteVisibilityGuard>
+  );
+}
+
+function IntegrationsContent() {
   const { t } = useI18n();
 
   return (
