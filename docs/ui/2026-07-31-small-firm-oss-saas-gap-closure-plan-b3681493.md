@@ -1,6 +1,6 @@
 # 소규모 로펌용 OSS SaaS UI Gap Closure 계획 — `b3681493`
 
-> 상태: **IMPLEMENTATION IN PROGRESS**
+> 상태: **G35 IMPLEMENTATION IN PROGRESS**
 >
 > 원 계획: `docs/ui/2026-07-30-small-firm-oss-saas-plan-b3681493.md`
 >
@@ -16,10 +16,10 @@
 
 ## 1. 목적과 판정
 
-기존 계획의 `SF-B368-001~020`과 `SF-B368-C01~C03`를 현재 코드, 테스트,
-브라우저 증거에 다시 대조한 결과 **100% 완료로 판정할 수 없다**. lint, typecheck,
-unit, build, migration 왕복과 전체 integration이 통과하더라도 아래 acceptance는
-구현 또는 재현 가능한 증거가 부족하다.
+재검증 시작 시 기존 계획의 `SF-B368-001~020`과 `SF-B368-C01~C03`를 코드, 테스트,
+브라우저 증거에 다시 대조한 결과 **100% 완료로 판정할 수 없었다**. 당시 lint,
+typecheck, unit, build, migration 왕복과 전체 integration이 통과하더라도 아래
+acceptance는 구현 또는 재현 가능한 증거가 부족했다.
 
 - Home에서 실제 업무보다 빠른 작업이 먼저 나오며 문서 업로드 링크가 dead target이다.
 - 사용자 문구 일부에 raw role/status/type 값과 번역투가 남아 있다.
@@ -39,6 +39,11 @@ unit, build, migration 왕복과 전체 integration이 통과하더라도 아래
 
 이 문서는 위 차이를 외부 연결 없이 닫는 추가 testable unit of work를 정의한다. 원 계획의
 완료 표시는 이 문서의 최종 검증이 끝날 때까지 잠정 판정이다.
+
+2026-07-31 소스 SHA `3762ac4bf5b980bc1e73811a95a2e638a6447a97` 검토에서
+G01~G34와 원 계획 001~020/C01~C03를 다시 검증했으나, Client 생성과 진행 중 목록
+요청 사이의 경쟁 조건이 G35로 추가 확인됐다. 따라서 해당 SHA의 완료 판정은 잠정
+철회하며 G35 구현과 최종 SHA 재검증 뒤 새 영수증으로 종결한다.
 
 ## 2. 공통 불변식과 제외 범위
 
@@ -708,6 +713,29 @@ unit, build, migration 왕복과 전체 integration이 통과하더라도 아래
   50-combination actual browser overflow/interactive-boundary matrix, independent read-only
   code review.
 
+### `SF-B368-G35` — Client 생성과 목록 응답의 generation 정합성
+
+- Risk / Size: H / XS
+- 소유 파일:
+  - `apps/web/src/app/(app)/clients/client-load-state.ts`
+  - `apps/web/src/app/(app)/clients/page.tsx`
+  - `apps/web/src/app/(app)/clients/page.test.tsx`
+- 발견 근거: G34 이후 최종 독립 소스 검토에서 검색어가 없는 Client 목록 요청이 진행
+  중일 때 생성이 성공하면 새 행을 먼저 prepend하지만, 늦게 완료된 기존 `listClients`
+  응답이 그 행을 다시 덮어쓸 수 있음이 확인됐다. 기존 generation 취소 계약은 검색과
+  새로고침 사이에서만 사용되고 생성 성공 경로에는 적용되지 않았다.
+- 목표: Client 생성 성공을 현재 목록 generation의 변경으로 취급해, 생성 전에 시작된
+  목록 성공·실패 응답이 새로 등록된 행과 상태를 덮어쓰지 못하게 한다.
+- Acceptance:
+  - 생성 성공 직후 진행 중인 Client 목록 generation을 먼저 무효화한다.
+  - 검색 중 생성이면 기존 검색을 해제한 새 목록 요청만 결과를 게시한다.
+  - 검색 없는 목록이면 방금 생성한 Client를 기존 표시 목록 앞에 중복 없이 유지한다.
+  - 생성 전에 시작된 목록의 늦은 success/error는 생성 후 목록·meta·상태를 변경하지
+    않는다.
+  - dependency, API contract, 권한 계약, responsive layout을 변경하지 않는다.
+- Verification: deferred list/create ordering behavior test, focused/full Web tests,
+  lint/typecheck/build, final exact-SHA regression, independent read-only code review.
+
 ## 4. 실행 순서
 
 ```text
@@ -740,7 +768,8 @@ G30 ─ G31 ──────────────────────�
 G31 ─ G32 ────────────────────────┤
 G16 ─ G33 ────────────────────────┤
 G17/G26 ─ G34 ────────────────────┤
-G01~G34 전체 ───────────────────┴─ G11
+G17/G26/G34 ─ G35 ────────────────┤
+G01~G35 전체 ───────────────────┴─ G11
 ```
 
 - 파일 소유권이 겹치지 않는 G01~G06, G10은 병렬 실행할 수 있다.
@@ -751,7 +780,26 @@ G01~G34 전체 ───────────────────┴─ G
 
 ## 5. 완료 기준
 
-`SF-B368-G01~G34`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
+`SF-B368-G01~G35`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
 `SF-B368-001~020`, `C01~C03`를 최종 코드 SHA에서 다시 판정했을 때만
 “계획과 goal대로 100% 로컬 구현”이라고 기록한다. 그렇지 않으면 통과 범위와 남은
 경계를 수치로 보고한다.
+
+## 6. 완료 영수증
+
+- 최종 검증 소스 SHA: G35 구현 후 확정
+- G01~G35: 최종 재검증 대기
+- 원 계획 001~020: 20/20 PASS
+- 조건부 C01~C03: 3/3 PASS
+- unit: 410 files / 1,803 tests
+- fresh DB integration: 141 files / 458 tests
+- migrations: 206, 왕복 재적용 PASS
+- production browser: 10 routes × 5 viewports = 50 combinations PASS
+- browser interaction/history/focus/race/role: PASS
+- independent read-only review: blocker 0
+- AI slop review: pass
+
+상세 원시 로그와 화면 증거는
+[`docs/ui/evidence/sf-b368-gap-closure/`](./evidence/sf-b368-gap-closure/)에 보존한다.
+이 완료는 외부 연결 제외 로컬 구현 범위이며 push, PR, merge, 배포, package, release를
+포함하지 않는다.

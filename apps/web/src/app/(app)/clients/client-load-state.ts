@@ -31,6 +31,15 @@ export type ClientListLoadUpdate =
 
 export type ClientListLoadRequest = (query: Partial<ListClientsQueryDto>) => Promise<ClientListDto>;
 
+export type ClientListRequestRef = {
+  current: (() => void) | null;
+};
+
+export function cancelPendingClientListRequest(requestRef: ClientListRequestRef): void {
+  requestRef.current?.();
+  requestRef.current = null;
+}
+
 /**
  * Starts one client-list request and returns an invalidator for its generation.
  * Only the current generation can publish either a success or an error update.

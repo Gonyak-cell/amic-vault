@@ -18,6 +18,7 @@ import {
 import { ClientCreateDialog, closeClientCreateDialog } from './client-create-dialog';
 import { ClientListTable } from './client-list-table';
 import {
+  cancelPendingClientListRequest,
   loadClientList,
   type ClientListLoadUpdate,
   type ClientResourceLoadState,
@@ -61,8 +62,7 @@ export default function ClientsPage() {
   const cancelClientListRequestRef = useRef<(() => void) | null>(null);
 
   const invalidateClientList = useCallback(() => {
-    cancelClientListRequestRef.current?.();
-    cancelClientListRequestRef.current = null;
+    cancelPendingClientListRequest(cancelClientListRequestRef);
     setClients([]);
     setListMeta(null);
     setLoadState('loading');
@@ -87,8 +87,7 @@ export default function ClientsPage() {
   useEffect(() => {
     refreshClients();
     return () => {
-      cancelClientListRequestRef.current?.();
-      cancelClientListRequestRef.current = null;
+      cancelPendingClientListRequest(cancelClientListRequestRef);
     };
   }, [refreshClients]);
 
@@ -130,6 +129,7 @@ export default function ClientsPage() {
     setSubmitState('submitting');
     try {
       const client = await createClient(input);
+      cancelPendingClientListRequest(cancelClientListRequestRef);
       setForm(initialForm);
       setSubmitState('idle');
       setSearchQuery('');
