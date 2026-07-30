@@ -3,11 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { MatterDto } from '@amic-vault/shared';
-import { FolderKanban, FolderPlus } from 'lucide-react';
+import { FolderKanban, FolderPlus, Search } from 'lucide-react';
 import { listMatters } from '@/lib/api-client';
 import { MatterListTable } from '@/components/matter/matter-list-table';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
@@ -37,6 +38,9 @@ const mattersCopy: Record<
     newMatter: string;
     clientFilterActive: string;
     clearFilter: string;
+    listSearch: string;
+    listSearchPlaceholder: string;
+    searchAction: string;
   }
 > = {
   ko: {
@@ -56,6 +60,9 @@ const mattersCopy: Record<
     newMatter: '새 Matter',
     clientFilterActive: '선택한 고객의 Matter만 표시합니다.',
     clearFilter: '전체 Matter 보기',
+    listSearch: 'Matter 목록 검색',
+    listSearchPlaceholder: 'Matter 코드, 이름 또는 고객',
+    searchAction: '검색',
   },
   en: {
     title: 'Matter list',
@@ -74,6 +81,9 @@ const mattersCopy: Record<
     newMatter: 'New Matter',
     clientFilterActive: 'Showing matters for the selected client.',
     clearFilter: 'View all matters',
+    listSearch: 'Search Matter list',
+    listSearchPlaceholder: 'Matter code, name, or client',
+    searchAction: 'Search',
   },
 };
 
@@ -82,7 +92,9 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
   const copy = mattersCopy[language];
   const [matters, setMatters] = useState<MatterDto[]>([]);
   const [loadState, setLoadState] = useState<MatterLoadState>('loading');
-  const clientIdFilter = listMatterQueryFromSearchParams(searchParams).clientId;
+  const listQuery = listMatterQueryFromSearchParams(searchParams);
+  const clientIdFilter = listQuery.clientId;
+  const searchQuery = listQuery.q;
   const clientFilterActive = Boolean(clientIdFilter);
 
   useEffect(() => {
@@ -91,6 +103,7 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
     listMatters({
       pageSize: 20,
       ...(clientIdFilter ? { clientId: clientIdFilter } : {}),
+      ...(searchQuery ? { q: searchQuery } : {}),
     })
       .then((result) => {
         if (!active) return;
@@ -105,7 +118,7 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
     return () => {
       active = false;
     };
-  }, [clientIdFilter]);
+  }, [clientIdFilter, searchQuery]);
 
   return (
     <PageShell>
@@ -134,13 +147,41 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
               </p>
             </div>
             <Button asChild variant="outline" size="sm">
-              <Link href="/matters">{copy.clearFilter}</Link>
+              <Link
+                href={searchQuery ? `/matters?q=${encodeURIComponent(searchQuery)}` : '/matters'}
+              >
+                {copy.clearFilter}
+              </Link>
             </Button>
           </div>
         </div>
       ) : null}
 
       <SectionCard icon={<FolderKanban className="h-4 w-4" />} title={copy.title}>
+        <form
+          action="/matters"
+          className="mb-4 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"
+          method="get"
+          role="search"
+          aria-label={copy.listSearch}
+        >
+          <label className="sr-only" htmlFor="matter-list-search">
+            {copy.listSearch}
+          </label>
+          <Input
+            id="matter-list-search"
+            name="q"
+            type="search"
+            maxLength={200}
+            defaultValue={searchQuery}
+            placeholder={copy.listSearchPlaceholder}
+          />
+          {clientIdFilter ? <input name="clientId" type="hidden" value={clientIdFilter} /> : null}
+          <Button className="w-full sm:w-auto" type="submit" variant="outline" size="sm">
+            <Search className="h-4 w-4" aria-hidden="true" />
+            {copy.searchAction}
+          </Button>
+        </form>
         <MatterListTable copy={copy} matters={matters} />
         {loadState === 'loading' ? (
           <EmptyState variant="loading" title={t('dataState.loading')} className="m-5" />

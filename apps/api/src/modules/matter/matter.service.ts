@@ -227,6 +227,10 @@ function canonicalMetadata(value: Record<string, string>): string {
   );
 }
 
+function escapeLike(input: string): string {
+  return input.replace(/[\\%_]/g, (match) => `\\${match}`);
+}
+
 function resolveMatterIntakeTemplateCode(input: CreateMatterDto): MatterIntakeTemplateCode {
   if (input.intakeTemplateCode) return input.intakeTemplateCode;
   if (input.accessScope === 'restricted') return 'restricted';
@@ -1213,6 +1217,14 @@ export class MatterService {
     if (query.clientId) {
       params.push(query.clientId);
       filters.push(`matters.client_id = $${params.length}`);
+    }
+    if (query.q) {
+      params.push(`%${escapeLike(query.q)}%`);
+      filters.push(`(
+        matters.matter_code ILIKE $${params.length} ESCAPE '\\'
+        OR matters.matter_name ILIKE $${params.length} ESCAPE '\\'
+        OR clients.name ILIKE $${params.length} ESCAPE '\\'
+      )`);
     }
 
     params.push(query.pageSize, (query.page - 1) * query.pageSize);

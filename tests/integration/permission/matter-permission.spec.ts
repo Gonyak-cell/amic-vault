@@ -44,14 +44,15 @@ async function createMatter(
   cookie: string,
   clientId: string,
   accessScope: 'firm_open' | 'restricted' = 'restricted',
+  labels: { matterCode?: string; matterName?: string } = {},
 ): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/matters`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
     body: JSON.stringify({
       clientId,
-      matterCode: `MP-${randomUUID()}`,
-      matterName: `Matter Permission ${randomUUID()}`,
+      matterCode: labels.matterCode ?? `MP-${randomUUID()}`,
+      matterName: labels.matterName ?? `Matter Permission ${randomUUID()}`,
       matterType: 'contract',
       leadLawyerId: alphaOwnerUserId,
       accessScope,
@@ -364,5 +365,66 @@ describe('matter permission integration', () => {
     expect(parsed.items.some((item) => item.matterId === firmOpenMatterId)).toBe(false);
     expect(parsed.items.some((item) => item.matterId === ownerMatterId)).toBe(false);
     expect(parsed.totalCount).toBe(parsed.items.length);
+  });
+
+  it('applies q search after membership and ethical-wall filters for rows and total count', async () => {
+    const searchToken = `SFQ${randomUUID().replaceAll('-', '')}`;
+    const allowedMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted', {
+      matterCode: `${searchToken}-ALLOW`,
+      matterName: `${searchToken} allowed`,
+    });
+    const nonMemberMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted', {
+      matterCode: `${searchToken}-NONMEMBER`,
+      matterName: `${searchToken} nonmember`,
+    });
+    const wallMatterId = await createMatter(baseUrl, ownerCookie, clientId, 'restricted', {
+      matterCode: `${searchToken}-WALL`,
+      matterName: `${searchToken} wall blocked`,
+    });
+    await addMember(baseUrl, ownerCookie, allowedMatterId);
+    await addMember(baseUrl, ownerCookie, wallMatterId);
+
+    const wall = await fetch(`${baseUrl}/v1/ethical-walls`, {
+      method: 'POST',
+      headers: { cookie: securityAdminCookie, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        matterId: wallMatterId,
+        wallName: `Matter Search Wall ${randomUUID()}`,
+        reason: 'conflict_check',
+        members: [
+          {
+            subjectType: 'user',
+            subjectId: alphaPermissionMemberUserId,
+            membershipType: 'excluded',
+          },
+        ],
+      }),
+    });
+    expect(wall.status, await wall.text()).toBe(201);
+
+    const memberList = await fetch(
+      `${baseUrl}/v1/matters?q=${encodeURIComponent(searchToken)}&pageSize=100`,
+      { headers: { cookie: memberCookie } },
+    );
+    const body = await memberList.text();
+    expect(memberList.status, body).toBe(200);
+    const parsed = JSON.parse(body) as { items: Array<{ matterId: string }>; totalCount: number };
+    expect(parsed.items.map((item) => item.matterId)).toEqual([allowedMatterId]);
+    expect(parsed.items.some((item) => item.matterId === nonMemberMatterId)).toBe(false);
+    expect(parsed.items.some((item) => item.matterId === wallMatterId)).toBe(false);
+    expect(parsed.totalCount).toBe(1);
+  });
+
+  it.each([
+    ['blank q', 'q=%20%20%20'],
+    ['oversized q', `q=${'x'.repeat(201)}`],
+    ['unsupported owner filter', `owner=${alphaOwnerUserId}`],
+  ])('rejects %s for matter list search', async (_caseName, query) => {
+    const response = await fetch(`${baseUrl}/v1/matters?${query}`, {
+      headers: { cookie: memberCookie },
+    });
+    const body = await response.text();
+    expect(response.status, body).toBe(400);
+    expect(body).toContain('VALIDATION_FAILED');
   });
 });

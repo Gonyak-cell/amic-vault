@@ -9,7 +9,7 @@ import {
   matterSearchUrl,
   type MatterListTableCopy,
 } from '@/components/matter/matter-list-table';
-import { listMatterQueryFromSearchParams } from './matter-list-query';
+import { listMatterQueryFromSearchParams, type MatterSearchParams } from './matter-list-query';
 import MattersPage from './page';
 
 vi.mock('@/lib/api-client', () => ({
@@ -52,18 +52,68 @@ describe('MattersPage', () => {
     expect(html).not.toContain('Matter 관리 시스템');
   });
 
-  it('passes a selected client filter from the route into the matter list query', () => {
+  it('allowlists compatible q and client filters from the route', () => {
     expect(
       listMatterQueryFromSearchParams({
         clientId: '11111111-1111-4111-8111-111111111111',
+        q: '  AMIC-2026  ',
       }),
     ).toEqual({
       clientId: '11111111-1111-4111-8111-111111111111',
       pageSize: 20,
+      q: 'AMIC-2026',
     });
     expect(listMatterQueryFromSearchParams({ clientId: 'not-a-uuid' })).toEqual({
       pageSize: 20,
     });
+    expect(listMatterQueryFromSearchParams({ q: '   ' })).toEqual({
+      pageSize: 20,
+    });
+    expect(
+      listMatterQueryFromSearchParams({
+        clientId: '11111111-1111-4111-8111-111111111111',
+        owner: 'ignored',
+        q: ['고객명', 'ignored'],
+      } as MatterSearchParams & { owner: string }),
+    ).toEqual({
+      clientId: '11111111-1111-4111-8111-111111111111',
+      pageSize: 20,
+      q: '고객명',
+    });
+  });
+
+  it('renders an accessible GET search form with only q and the active client filter', () => {
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <MattersPage
+          searchParams={{
+            clientId: '11111111-1111-4111-8111-111111111111',
+            q: '계약 검토',
+          }}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('action="/matters"');
+    expect(html).toContain('method="get"');
+    expect(html).toContain('role="search"');
+    expect(html).toContain('aria-label="Matter 목록 검색"');
+    expect(html).toContain('flex-col');
+    expect(html).toContain('sm:flex-row');
+    expect(html).toContain('w-full sm:w-auto');
+    expect(html).toContain('for="matter-list-search"');
+    expect(html).toContain('id="matter-list-search"');
+    expect(html).toContain('name="q"');
+    expect(html).toContain('type="search"');
+    expect(html).toContain('maxLength="200"');
+    expect(html).toContain('value="계약 검토"');
+    expect(html).toContain(
+      'name="clientId" type="hidden" value="11111111-1111-4111-8111-111111111111"',
+    );
+    expect(html).not.toContain('name="owner"');
+    expect(html).not.toContain('name="due"');
+    expect(html).not.toContain('name="cursor"');
+    expect(html).toContain('href="/matters?q=%EA%B3%84%EC%95%BD%20%EA%B2%80%ED%86%A0"');
   });
 
   it('renders client-filtered matter context with a clear path back to all matters', () => {
