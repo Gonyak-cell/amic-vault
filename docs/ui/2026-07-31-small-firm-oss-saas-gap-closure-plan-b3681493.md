@@ -635,6 +635,24 @@ unit, build, migration 왕복과 전체 integration이 통과하더라도 아래
 - Verification: focused performance scenario 반복, exact 8-spec batch, full
   `pnpm test:integration`, `git diff --check`.
 
+### `SF-B368-G32` — 긴급 접근 알림의 한국어 계약 동기화
+
+- Risk / Size: M / XS
+- 소유 파일:
+  - `tests/integration/permission/break-glass.spec.ts`
+- 발견 근거: final fresh-DB 통합 회귀에서 운영 코드와 단위 테스트는 자연스러운
+  `긴급 접근 승인 요청`을 사용했지만, 기존 통합 테스트만 과거
+  `Break-glass 승인 요청` 문구를 요구해 현재 사용자 문구 계약을 거부했다.
+- 목표: production copy를 되돌리지 않고 end-to-end 알림 계약을 현재 한국어 표현과
+  맞춘다.
+- Acceptance:
+  - 관리자 알림의 제목은 `긴급 접근 승인 요청`이다.
+  - 응답에 과거 `Break-glass 승인 요청`, raw reason code, request ID가 나오지 않는다.
+  - production source, 권한·감사 행위, break-glass 상태 전이를 변경하지 않는다.
+  - focused break-glass spec과 141-spec 전체 통합 회귀가 fresh DB에서 통과한다.
+- Verification: focused integration, full `pnpm test:integration`, `git diff --check`,
+  independent read-only code review.
+
 ## 4. 실행 순서
 
 ```text
@@ -664,7 +682,8 @@ G06/G12/G16 ─ G28 ───────────────┤
 G28 ─ G29 ────────────────────────┤
 G29 ─ G30 ────────────────────────┤
 G30 ─ G31 ────────────────────────┤
-G01~G31 전체 ───────────────────┴─ G11
+G31 ─ G32 ────────────────────────┤
+G01~G32 전체 ───────────────────┴─ G11
 ```
 
 - 파일 소유권이 겹치지 않는 G01~G06, G10은 병렬 실행할 수 있다.
@@ -675,7 +694,7 @@ G01~G31 전체 ───────────────────┴─ G
 
 ## 5. 완료 기준
 
-`SF-B368-G01~G31`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
+`SF-B368-G01~G32`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
 `SF-B368-001~020`, `C01~C03`를 최종 코드 SHA에서 다시 판정했을 때만
 “계획과 goal대로 100% 로컬 구현”이라고 기록한다. 그렇지 않으면 통과 범위와 남은
 경계를 수치로 보고한다.

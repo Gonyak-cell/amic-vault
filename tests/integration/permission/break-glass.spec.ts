@@ -89,11 +89,7 @@ async function createWall(baseUrl: string, cookie: string, matterId: string): Pr
   return wallId;
 }
 
-async function requestBreakGlass(
-  baseUrl: string,
-  cookie: string,
-  wallId: string,
-): Promise<string> {
+async function requestBreakGlass(baseUrl: string, cookie: string, wallId: string): Promise<string> {
   const response = await fetch(`${baseUrl}/v1/break-glass/requests`, {
     method: 'POST',
     headers: { cookie, 'content-type': 'application/json' },
@@ -217,12 +213,14 @@ describe('break glass dual approval integration', () => {
         expect.objectContaining({
           source: 'operational_data',
           category: '보안 운영',
-          title: 'Break-glass 승인 요청',
+          title: '긴급 접근 승인 요청',
           href: '/admin/security',
           status: 'unread',
         }),
       ]),
     });
+    expect(adminNotificationsBody).not.toContain('Break-glass 승인 요청');
+    expect(adminNotificationsBody).not.toContain('court_deadline');
     expect(adminNotificationsBody).not.toContain(requestId);
     expect(adminNotificationsBody).not.toContain('Break Glass Wall');
 
