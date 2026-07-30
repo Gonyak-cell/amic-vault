@@ -93,6 +93,24 @@ describe('MatterDetailPage', () => {
     expect(source).toContain('onMatterUpdated={setMatter}');
   });
 
+  it('owns the five primary Matter tabs while preserving secondary workstreams', () => {
+    const source = readFileSync(
+      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
+      'utf8',
+    );
+
+    expect(source).toContain('<MatterDetailTabs');
+    expect(source).toContain('initialTab={searchParams?.tab ?? null}');
+    expect(source).toMatch(/overview:\s*\(/);
+    expect(source).toMatch(/documents:\s*\(/);
+    expect(source).toMatch(/work:\s*\(/);
+    expect(source).toMatch(/team:\s*<MatterTeamTab/);
+    expect(source).toMatch(/activity:\s*<MatterAuditTimeline/);
+    expect(source).toContain('<MatterWorkstreamTabs matterId={matter.matterId} />');
+    expect(source).toContain('href={`/matters/${encodeURIComponent(matterId)}/team`}');
+    expect(source).not.toContain('권한으로 보호됨');
+  });
+
   it('renders matter issues and near-term key dates with visible status cues', () => {
     const soon = new Date();
     soon.setUTCDate(soon.getUTCDate() + 3);
