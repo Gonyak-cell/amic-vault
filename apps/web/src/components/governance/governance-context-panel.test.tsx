@@ -130,6 +130,7 @@ describe('governance context panels', () => {
     expect(html).toContain('AMIC-2026-001');
     expect(html).toContain('접근 범위');
     expect(html).toContain('제한 Matter');
+    expect(html).not.toContain('펌 전체 열람');
     expect(html).toContain('파일 정리 준비 실패 확인');
     expect(html).toContain('추가로 확인할 작업이 없습니다.');
     expect(html).not.toContain('가짜 작업');

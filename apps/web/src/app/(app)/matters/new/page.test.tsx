@@ -27,10 +27,11 @@ describe('NewMatterPage', () => {
     expect(html).toContain('고객');
     expect(html).toContain('사건 유형');
     expect(html).toContain('생성 템플릿');
-    expect(html).toContain('기본개방 Matter');
+    expect(html).toContain('일반 Matter');
     expect(html).toContain('템플릿 적용값');
     expect(html).toContain('접근 범위');
-    expect(html).toContain('펌 전체 열람');
+    expect(html).not.toContain('펌 전체 열람');
+    expect(html).toContain('기본 접근 범위로 시작합니다.');
     expect(html).toContain('Matter 코드');
     expect(html).toContain('Matter 이름');
     expect(html).toContain('담당 변호사');

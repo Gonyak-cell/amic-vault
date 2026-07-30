@@ -56,7 +56,7 @@ const readinessLabels = {
 } as const satisfies Record<AiPrepDocumentStatusDto['readinessStatus'], string>;
 
 const matterAccessScopeLabels = {
-  firm_open: '펌 전체 열람',
+  firm_open: '일반 Matter',
   restricted: '제한 Matter',
 } as const satisfies Record<MatterAccessScope, string>;
 
