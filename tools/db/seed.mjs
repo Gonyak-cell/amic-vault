@@ -69,14 +69,14 @@ async function seedMatterIntakeTemplates(client, tenantId) {
       template_seed AS (
         SELECT
           'default_open'::text AS template_code,
-          '기본개방 Matter'::text AS display_name,
-          '펌 전체 열람과 로컬 파일 정리 준비 정책을 적용합니다.'::text AS description,
+          '일반 Matter'::text AS display_name,
+          '담당 변호사를 책임자로 지정하고 기본 접근 범위로 시작합니다.'::text AS description,
           'firm_open'::text AS default_access_scope
         UNION ALL
         SELECT
           'restricted'::text AS template_code,
           '제한 Matter'::text AS display_name,
-          '명시된 Matter 구성원 중심으로 열람을 제한합니다.'::text AS description,
+          '지정된 Matter 구성원만 열람할 수 있습니다.'::text AS description,
           'restricted'::text AS default_access_scope
       )
       INSERT INTO matter_intake_templates (
