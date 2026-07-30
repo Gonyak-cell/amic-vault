@@ -38,4 +38,12 @@ describe('SearchClient workbench flow', () => {
     expect(source).toContain('aria-label="검색 표면"');
     expect(source).toContain('role="group"');
   });
+
+  it('keeps saved-search list, create, and run ownership on the canonical Search Workbench', () => {
+    expect(source).toContain('listSavedSearches()');
+    expect(source).toContain('setSavedSearches(sortSavedSearches(result.items))');
+    expect(source).toContain('saveSavedSearch({');
+    expect(source).toContain('recordSavedSearchOpen(savedSearch.savedSearchId)');
+    expect(source).not.toContain('href="/search/folders"');
+  });
 });

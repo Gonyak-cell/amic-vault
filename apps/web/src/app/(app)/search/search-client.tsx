@@ -142,7 +142,7 @@ export function SearchClient() {
     setSavedSearchError(null);
     try {
       const result = await listSavedSearches();
-      setSavedSearches(result.items);
+      setSavedSearches(sortSavedSearches(result.items));
     } catch (caught) {
       setSavedSearchError(safeApiErrorMessage(caught));
       setSavedSearches([]);
