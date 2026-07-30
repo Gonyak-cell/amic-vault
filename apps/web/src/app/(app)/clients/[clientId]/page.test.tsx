@@ -12,7 +12,13 @@ vi.mock('@/lib/api-client', () => ({
 describe('ClientDetailPage', () => {
   it('renders client master fields and client-scoped matters', () => {
     const html = renderToStaticMarkup(
-      <ClientDetailView client={clientFixture} loadState="ready" matters={[matterFixture]} />,
+      <ClientDetailView
+        client={clientFixture}
+        loadState="ready"
+        matterPage={1}
+        matterTotalCount={1}
+        matters={[matterFixture]}
+      />,
     );
 
     expect(html).toContain('한빛전자');
@@ -20,19 +26,61 @@ describe('ClientDetailPage', () => {
     expect(html).toContain('구명칭·별칭');
     expect(html).toContain('Hanbit Electronics');
     expect(html).toContain('고객 Matter');
+    expect(html).toContain('총 1건');
     expect(html).toContain('계약 검토');
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('href="/matters?clientId=11111111-1111-4111-8111-111111111111"');
+    expect(html).toContain('href="/matters/11111111-1111-4111-8111-111111111122"');
+    expect(html).not.toMatch(/>11111111-1111-4111-8111-111111111111</u);
+    expect(html).not.toContain('이 고객의 Matter와 관련 문서를 확인합니다.');
     expect(html).not.toContain('고객 포털');
     expect(html).not.toContain('CRM');
   });
 
   it('renders a bounded empty matter state for clients without matters', () => {
     const html = renderToStaticMarkup(
-      <ClientDetailView client={clientFixture} loadState="ready" matters={[]} />,
+      <ClientDetailView
+        client={clientFixture}
+        loadState="ready"
+        matterPage={1}
+        matterTotalCount={0}
+        matters={[]}
+      />,
     );
 
     expect(html).toContain('이 고객의 Matter가 없습니다.');
+    expect(html).toContain('총 0건');
+  });
+
+  it('labels a paginated portfolio without presenting the visible page as the total', () => {
+    const html = renderToStaticMarkup(
+      <ClientDetailView
+        client={clientFixture}
+        loadState="ready"
+        matterPage={1}
+        matterTotalCount={101}
+        matters={[matterFixture]}
+      />,
+    );
+
+    expect(html).toContain('전체 101건');
+    expect(html).toContain('현재 페이지 1건 표시');
+    expect(html).toContain('전체 101건 중 현재 페이지 1건만 표시합니다.');
+    expect(html).not.toContain('상태별 합계');
+  });
+
+  it.each([
+    ['loading', '데이터를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.'],
+    ['error', '데이터를 표시할 수 없습니다. 권한 또는 연결 상태를 확인해 주세요.'],
+    ['forbidden', '이 항목을 볼 권한이 없습니다.'],
+    ['blocked', '정보 차단 또는 권한 정책으로 표시할 수 없습니다.'],
+  ] as const)('keeps the %s state distinct without leaking the client id', (loadState, copy) => {
+    const html = renderToStaticMarkup(
+      <ClientDetailView client={null} loadState={loadState} matters={[]} />,
+    );
+
+    expect(html).toContain(copy);
+    expect(html).not.toContain(clientFixture.clientId);
   });
 
   it('builds the client-scoped matter filter route', () => {

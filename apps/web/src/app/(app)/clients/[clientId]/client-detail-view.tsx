@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Building2, FolderKanban, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Building2, FolderKanban, RefreshCw } from 'lucide-react';
 import type {
   ClientConfidentialityLevel,
   ClientDto,
@@ -67,15 +67,30 @@ export function ClientDetailView({
   client,
   loadState,
   matters,
+  matterPage,
+  matterTotalCount,
   onRefresh,
 }: {
   client: ClientDto | null;
   loadState: ClientDetailLoadState;
   matters: MatterDto[];
+  matterPage?: number | undefined;
+  matterTotalCount?: number | undefined;
   onRefresh?: () => void;
 }) {
   const aliases = client && Array.isArray(client.aliases) ? client.aliases : [];
   const title = client?.displayName || client?.name || '고객 상세';
+  const hasExactMatterTotal = typeof matterTotalCount === 'number' && matterTotalCount >= 0;
+  const hasPartialMatterList =
+    typeof matterTotalCount === 'number' && matterTotalCount >= 0 && matterTotalCount > matters.length;
+  const hasNoMatters = hasExactMatterTotal
+    ? matterTotalCount === 0
+    : matters.length === 0;
+  const matterMeta = matterMetaLabel({
+    matterPage,
+    matterTotalCount: hasExactMatterTotal ? matterTotalCount : undefined,
+    visibleCount: matters.length,
+  });
 
   return (
     <PageShell>
@@ -101,20 +116,18 @@ export function ClientDetailView({
       />
 
       {loadState === 'loading' ? (
-        <EmptyState variant="api-unavailable" title="고객 정보를 불러오는 중입니다." />
+        <EmptyState variant="api-unavailable" />
       ) : null}
       {loadState === 'error' ? (
-        <EmptyState variant="api-error" title="고객 정보를 표시할 수 없습니다." />
+        <EmptyState variant="api-error" />
       ) : null}
       {loadState === 'forbidden' ? (
-        <EmptyState variant="no-access" title="고객 정보를 볼 권한이 없습니다." />
+        <EmptyState variant="no-access" />
       ) : null}
       {loadState === 'blocked' ? (
-        <EmptyState
-          variant="policy-blocked"
-          title="권한 정책으로 고객 정보를 표시할 수 없습니다."
-        />
+        <EmptyState variant="policy-blocked" />
       ) : null}
+      {loadState === 'empty' ? <EmptyState variant="no-data" /> : null}
 
       {loadState === 'ready' && client ? (
         <>
@@ -146,37 +159,53 @@ export function ClientDetailView({
             </div>
           </SectionCard>
 
-          <div className="rounded-md border bg-card px-4 py-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex min-w-0 gap-3">
-                <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                </span>
-                <p className="min-w-0 text-sm font-medium leading-6 text-foreground">
-                  이 고객의 Matter와 관련 문서를 확인합니다.
-                </p>
-              </div>
-              <Button asChild variant="outline" size="sm">
-                <Link href={clientMatterFilterPath(client.clientId)}>Matter 목록 필터</Link>
-              </Button>
-            </div>
-          </div>
-
           <SectionCard
             icon={<FolderKanban className="h-4 w-4" />}
             title="고객 Matter"
-            meta={`${matters.length}건`}
+            meta={matterMeta}
+            actions={
+              <Button asChild variant="outline" size="sm">
+                <Link href={clientMatterFilterPath(client.clientId)}>Matter 목록 필터</Link>
+              </Button>
+            }
           >
             {matters.length > 0 ? (
               <MatterListTable copy={matterListCopy} matters={matters} />
-            ) : (
+            ) : hasNoMatters ? (
               <EmptyState title="이 고객의 Matter가 없습니다." className="m-5" />
-            )}
+            ) : null}
+            {hasPartialMatterList ? (
+              <p
+                className="border-t px-5 py-3 text-sm text-muted-foreground"
+                role="status"
+              >
+                전체 {matterTotalCount}건 중 현재 페이지 {matters.length}건만 표시합니다. Matter 목록에서
+                전체를 확인할 수 있습니다.
+              </p>
+            ) : null}
           </SectionCard>
         </>
       ) : null}
     </PageShell>
   );
+}
+
+function matterMetaLabel({
+  matterPage,
+  matterTotalCount,
+  visibleCount,
+}: {
+  matterPage?: number | undefined;
+  matterTotalCount?: number | undefined;
+  visibleCount: number;
+}): string {
+  if (typeof matterTotalCount !== 'number') return '접근 가능한 Matter';
+  if (matterTotalCount > visibleCount) {
+    const pageLabel =
+      typeof matterPage === 'number' && matterPage > 1 ? `${matterPage}페이지 ` : '';
+    return `전체 ${matterTotalCount}건 · ${pageLabel}현재 페이지 ${visibleCount}건 표시`;
+  }
+  return `총 ${matterTotalCount}건`;
 }
 
 function DetailField({ label, value }: { label: string; value: string }) {

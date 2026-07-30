@@ -10,6 +10,8 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
   const clientId = params.clientId;
   const [client, setClient] = useState<ClientDto | null>(null);
   const [matters, setMatters] = useState<MatterDto[]>([]);
+  const [matterTotalCount, setMatterTotalCount] = useState<number | undefined>(undefined);
+  const [matterPage, setMatterPage] = useState<number | undefined>(undefined);
   const [loadState, setLoadState] = useState<ClientDetailLoadState>('loading');
 
   const refresh = useCallback(() => {
@@ -18,11 +20,15 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
       .then(([clientResult, matterResult]) => {
         setClient(clientResult);
         setMatters(matterResult.items);
+        setMatterTotalCount(matterResult.totalCount);
+        setMatterPage(matterResult.page);
         setLoadState('ready');
       })
       .catch((error: unknown) => {
         setClient(null);
         setMatters([]);
+        setMatterTotalCount(undefined);
+        setMatterPage(undefined);
         setLoadState(dataStateStatusForApiError(error));
       });
   }, [clientId]);
@@ -32,6 +38,13 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
   }, [refresh]);
 
   return (
-    <ClientDetailView client={client} loadState={loadState} matters={matters} onRefresh={refresh} />
+    <ClientDetailView
+      client={client}
+      loadState={loadState}
+      matters={matters}
+      matterPage={matterPage}
+      matterTotalCount={matterTotalCount}
+      onRefresh={refresh}
+    />
   );
 }

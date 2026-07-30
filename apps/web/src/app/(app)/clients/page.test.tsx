@@ -15,12 +15,18 @@ vi.mock('@/lib/api-client', () => ({
 }));
 
 describe('ClientsPage', () => {
-  it('renders a compact customer registry and creation form', () => {
+  it('renders the searchable registry before the collapsed creation disclosure', () => {
     const html = renderToStaticMarkup(<ClientsPage />);
 
     expect(html).toContain('고객');
+    expect(html).toContain('role="search"');
+    expect(html).toContain('id="client-search"');
     expect(html).toContain('고객 등록');
     expect(html).toContain('고객 목록');
+    expect(html).toContain('<details');
+    expect(html).toContain('<summary');
+    expect(html).toContain('aria-controls="client-create-form"');
+    expect(html.indexOf('고객 목록')).toBeLessThan(html.indexOf('고객 등록'));
     expect(html).toContain('고객명');
     expect(html).toContain('고객 유형');
     expect(html).toContain('기밀도');
