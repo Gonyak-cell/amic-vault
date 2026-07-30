@@ -1,101 +1,73 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { SearchFoldersContent, searchUrlForSavedQuery } from './search-folders-client';
+import {
+  SearchFoldersClient,
+  SearchFoldersContent,
+  searchFoldersCompatibilityPath,
+  searchUrlForSavedQuery,
+} from './search-folders-client';
 
-describe('SearchFoldersContent', () => {
-  it('renders saved searches as search folders without exposing raw folder ids', () => {
+const savedSearchRef = '11111111-1111-4111-8111-111111111902';
+const tenantId = '22222222-2222-4222-8222-222222222222';
+const userId = '33333333-3333-4333-8333-333333333333';
+
+describe('search/folders compatibility', () => {
+  it('renders only a canonical Search Workbench entry point', () => {
     const html = renderToStaticMarkup(
-      <SearchFoldersContent
-        busy={false}
-        folders={[
-          {
-            canRevoke: true,
-            createdAt: '2026-06-19T00:00:00.000Z',
-            lastOpenedAt: '2026-06-19T00:05:00.000Z',
-            name: 'NDA 본문 폴더',
-            openCount: 7,
-            query: {
-              query: 'NDA',
-              filters: {
-                matterCode: 'AMIC-2026-0001',
-                clientName: 'AMIC',
-                confidentialityLevel: 'restricted',
-                documentType: 'contract',
-                extractionStatus: 'failed',
-                legalHold: 'document_hold',
-                privilegeStatus: 'privileged',
-                recordsStatus: 'archived',
-              },
-              page: 1,
-              pageSize: 10,
-              sortBy: 'updated_desc',
-              target: 'body',
-            },
-            savedSearchId: '11111111-1111-4111-8111-111111111902',
-            scope: 'admin-shared',
-            updatedAt: '2026-06-19T00:00:00.000Z',
-          },
-        ]}
-      />,
+      <>
+        <SearchFoldersClient />
+        <SearchFoldersContent />
+      </>,
     );
 
-    expect(html).toContain('내 검색 폴더');
-    expect(html).toContain('NDA 본문 폴더');
-    expect(html).toContain('조직과 공유');
-    expect(html).toContain('7회');
-    expect(html).toContain('Matter 코드');
-    expect(html).toContain('AMIC-2026-0001');
-    expect(html).toContain('고객');
-    expect(html).toContain('AMIC');
-    expect(html).toContain('기밀도');
-    expect(html).toContain('제한');
-    expect(html).toContain('특권');
-    expect(html).toContain('변호사-의뢰인 특권');
-    expect(html).toContain('추출/OCR');
-    expect(html).toContain('추출 실패');
-    expect(html).toContain('보존');
-    expect(html).toContain('파일 삭제 금지');
-    expect(html).toContain('기록');
-    expect(html).toContain('보관됨');
-    expect(html).toContain('href="/search?q=NDA');
-    expect(html).toContain('target=body');
-    expect(html).toContain('sortBy=updated_desc');
-    expect(html).not.toContain('11111111-1111-4111-8111-111111111902');
-    expect(html).not.toContain('API 준비 전');
-    expect(html).not.toContain('김민준');
-  });
-
-  it('renders a no-data state with a search entry point', () => {
-    const html = renderToStaticMarkup(<SearchFoldersContent busy={false} folders={[]} />);
-
-    expect(html).toContain('저장된 검색 폴더가 없습니다.');
+    expect(html).toContain('검색 조건은 문서 검색에서 관리합니다.');
     expect(html).toContain('href="/search"');
-    expect(html).toContain('문서 검색으로 이동');
+    expect(html).not.toContain('저장된 검색 기준');
+    expect(html).not.toContain('내 검색 폴더');
+    expect(html).not.toContain('검색 폴더 관리');
   });
 
-  it('builds display-safe search URLs from supported saved query fields', () => {
+  it('keeps only a validated opaque saved-search reference', () => {
     expect(
-      searchUrlForSavedQuery({
-        query: '주식매매계약서',
+      searchFoldersCompatibilityPath({
+        searchRef: savedSearchRef,
+        q: '비밀 계약서 본문',
+        title: '고객 문서 제목',
+        matterId: tenantId,
+        clientId: userId,
+      }),
+    ).toBe(`/search?searchRef=${savedSearchRef}`);
+
+    expect(
+      searchFoldersCompatibilityPath({
+        searchRef: 'not-a-saved-search-ref',
+        q: '비밀 계약서 본문',
+      }),
+    ).toBe('/search');
+    expect(searchFoldersCompatibilityPath({ q: '비밀 계약서 본문' })).toBe('/search');
+  });
+
+  it('does not copy saved query text, titles, bodies, or raw ids into compatibility URLs', () => {
+    const path = searchUrlForSavedQuery(
+      {
+        query: '비밀 계약서 본문',
         filters: {
-          clientName: 'AMIC',
-          confidentialityLevel: 'high',
+          clientId: userId,
+          matterId: tenantId,
+          title: '고객 문서 제목',
           matterCode: 'AMIC-2026-0002',
-          title: 'SPA',
-          extractionStatus: 'ocr_pending',
-          legalHold: 'matter_hold',
-          privilegeStatus: 'work_product',
-          recordsStatus: 'disposal_locked',
-          versionStatus: 'current',
         },
-        groupBy: 'matter',
         page: 1,
         pageSize: 10,
-        target: 'title',
-      }),
-    ).toBe(
-      '/search?q=%EC%A3%BC%EC%8B%9D%EB%A7%A4%EB%A7%A4%EA%B3%84%EC%95%BD%EC%84%9C&target=title&groupBy=matter&matterCode=AMIC-2026-0002&clientName=AMIC&title=SPA&confidentialityLevel=high&extractionStatus=ocr_pending&legalHold=matter_hold&privilegeStatus=work_product&recordsStatus=disposal_locked&versionStatus=current',
+      },
+      savedSearchRef,
     );
+
+    expect(path).toBe(`/search?searchRef=${savedSearchRef}`);
+    expect(path).not.toContain('비밀');
+    expect(path).not.toContain('고객 문서 제목');
+    expect(path).not.toContain(tenantId);
+    expect(path).not.toContain(userId);
   });
 });

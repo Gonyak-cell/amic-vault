@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { BookmarkPlus, Copy, FolderSearch, RotateCcw, Star, Trash2 } from 'lucide-react';
+import { BookmarkPlus, Copy, RotateCcw, Star, Trash2 } from 'lucide-react';
 import type {
   DashboardRecentFileDto,
   SavedItemDto,
@@ -65,18 +65,6 @@ export function SearchWorkbenchRail({
         <Button className="w-full justify-start" onClick={onSave} size="sm" type="button">
           <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
           검색 조건 저장
-        </Button>
-        <Button
-          asChild
-          className="mt-2 w-full justify-start"
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          <Link href="/search/folders">
-            <FolderSearch className="h-4 w-4" aria-hidden="true" />
-            검색 폴더 관리
-          </Link>
         </Button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
