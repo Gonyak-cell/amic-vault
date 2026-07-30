@@ -31,19 +31,19 @@ export function MatterListTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[900px]">
-        <div className="grid min-h-14 grid-cols-[minmax(240px,1fr)_180px_160px_110px_120px_48px] items-center gap-4 border-b px-5 py-3 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+      <div>
+        <div className="grid min-h-12 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b px-3 py-2 text-xs font-semibold uppercase tracking-normal text-muted-foreground md:grid-cols-[minmax(0,1fr)_minmax(140px,0.55fr)_auto_auto] md:gap-3 md:px-4 xl:min-h-14 xl:grid-cols-[minmax(240px,1fr)_180px_160px_110px_120px_72px] xl:gap-4 xl:px-5 xl:py-3">
           <span>{copy.matter}</span>
-          <span>{copy.client}</span>
-          <span>{copy.owner}</span>
+          <span className="hidden md:block">{copy.client}</span>
+          <span className="hidden xl:block">{copy.owner}</span>
           <span>{copy.status}</span>
-          <span>{copy.recentUpdate}</span>
-          <span className="sr-only">{copy.actions}</span>
+          <span className="hidden xl:block">{copy.recentUpdate}</span>
+          <span aria-hidden="true" />
         </div>
         {matters.map((matter) => (
           <div
             key={matter.matterId}
-            className="grid grid-cols-[minmax(240px,1fr)_180px_160px_110px_120px_48px] items-center gap-4 border-b px-5 py-3 text-sm last:border-b-0"
+            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b px-3 py-2 text-sm last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(140px,0.55fr)_auto_auto] md:gap-3 md:px-4 xl:grid-cols-[minmax(240px,1fr)_180px_160px_110px_120px_72px] xl:gap-4 xl:px-5 xl:py-3"
           >
             <Link
               href={`/matters/${matter.matterId}`}
@@ -59,10 +59,10 @@ export function MatterListTable({
                 </span>
               </span>
             </Link>
-            <span className="truncate text-muted-foreground">
+            <span className="hidden truncate text-muted-foreground md:block">
               {matter.clientDisplayName ?? '고객 표시명 없음'}
             </span>
-            <span className="truncate text-muted-foreground">
+            <span className="hidden truncate text-muted-foreground xl:block">
               {matter.leadLawyerDisplayName ??
                 matter.leadPartnerDisplayName ??
                 matter.leadAssociateDisplayName ??
@@ -71,7 +71,7 @@ export function MatterListTable({
             <span>
               <MatterStatusBadge status={matter.status} />
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="hidden text-xs text-muted-foreground xl:block">
               {formatMatterDate(matter.updatedAt)}
             </span>
             <MatterRowActions copy={copy} matter={matter} />
