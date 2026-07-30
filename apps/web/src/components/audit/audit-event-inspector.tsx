@@ -107,9 +107,9 @@ export function AuditEventInspector({ event }: AuditEventInspectorProps) {
       <div className="mt-4 rounded-md border bg-muted/20 p-3">
         <div className="flex items-start gap-2">
           <ShieldCheck className="mt-0.5 h-4 w-4 text-primary" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">{copy.referencesTitle}</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          <div className="flex min-w-0 flex-1 items-baseline gap-x-2 overflow-hidden">
+            <p className="shrink-0 text-sm font-medium">{copy.referencesTitle}</p>
+            <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
               {copy.referencesDescription}
             </p>
           </div>

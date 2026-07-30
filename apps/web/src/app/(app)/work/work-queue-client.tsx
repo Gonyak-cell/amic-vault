@@ -295,7 +295,6 @@ export function WorkQueueContent({
       <PageHeader
         breadcrumbs={['문서 보관', '작업함']}
         title="작업함"
-        description="담당 업무와 검토가 필요한 항목을 표시합니다."
         actions={
           <StatusBadge tone={actionItems.length > 0 ? 'warning' : 'success'}>
             실제 상태 기반
@@ -311,11 +310,11 @@ export function WorkQueueContent({
           >
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 space-y-1">
-                  <h2 className="text-[15px] font-semibold tracking-normal text-foreground">
+                <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+                  <h2 className="shrink-0 text-[15px] font-semibold tracking-normal text-foreground">
                     작업함 조치 콘솔
                   </h2>
-                  <p className="text-xs leading-5 text-muted-foreground">
+                  <p className="min-w-0 flex-1 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
                     실제 문서·Matter 상태에서 발생한 작업만 업무 구분과 상태 기준으로 좁힙니다.
                   </p>
                   <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">

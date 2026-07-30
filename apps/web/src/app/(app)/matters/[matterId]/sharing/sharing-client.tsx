@@ -399,9 +399,6 @@ export function ExternalSharingClient({
       <PageHeader
         breadcrumbs={['문서 보관', 'Matter', '외부 공유']}
         title="외부 공유"
-        {...(matter
-          ? { description: [matter.matterCode, matter.safeLabel ?? matter.matterName].join(' · ') }
-          : {})}
         actions={
           <Button
             type="button"

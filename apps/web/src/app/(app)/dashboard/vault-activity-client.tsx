@@ -100,11 +100,7 @@ export function VaultActivityContent({
 }) {
   return (
     <PageShell>
-      <PageHeader
-        breadcrumbs={['문서 보관', '홈']}
-        title="홈"
-        description="접근 가능한 문서와 최근 활동을 표시합니다."
-      />
+      <PageHeader breadcrumbs={['문서 보관', '홈']} title="홈" />
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">
@@ -678,11 +674,11 @@ function PermissionBanner() {
   return (
     <section className="rounded-lg border bg-card">
       <div className="flex flex-col gap-3 p-4 sm:p-[18px] md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-[15px] font-semibold text-foreground">
+        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+          <div className="shrink-0 text-[15px] font-semibold text-foreground">
             접근 가능한 항목만 표시됩니다
           </div>
-          <p className="mt-1 text-[13px] leading-6 text-muted-foreground">
+          <p className="min-w-0 truncate whitespace-nowrap text-[13px] leading-6 text-muted-foreground">
             접근 권한과 정보 차단 정책을 통과한 운영 데이터만 이 화면에 나타납니다.
           </p>
         </div>

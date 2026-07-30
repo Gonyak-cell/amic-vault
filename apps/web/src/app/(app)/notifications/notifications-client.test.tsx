@@ -8,7 +8,6 @@ describe('NotificationsClient', () => {
     const html = renderToStaticMarkup(<NotificationsClient />);
 
     expect(html).toContain('알림');
-    expect(html).toContain('접근 가능한 활동과 상태 알림을 표시합니다.');
     expect(html).toContain('알림 조치 콘솔');
     expect(html).toContain('전체 구분');
     expect(html).toContain('전체 상태');

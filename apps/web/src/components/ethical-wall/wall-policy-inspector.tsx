@@ -126,9 +126,11 @@ export function WallPolicyInspector({ item }: WallPolicyInspectorProps) {
         </div>
       </dl>
 
-      <div className="mt-4 rounded-md border bg-muted/20 p-3">
-        <p className="text-sm font-medium">{copy.policyContext}</p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">{copy.policyDescription}</p>
+      <div className="mt-4 flex min-w-0 items-baseline gap-x-2 overflow-hidden rounded-md border bg-muted/20 p-3">
+        <p className="shrink-0 text-sm font-medium">{copy.policyContext}</p>
+        <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
+          {copy.policyDescription}
+        </p>
       </div>
     </SectionCard>
   );

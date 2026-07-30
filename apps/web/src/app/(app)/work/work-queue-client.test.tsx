@@ -8,7 +8,6 @@ describe('WorkQueueClient', () => {
     const html = renderToStaticMarkup(<WorkQueueClient />);
 
     expect(html).toContain('작업함');
-    expect(html).toContain('담당 업무와 검토가 필요한 항목을 표시합니다.');
     expect(html).toContain('작업함 조치 콘솔');
     expect(html).toContain('전체 종류');
     expect(html).toContain('전체 담당');

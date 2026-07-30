@@ -300,7 +300,6 @@ export function AdminSecurityClient({
       <PageHeader
         breadcrumbs={['문서 보관', '관리', '보안']}
         title="보안 운영"
-        description="구성원 접근 상태와 긴급 접근 요청을 확인하고 처리합니다."
         actions={
           <Button onClick={() => void refresh()} disabled={busy} type="button" variant="outline">
             <RotateCcw className="h-4 w-4" aria-hidden="true" />

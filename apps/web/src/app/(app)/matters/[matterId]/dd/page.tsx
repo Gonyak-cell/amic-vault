@@ -62,11 +62,7 @@ export default function MatterDdPage({ params }: { params: { matterId: string } 
 
   return (
     <PageShell>
-      <PageHeader
-        breadcrumbs={['문서 보관', 'Matter', 'DD']}
-        title="DD"
-        description="자료 요청 · 추적 관계"
-      />
+      <PageHeader breadcrumbs={['문서 보관', 'Matter', 'DD']} title="DD" />
 
       <MatterWorkstreamTabs matterId={params.matterId} active="dd" />
 

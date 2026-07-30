@@ -1073,9 +1073,9 @@ function DocumentEditingLifecyclePanel({
 
         <div className="rounded-md border bg-background px-3 py-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">편집 세션</h3>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+              <h3 className="shrink-0 text-sm font-semibold text-foreground">편집 세션</h3>
+              <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
                 공식 버전을 직접 덮어쓰지 않고 검토 이력을 생성합니다.
               </p>
             </div>
@@ -1147,9 +1147,9 @@ function DocumentEditingLifecyclePanel({
 
         <div className="rounded-md border bg-background px-3 py-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">편집 패키지</h3>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+              <h3 className="shrink-0 text-sm font-semibold text-foreground">편집 패키지</h3>
+              <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
                 현재 잠금 상태와 기준 파일을 묶어 저장 경로까지 확인합니다.
               </p>
             </div>
@@ -1200,9 +1200,9 @@ function DocumentEditingLifecyclePanel({
 
         <div className="rounded-md border bg-background px-3 py-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">문서 보관함 편집기</h3>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+              <h3 className="shrink-0 text-sm font-semibold text-foreground">문서 보관함 편집기</h3>
+              <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
                 활성 잠금에서 열린 초안을 검토본으로 저장합니다.
               </p>
             </div>
@@ -1514,9 +1514,9 @@ function DocumentEditingLifecyclePanel({
 
         <div className="rounded-md border bg-background px-3 py-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">공식 버전 발행</h3>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+              <h3 className="shrink-0 text-sm font-semibold text-foreground">공식 버전 발행</h3>
+              <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
                 체크인된 검토본만 다음 공식 버전으로 승격할 수 있습니다.
               </p>
             </div>
@@ -2717,7 +2717,6 @@ export function DocumentActionCenter({
       <PageHeader
         breadcrumbs={['문서 보관', '파일']}
         title={document?.title || '제목 없음'}
-        description="접근 가능한 문서 정보를 표시합니다."
         actions={
           <div className="flex max-w-full flex-wrap justify-end gap-2">
             <Button

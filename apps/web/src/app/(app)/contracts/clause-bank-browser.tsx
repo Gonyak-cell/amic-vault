@@ -84,11 +84,7 @@ export function ClauseBankBrowser() {
 
   return (
     <PageShell>
-      <PageHeader
-        breadcrumbs={['문서 보관', '계약']}
-        title="조항 라이브러리"
-        description="승인된 조항 정보와 재사용 후보를 관리합니다."
-      />
+      <PageHeader breadcrumbs={['문서 보관', '계약']} title="조항 라이브러리" />
 
       <SectionCard
         title="조항 라이브러리 항목"

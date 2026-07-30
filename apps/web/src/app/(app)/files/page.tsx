@@ -100,14 +100,10 @@ export default function FilesPage() {
       savedItems={savedItems.items}
       savedItemsLoading={savedItems.loading}
       matterSaved={
-        selectedMatter
-          ? savedItems.isSaved('matter', selectedMatter.matterReference)
-          : false
+        selectedMatter ? savedItems.isSaved('matter', selectedMatter.matterReference) : false
       }
       matterSavedBusy={
-        selectedMatter
-          ? savedItems.isBusy('matter', selectedMatter.matterReference)
-          : false
+        selectedMatter ? savedItems.isBusy('matter', selectedMatter.matterReference) : false
       }
       onToggleMatterSaved={
         selectedMatter
@@ -134,9 +130,8 @@ export default function FilesPage() {
           targetId: document.documentId,
           label: document.title,
           contextLabel:
-            [document.matterDisplayCode, document.matterDisplayName]
-              .filter(Boolean)
-              .join(' · ') || null,
+            [document.matterDisplayCode, document.matterDisplayName].filter(Boolean).join(' · ') ||
+            null,
           href: `/documents/${document.documentId}`,
         })
       }
@@ -145,15 +140,9 @@ export default function FilesPage() {
         setPreviewOpen(true);
       }}
       previewTriggerRef={previewTriggerRef}
-      saved={
-        selectedDocument
-          ? savedItems.isSaved('document', selectedDocument.documentId)
-          : false
-      }
+      saved={selectedDocument ? savedItems.isSaved('document', selectedDocument.documentId) : false}
       savedBusy={
-        selectedDocument
-          ? savedItems.isBusy('document', selectedDocument.documentId)
-          : false
+        selectedDocument ? savedItems.isBusy('document', selectedDocument.documentId) : false
       }
     />
   );
@@ -162,7 +151,6 @@ export default function FilesPage() {
     <PageShell>
       <PageHeader
         breadcrumbs={['문서 보관', t('files.page.title')]}
-        description="Matter와 문서 목록을 같은 작업 흐름에서 확인합니다."
         title={t('files.page.title')}
         navigation={
           <Button

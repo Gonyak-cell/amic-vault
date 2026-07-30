@@ -35,7 +35,6 @@ export function AuditConsoleClient() {
     language === 'ko'
       ? {
           title: '활동 기록',
-          description: '접근 가능한 활동 기록을 기간, 활동, 결과 기준으로 조회합니다.',
           filterTitle: '활동 기록 필터',
           filterMeta: '운영 데이터 기준',
           action: '활동',
@@ -65,7 +64,6 @@ export function AuditConsoleClient() {
         }
       : {
           title: 'Activity log',
-          description: 'Review accessible activity by date, activity, and result.',
           filterTitle: 'Activity filters',
           filterMeta: 'Operational data',
           action: 'Activity',
@@ -181,7 +179,7 @@ export function AuditConsoleClient() {
 
   return (
     <PageShell>
-      <PageHeader title={copy.title} description={copy.description} />
+      <PageHeader title={copy.title} />
       <form onSubmit={submit}>
         <FilterBar
           actions={

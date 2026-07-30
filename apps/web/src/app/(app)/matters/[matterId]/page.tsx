@@ -234,11 +234,6 @@ export default function MatterDetailPage({
       <PageHeader
         breadcrumbs={['문서 보관', 'Matter']}
         title={matter?.matterName ?? 'Matter'}
-        description={
-          matter
-            ? [matter.matterCode, matter.clientDisplayName].filter(Boolean).join(' · ')
-            : '접근 가능한 Matter 정보만 표시됩니다.'
-        }
         actions={
           matter ? (
             <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
@@ -271,9 +266,11 @@ export default function MatterDetailPage({
               <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
               </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">Matter가 생성되었습니다.</p>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+              <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+                <p className="shrink-0 text-sm font-semibold text-foreground">
+                  Matter가 생성되었습니다.
+                </p>
+                <p className="min-w-0 truncate whitespace-nowrap text-sm leading-6 text-muted-foreground">
                   Conflicts 패널에서 이해상충 검토를 실행하고 해소한 뒤 Matter를 열 수 있습니다.
                 </p>
               </div>
@@ -541,9 +538,9 @@ function MatterDashboardPanel({
   return (
     <section id="matter-dashboard" className="grid gap-3" aria-label="Matter 업무 대시보드">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">업무 대시보드</h2>
-          <p className="text-xs text-muted-foreground">
+        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+          <h2 className="shrink-0 text-base font-semibold text-foreground">업무 대시보드</h2>
+          <p className="min-w-0 truncate whitespace-nowrap text-xs text-muted-foreground">
             {dashboard ? `집계 ${formatDashboardTime(dashboard.generatedAt)}` : '집계 중'}
           </p>
         </div>

@@ -73,7 +73,6 @@ const recordsCopy: Record<
     refreshTitle: string;
     refresh: string;
     pageTitle: string;
-    pageDescription: string;
     title: string;
     policyMeta: string;
     holdMeta: string;
@@ -175,7 +174,6 @@ const recordsCopy: Record<
     refreshTitle: '보존 정보 새로고침',
     refresh: '새로고침',
     pageTitle: '기록 보존',
-    pageDescription: '보존 정책, 삭제 금지, 보관, 삭제 요청을 정책 관리 기준으로 운영합니다.',
     title: '보존 정책 관리',
     policyMeta: '승인된 정책 값만 저장합니다.',
     holdMeta: 'Matter 코드와 파일 표시명을 기준으로 보존 조치를 적용합니다.',
@@ -276,8 +274,6 @@ const recordsCopy: Record<
     refreshTitle: 'Refresh retention data',
     refresh: 'Refresh',
     pageTitle: 'Records governance',
-    pageDescription:
-      'Manage retention policies, legal holds, archive, and disposal operations from approved data.',
     title: 'Retention settings',
     policyMeta: 'Save approved policy values only.',
     holdMeta: 'Apply retention protection from Matter code and file display labels.',
@@ -539,7 +535,6 @@ export function RecordsGovernanceClient() {
     <PageShell>
       <PageHeader
         title={copy.pageTitle}
-        description={copy.pageDescription}
         actions={
           <Button onClick={refreshAll} disabled={busy} title={copy.refreshTitle} type="button">
             <ListTree className="h-4 w-4" />
@@ -1116,14 +1111,16 @@ function RecordsActionContextPanel({
     <div className="rounded-md border bg-card p-3">
       <div className="flex min-w-0 flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2 overflow-hidden">
             <ListChecks className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             <p className="truncate text-sm font-semibold text-foreground">
               {copy.contextPanelTitle}
             </p>
             <StatusBadge tone="success">{copy.contextReady}</StatusBadge>
+            <p className="min-w-0 truncate whitespace-nowrap text-xs text-muted-foreground">
+              {copy.contextPanelMeta}
+            </p>
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">{copy.contextPanelMeta}</p>
           <dl className="mt-2 flex min-w-0 flex-wrap gap-2">
             {documentContextLabel ? (
               <ContextTarget label={copy.documentRef} value={documentContextLabel} compact />

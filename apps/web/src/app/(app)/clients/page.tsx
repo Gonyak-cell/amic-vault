@@ -116,7 +116,6 @@ export default function ClientsPage() {
       <PageHeader
         breadcrumbs={['문서 보관', '고객']}
         title="고객"
-        description="Matter 생성 고객 원장"
         actions={
           <Button type="button" variant="outline" onClick={refreshClients}>
             <RefreshCw className="h-4 w-4" />
@@ -130,9 +129,9 @@ export default function ClientsPage() {
           <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
           </span>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-foreground">운영 기준</p>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+            <p className="shrink-0 text-sm font-semibold text-foreground">운영 기준</p>
+            <p className="min-w-0 truncate whitespace-nowrap text-sm leading-6 text-muted-foreground">
               활성 고객을 기준으로 Matter 생성 목록을 구성합니다.
             </p>
           </div>

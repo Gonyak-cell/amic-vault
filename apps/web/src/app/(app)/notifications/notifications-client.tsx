@@ -180,7 +180,6 @@ export function NotificationsContent({
       <PageHeader
         breadcrumbs={['문서 보관', '알림']}
         title="알림"
-        description="접근 가능한 활동과 상태 알림을 표시합니다."
         actions={
           <StatusBadge tone={items.length > 0 ? 'warning' : 'success'}>실제 상태 기반</StatusBadge>
         }

@@ -34,8 +34,8 @@ export function DetailInspector({
       {...props}
     >
       <div className="flex min-h-16 items-center justify-between gap-3 border-b px-4 py-3.5 sm:px-[18px]">
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
+          <div className="flex min-w-0 shrink-0 items-center gap-2">
             <h2
               className="truncate text-[15px] font-semibold tracking-normal text-foreground"
               id={titleId}
@@ -44,9 +44,15 @@ export function DetailInspector({
             </h2>
             {status ? <div className="shrink-0">{status}</div> : null}
           </div>
-          {meta ? <p className="truncate text-[11px] text-muted-foreground">{meta}</p> : null}
+          {meta ? (
+            <p className="min-w-0 truncate whitespace-nowrap text-[11px] text-muted-foreground">
+              {meta}
+            </p>
+          ) : null}
           {description ? (
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+            <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
+              {description}
+            </p>
           ) : null}
         </div>
         {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
@@ -77,12 +83,16 @@ export function DetailInspectorSection({
     >
       {title || description || actions ? (
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
             {title ? (
-              <h3 className="text-sm font-semibold tracking-normal text-foreground">{title}</h3>
+              <h3 className="shrink-0 text-sm font-semibold tracking-normal text-foreground">
+                {title}
+              </h3>
             ) : null}
             {description ? (
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+              <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
+                {description}
+              </p>
             ) : null}
           </div>
           {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
