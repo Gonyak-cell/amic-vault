@@ -54,12 +54,7 @@ export function ClientListTable({ clients }: { clients: ClientDto[] }) {
                 href={clientDetailPath(client.clientId)}
                 className="min-w-0 rounded-md underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="block truncate font-semibold">
-                  {client.displayName || client.name}
-                </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {client.clientId}
-                </span>
+                <span className="block truncate font-semibold">{client.displayName || client.name}</span>
               </Link>
               <span className="truncate text-muted-foreground">
                 {clientTypeLabels[client.clientType as ClientType] ?? client.clientType}

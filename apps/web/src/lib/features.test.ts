@@ -50,12 +50,12 @@ describe('route visibility policies', () => {
     expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
   });
 
-  it('shows notifications to internal users without admin-only escalation', () => {
+  it('keeps notifications available to internal users but out of primary navigation', () => {
     const policy = findRouteVisibilityPolicy('/notifications');
     expect(policy).toMatchObject({
       group: 'Vault',
       production: 'visible',
-      showInNavigation: true,
+      showInNavigation: false,
     });
     if (!policy) throw new Error('missing notifications route policy');
 
@@ -78,18 +78,41 @@ describe('route visibility policies', () => {
     expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
   });
 
-  it('shows search folders to internal users as a production Vault route', () => {
-    const policy = findRouteVisibilityPolicy('/search/folders');
-    expect(policy).toMatchObject({
-      group: 'Vault',
-      production: 'visible',
-      showInNavigation: true,
-    });
-    if (!policy) throw new Error('missing search folders route policy');
+  it('keeps search routes available to internal users but out of primary navigation', () => {
+    for (const route of ['/search', '/search/folders']) {
+      const policy = findRouteVisibilityPolicy(route);
+      expect(policy, `${route} policy`).toMatchObject({
+        group: 'Vault',
+        production: 'visible',
+        showInNavigation: false,
+      });
+      if (!policy) continue;
 
-    expect(canRoleViewRoute(policy, 'matter_member')).toBe(true);
-    expect(canRoleViewRoute(policy, 'limited_reviewer')).toBe(true);
-    expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
+      expect(canRoleViewRoute(policy, 'matter_member')).toBe(true);
+      expect(canRoleViewRoute(policy, 'limited_reviewer')).toBe(true);
+      expect(canRoleViewRoute(policy, 'external_user')).toBe(false);
+    }
+  });
+
+  it('keeps admin capability routes authorized but out of primary navigation', () => {
+    for (const [route, matterOwnerAllowed] of [
+      ['/records', true],
+      ['/audit', false],
+      ['/integrations/outlook', false],
+    ] as const) {
+      const policy = findRouteVisibilityPolicy(route);
+      expect(policy, `${route} policy`).toMatchObject({
+        production: 'visible_admin_only',
+        showInNavigation: false,
+      });
+      if (!policy) continue;
+
+      expect(canRoleViewRoute(policy, 'firm_admin')).toBe(true);
+      expect(canRoleViewRoute(policy, 'security_admin')).toBe(true);
+      expect(canRoleViewRoute(policy, 'matter_owner')).toBe(matterOwnerAllowed);
+      expect(canRoleViewRoute(policy, 'matter_member')).toBe(false);
+      expect(canRoleViewRoute(policy, undefined)).toBe(false);
+    }
   });
 
   it('keeps hidden internal routes blocked by policy', () => {

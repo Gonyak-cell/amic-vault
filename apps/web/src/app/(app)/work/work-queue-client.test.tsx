@@ -11,6 +11,7 @@ describe('WorkQueueClient', () => {
     expect(html).toContain('작업함 조치 콘솔');
     expect(html).toContain('전체 종류');
     expect(html).toContain('전체 담당');
+    expect(html).toContain('value="mine" selected="">내 업무</option>');
     expect(html).toContain('전체 구분');
     expect(html).toContain('전체 상태');
     expect(html).toContain('주의 항목 우선');

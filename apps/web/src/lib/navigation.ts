@@ -1,15 +1,9 @@
 import {
-  Archive,
-  Bell,
   Building2,
   CheckSquare,
   FileText,
   FolderKanban,
-  FolderSearch,
-  History,
   ListChecks,
-  MailCheck,
-  Search,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
@@ -64,26 +58,6 @@ const routeNavigation = {
     icon: Building2,
     labelKey: 'nav.clients',
   },
-  '/search': {
-    group: 'Vault',
-    icon: Search,
-    labelKey: 'nav.search',
-  },
-  '/search/folders': {
-    group: 'Vault',
-    icon: FolderSearch,
-    labelKey: 'nav.searchFolders',
-  },
-  '/records': {
-    group: 'Governance',
-    icon: Archive,
-    labelKey: 'nav.records',
-  },
-  '/audit': {
-    group: 'Audit',
-    icon: History,
-    labelKey: 'nav.audit',
-  },
   '/admin': {
     group: 'Admin',
     icon: Settings,
@@ -98,16 +72,6 @@ const routeNavigation = {
     group: 'Vault',
     icon: ListChecks,
     labelKey: 'nav.workQueue',
-  },
-  '/notifications': {
-    group: 'Vault',
-    icon: Bell,
-    labelKey: 'nav.notifications',
-  },
-  '/integrations/outlook': {
-    group: 'Integrations',
-    icon: MailCheck,
-    labelKey: 'nav.outlook',
   },
 } as const;
 

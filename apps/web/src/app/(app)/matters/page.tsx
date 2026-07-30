@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { MatterDto } from '@amic-vault/shared';
-import { FolderKanban, FolderPlus, ShieldCheck } from 'lucide-react';
+import { FolderKanban, FolderPlus } from 'lucide-react';
 import { listMatters } from '@/lib/api-client';
 import { MatterListTable } from '@/components/matter/matter-list-table';
 import { Button } from '@/components/ui/button';
@@ -24,17 +24,16 @@ const mattersCopy: Record<
     title: string;
     matter: string;
     client: string;
-    type: string;
     status: string;
-    security: string;
     actions: string;
-    protected: string;
     empty: string;
     emptyDescription: string;
-    openMatter: string;
     fileCabinet: string;
     searchMatter: string;
-    prepTitle: string;
+    moreActions: string;
+    owner: string;
+    ownerUnassigned: string;
+    recentUpdate: string;
     newMatter: string;
     clientFilterActive: string;
     clearFilter: string;
@@ -48,18 +47,17 @@ const mattersCopy: Record<
     title: 'Matter 목록',
     matter: 'Matter',
     client: '고객',
-    type: '유형',
     status: '상태',
-    security: '보안',
     actions: '작업',
-    protected: '보호됨',
     empty: '표시할 Matter가 없습니다.',
     emptyDescription:
       'Matter 관리 시스템에서 신규 Matter를 만들거나 Matter 코드 동기화가 완료되면 문서 보관함에 표시됩니다.',
-    openMatter: '열기',
     fileCabinet: '파일함',
     searchMatter: '검색',
-    prepTitle: 'Matter 관리 시스템 연동 기준',
+    moreActions: '추가 작업',
+    owner: '담당자',
+    ownerUnassigned: '미지정',
+    recentUpdate: '최근 변경',
     newMatter: '새 Matter',
     clientFilterActive: '선택한 고객의 Matter만 표시합니다.',
     clearFilter: '전체 Matter 보기',
@@ -72,18 +70,17 @@ const mattersCopy: Record<
     title: 'Matter list',
     matter: 'Matter',
     client: 'Client',
-    type: 'Type',
     status: 'Status',
-    security: 'Security',
     actions: 'Actions',
-    protected: 'Protected',
     empty: 'No matters to show.',
     emptyDescription:
       'Create a matter in the Matter app or sync Matter codes, then Vault will show the authorized Matter here.',
-    openMatter: 'Open',
     fileCabinet: 'Files',
     searchMatter: 'Search',
-    prepTitle: 'Matter app source of truth',
+    moreActions: 'More actions',
+    owner: 'Owner',
+    ownerUnassigned: 'Unassigned',
+    recentUpdate: 'Updated',
     newMatter: 'New Matter',
     clientFilterActive: 'Showing matters for the selected client.',
     clearFilter: 'View all matters',
@@ -138,15 +135,6 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
           </Button>
         }
       />
-
-      <div className="rounded-md border bg-card px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-          </span>
-          <p className="min-w-0 truncate text-sm font-semibold text-foreground">{copy.prepTitle}</p>
-        </div>
-      </div>
 
       {clientFilterActive ? (
         <div className="rounded-md border bg-card px-4 py-3">

@@ -2,9 +2,23 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { LanguageProvider } from '@/lib/i18n';
+import { AdminRouteHub } from './admin-route-hub';
 import AdminPage from './page';
 
 describe('AdminPage', () => {
+  it('links to each guarded administration surface', () => {
+    const html = renderToStaticMarkup(<AdminRouteHub />);
+
+    expect(html).toContain('href="/records"');
+    expect(html).toContain('href="/audit"');
+    expect(html).toContain('href="/admin/security"');
+    expect(html).toContain('href="/integrations/outlook"');
+    expect(html).toContain('href="/integrations/matter-app"');
+    expect(html).toContain('href="/enterprise"');
+    expect(html).not.toContain('href="/walls"');
+    expect(html).toContain('조직 설정');
+  });
+
   it('does not render admin settings before route role visibility is confirmed', () => {
     const html = renderToStaticMarkup(
       <LanguageProvider>
@@ -17,5 +31,6 @@ describe('AdminPage', () => {
     expect(html).not.toContain('SSO');
     expect(html).not.toContain('고객 관리 키');
     expect(html).not.toContain('SIEM');
+    expect(html).not.toContain('href="/records"');
   });
 });

@@ -91,7 +91,7 @@ const kindFilterLabels = {
 
 const assigneeFilterLabels = {
   all: '전체 담당',
-  mine: '내 담당',
+  mine: '내 업무',
   unassigned: '미배정',
 } as const satisfies Record<DmsWorkQueueAssigneeFilter, string>;
 
@@ -129,7 +129,7 @@ export function WorkQueueClient() {
     hasNext: false,
   }));
   const [kindFilter, setKindFilter] = useState<WorkKindFilter>('all');
-  const [assigneeFilter, setAssigneeFilter] = useState<DmsWorkQueueAssigneeFilter>('all');
+  const [assigneeFilter, setAssigneeFilter] = useState<DmsWorkQueueAssigneeFilter>('mine');
   const [pageOffset, setPageOffset] = useState(0);
 
   useEffect(() => {
@@ -246,7 +246,7 @@ export function WorkQueueClient() {
 }
 
 export function WorkQueueContent({
-  assigneeFilter = 'all',
+  assigneeFilter = 'mine',
   dashboardState,
   kindFilter = 'all',
   onAssigneeFilterChange,

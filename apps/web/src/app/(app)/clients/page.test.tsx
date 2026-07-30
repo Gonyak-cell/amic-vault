@@ -35,6 +35,7 @@ describe('ClientsPage', () => {
 
     expect(html).toContain('한빛전자');
     expect(html).toContain('href="/clients/11111111-1111-4111-8111-111111111111"');
+    expect(html).not.toContain('>11111111-1111-4111-8111-111111111111<');
     expect(html).not.toContain('href="/matters?clientId=');
   });
 

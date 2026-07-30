@@ -51,12 +51,12 @@ const matterListCopy = {
   client: '고객',
   fileCabinet: '파일함',
   matter: 'Matter',
-  openMatter: '열기',
-  protected: '보호됨',
+  moreActions: '추가 작업',
+  owner: '담당자',
+  ownerUnassigned: '미지정',
+  recentUpdate: '최근 변경',
   searchMatter: '검색',
-  security: '보안',
   status: '상태',
-  type: '유형',
 } satisfies MatterListTableCopy;
 
 export function clientMatterFilterPath(clientId: string): string {

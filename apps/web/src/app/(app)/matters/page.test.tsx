@@ -25,7 +25,7 @@ describe('MattersPage', () => {
     );
 
     expect(html).toContain('Matter 목록');
-    expect(html).toContain('Matter 관리 시스템 연동 기준');
+    expect(html).not.toContain('Matter 관리 시스템 연동 기준');
     expect(html).toContain('새 Matter');
     expect(html.match(/새 Matter/g)).toHaveLength(1);
     expect(html).toContain('href="/matters/new"');
@@ -72,20 +72,21 @@ describe('MattersPage', () => {
     expect(html).toContain('계약 검토');
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('한빛전자');
-    expect(html).toContain('높음');
-    expect(html).toContain('정보 차단');
+    expect(html).toContain('담당자');
+    expect(html).toContain('미지정');
+    expect(html).toContain('최근 변경');
+    expect(html).toContain('2026.06.18');
+    expect(html).not.toContain('정보 차단');
+    expect(html).not.toContain('높음');
     expect(html).toContain('파일함');
     expect(html).toContain('검색');
-    expect(html).toContain('min-w-[1140px]');
-    expect(html).toContain('whitespace-nowrap');
+    expect(html).toContain('추가 작업');
+    expect(html).toContain('aria-label="계약 검토 파일함"');
+    expect(html).toContain('aria-label="계약 검토 검색"');
     expect(html).toContain('href="/matters/11111111-1111-4111-8111-111111111122"');
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007"');
     expect(html).toContain(
       'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter"',
-    );
-    expect(html).toContain('href="/files?matterCode=AMIC-2026-0007">파일함</a>');
-    expect(html).toContain(
-      'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter">검색</a>',
     );
     expect(html).not.toMatch(/>18</);
     expect(html).not.toMatch(/>642</);
@@ -109,12 +110,12 @@ const matterListCopy = {
   client: '고객',
   fileCabinet: '파일함',
   matter: 'Matter',
-  openMatter: '열기',
-  protected: '보호됨',
+  moreActions: '추가 작업',
+  owner: '담당자',
+  ownerUnassigned: '미지정',
+  recentUpdate: '최근 변경',
   searchMatter: '검색',
-  security: '보안',
   status: '상태',
-  type: '유형',
 } satisfies MatterListTableCopy;
 
 function matterFixture(overrides: Partial<MatterDto> = {}): MatterDto {

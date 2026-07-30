@@ -2,32 +2,25 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { FolderKanban, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { FolderKanban, FolderOpen, Search } from 'lucide-react';
 import type { MatterDto } from '@amic-vault/shared';
 import { matterFileCabinetUrl, matterSearchUrl } from '@/components/matter/matter-dms-links';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
-import { Button } from '@/components/ui/button';
 
 export interface MatterListTableCopy {
   actions: string;
   client: string;
   fileCabinet: string;
   matter: string;
-  openMatter: string;
-  protected: string;
+  moreActions: string;
+  owner: string;
+  ownerUnassigned: string;
+  recentUpdate: string;
   searchMatter: string;
-  security: string;
   status: string;
-  type: string;
 }
 
 export { matterFileCabinetUrl, matterSearchUrl } from '@/components/matter/matter-dms-links';
-
-const confidentialityLabels = {
-  standard: '표준',
-  high: '높음',
-  restricted: '제한',
-} as const satisfies Record<MatterDto['confidentialityLevel'], string>;
 
 export function MatterListTable({
   copy,
@@ -38,26 +31,26 @@ export function MatterListTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[1140px]">
-        <div className="grid min-h-16 grid-cols-[minmax(220px,1fr)_180px_110px_110px_90px_330px] items-center gap-4 border-b px-5 py-4 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
+      <div className="min-w-[900px]">
+        <div className="grid min-h-14 grid-cols-[minmax(240px,1fr)_180px_160px_110px_120px_48px] items-center gap-4 border-b px-5 py-3 text-xs font-semibold uppercase tracking-normal text-muted-foreground">
           <span>{copy.matter}</span>
           <span>{copy.client}</span>
-          <span>{copy.type}</span>
+          <span>{copy.owner}</span>
           <span>{copy.status}</span>
-          <span className="text-right">{copy.security}</span>
-          <span className="text-right">{copy.actions}</span>
+          <span>{copy.recentUpdate}</span>
+          <span className="sr-only">{copy.actions}</span>
         </div>
         {matters.map((matter) => (
           <div
             key={matter.matterId}
-            className="grid grid-cols-[minmax(220px,1fr)_180px_110px_110px_90px_330px] items-center gap-4 border-b px-5 py-4 text-sm last:border-b-0"
+            className="grid grid-cols-[minmax(240px,1fr)_180px_160px_110px_120px_48px] items-center gap-4 border-b px-5 py-3 text-sm last:border-b-0"
           >
             <Link
               href={`/matters/${matter.matterId}`}
               className="flex min-w-0 items-center gap-3 rounded-md underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="grid h-9 w-9 place-items-center rounded-md bg-secondary text-primary">
-                <FolderKanban className="h-4 w-4" />
+                <FolderKanban className="h-4 w-4" aria-hidden="true" />
               </span>
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{matter.matterName}</span>
@@ -69,36 +62,54 @@ export function MatterListTable({
             <span className="truncate text-muted-foreground">
               {matter.clientDisplayName ?? '고객 표시명 없음'}
             </span>
-            <span className="truncate text-muted-foreground">{matter.matterType}</span>
+            <span className="truncate text-muted-foreground">
+              {matter.leadLawyerDisplayName ??
+                matter.leadPartnerDisplayName ??
+                matter.leadAssociateDisplayName ??
+                copy.ownerUnassigned}
+            </span>
             <span>
               <MatterStatusBadge status={matter.status} />
             </span>
-            <span className="flex min-w-0 flex-col items-end gap-1 text-right text-xs">
-              <span className="inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-1 font-medium text-muted-foreground">
-                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-                {confidentialityLabels[matter.confidentialityLevel]}
-              </span>
-              {matter.ethicalWallActive ? (
-                <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-amber-300 px-2 py-1 font-medium text-amber-700">
-                  <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" />
-                  정보 차단
-                </span>
-              ) : null}
+            <span className="text-xs text-muted-foreground">
+              {formatMatterDate(matter.updatedAt)}
             </span>
-            <span className="flex min-w-0 justify-end gap-2 whitespace-nowrap">
-              <Button asChild className="min-w-[72px] px-3" size="sm" variant="outline">
-                <Link href={`/matters/${matter.matterId}`}>{copy.openMatter}</Link>
-              </Button>
-              <Button asChild className="min-w-[78px] px-3" size="sm" variant="outline">
-                <Link href={matterFileCabinetUrl(matter)}>{copy.fileCabinet}</Link>
-              </Button>
-              <Button asChild className="min-w-[72px] px-3" size="sm" variant="outline">
-                <Link href={matterSearchUrl(matter)}>{copy.searchMatter}</Link>
-              </Button>
-            </span>
+            <MatterRowActions copy={copy} matter={matter} />
           </div>
         ))}
       </div>
     </div>
   );
+}
+
+function MatterRowActions({ copy, matter }: { copy: MatterListTableCopy; matter: MatterDto }) {
+  return (
+    <span
+      aria-label={`${matter.matterName} ${copy.moreActions}`}
+      className="flex justify-self-end"
+      role="group"
+    >
+      <Link
+        aria-label={`${matter.matterName} ${copy.fileCabinet}`}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        href={matterFileCabinetUrl(matter)}
+      >
+        <FolderOpen className="h-4 w-4" aria-hidden="true" />
+        <span className="sr-only">{copy.fileCabinet}</span>
+      </Link>
+      <Link
+        aria-label={`${matter.matterName} ${copy.searchMatter}`}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        href={matterSearchUrl(matter)}
+      >
+        <Search className="h-4 w-4" aria-hidden="true" />
+        <span className="sr-only">{copy.searchMatter}</span>
+      </Link>
+    </span>
+  );
+}
+
+function formatMatterDate(value: string): string {
+  const date = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/u.test(date) ? date.replaceAll('-', '.') : value;
 }
