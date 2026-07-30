@@ -59,7 +59,8 @@ describe('AppShell', () => {
     expect(html).toContain('href="/admin"');
     expect(html).not.toContain('href="/enterprise"');
     expect(html).not.toContain('href="/integrations/outlook"');
-    expect(html).toContain('href="/notifications"');
+    expect(html).toContain('href="/work?view=notifications"');
+    expect(html).not.toContain('href="/notifications"');
     expect(html).not.toContain('href="/search/folders"');
     expect(html).not.toContain('검색 폴더');
     expect(html).toContain('Dashboard payload');
