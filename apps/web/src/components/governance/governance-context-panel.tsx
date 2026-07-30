@@ -15,6 +15,11 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
 import { updateMatter } from '@/lib/api-client';
+import {
+  documentExtractionMethodLabels as documentExtractionMethodLabelsByLanguage,
+  documentExtractionStatusLabels as documentExtractionStatusLabelsByLanguage,
+  matterStatusLabels as matterStatusLabelsByLanguage,
+} from '@/lib/i18n';
 
 type GovernanceTone = StatusBadgeTone;
 
@@ -59,6 +64,10 @@ const matterAccessScopeLabels = {
   firm_open: '일반 Matter',
   restricted: '제한 Matter',
 } as const satisfies Record<MatterAccessScope, string>;
+
+const extractionStatusLabels = documentExtractionStatusLabelsByLanguage.ko;
+const extractionMethodLabels = documentExtractionMethodLabelsByLanguage.ko;
+const matterStatusLabels: Readonly<Record<string, string>> = matterStatusLabelsByLanguage.ko;
 
 function toneForBoolean(value: boolean): GovernanceTone {
   return value ? 'warning' : 'success';
@@ -138,10 +147,17 @@ export function DocumentGovernanceContextPanel({
   const activityItems: GovernanceItem[] = [
     {
       label: '추출 상태',
-      value: document.extractionStatus ?? '확인 불가',
+      value: document.extractionStatus
+        ? extractionStatusLabels[document.extractionStatus]
+        : '확인 전',
       tone: toneForExtraction(document.extractionStatus),
     },
-    { label: '추출 방식', value: document.extractionMethod ?? '확인 불가' },
+    {
+      label: '추출 방식',
+      value: document.extractionMethod
+        ? extractionMethodLabels[document.extractionMethod]
+        : '확인 전',
+    },
     { label: '최종 업데이트', value: formattedDate(document.updatedAt) },
     {
       label: '파일 정리 준비',
@@ -188,7 +204,10 @@ export function MatterGovernanceContextPanel({
   const scopeChanged = selectedAccessScope !== currentAccessScope;
   const items: GovernanceItem[] = [
     { label: 'Matter 코드', value: matter.matterCode },
-    { label: '상태', value: matter.status },
+    {
+      label: '상태',
+      value: matterStatusLabels[matter.status] ?? '상태 미확인',
+    },
     {
       label: '접근 범위',
       value: matterAccessScopeLabels[currentAccessScope],

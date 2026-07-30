@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { MatterDto } from '@amic-vault/shared';
+import { ApiClientError, listMatters } from '@/lib/api-client';
 import { LanguageProvider } from '@/lib/i18n';
 import {
   MatterListTable,
@@ -9,12 +10,14 @@ import {
   matterSearchUrl,
   type MatterListTableCopy,
 } from '@/components/matter/matter-list-table';
+import { loadMatterList } from './matter-list-load';
 import { listMatterQueryFromSearchParams, type MatterSearchParams } from './matter-list-query';
 import MattersPage from './page';
 
-vi.mock('@/lib/api-client', () => ({
-  listMatters: vi.fn(),
-}));
+vi.mock('@/lib/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api-client')>();
+  return { ...actual, listMatters: vi.fn() };
+});
 
 describe('MattersPage', () => {
   it('keeps Matter headers title-only without turning the list into upload flow', () => {
@@ -128,6 +131,53 @@ describe('MattersPage', () => {
     expect(html).toContain('href="/matters"');
   });
 
+  it('settles resolved Matter list requests as ready or empty', async () => {
+    vi.mocked(listMatters)
+      .mockResolvedValueOnce({
+        items: [matterFixture()],
+        totalCount: 1,
+        page: 1,
+        pageSize: 20,
+      })
+      .mockResolvedValueOnce({
+        items: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: 20,
+      });
+
+    await expect(loadMatterList({ pageSize: 20, q: '계약' })).resolves.toEqual({
+      matters: [matterFixture()],
+      loadState: 'ready',
+    });
+    await expect(loadMatterList({ pageSize: 20, q: '없는 Matter' })).resolves.toEqual({
+      matters: [],
+      loadState: 'empty',
+    });
+    expect(listMatters).toHaveBeenNthCalledWith(1, { pageSize: 20, q: '계약' });
+    expect(listMatters).toHaveBeenNthCalledWith(2, { pageSize: 20, q: '없는 Matter' });
+  });
+
+  it('settles rejected Matter list requests as unavailable, denied, or Wall-blocked', async () => {
+    vi.mocked(listMatters)
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockRejectedValueOnce(new ApiClientError(403, { code: 'PERMISSION_DENIED' }))
+      .mockRejectedValueOnce(new ApiClientError(403, { code: 'ETHICAL_WALL_BLOCKED' }));
+
+    await expect(loadMatterList({ pageSize: 20 })).resolves.toEqual({
+      matters: [],
+      loadState: 'unavailable',
+    });
+    await expect(loadMatterList({ pageSize: 20 })).resolves.toEqual({
+      matters: [],
+      loadState: 'forbidden',
+    });
+    await expect(loadMatterList({ pageSize: 20 })).resolves.toEqual({
+      matters: [],
+      loadState: 'blocked',
+    });
+  });
+
   it('renders Matter-first DMS actions for real matter rows without fake counts', () => {
     const matter = matterFixture({ confidentialityLevel: 'high', ethicalWallActive: true });
     const html = renderToStaticMarkup(<MatterListTable copy={matterListCopy} matters={[matter]} />);
@@ -144,8 +194,8 @@ describe('MattersPage', () => {
     expect(html).toContain('파일함');
     expect(html).toContain('검색');
     expect(html).toContain('추가 작업');
-    expect(html).toContain('aria-label="계약 검토 파일함"');
-    expect(html).toContain('aria-label="계약 검토 검색"');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0007) 파일함"');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0007) 검색"');
     expect(html).toContain('href="/matters/11111111-1111-4111-8111-111111111122"');
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007"');
     expect(html).toContain(

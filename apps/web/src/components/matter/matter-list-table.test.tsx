@@ -2,10 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { MatterDto } from '@amic-vault/shared';
-import {
-  MatterListTable,
-  type MatterListTableCopy,
-} from './matter-list-table';
+import { MatterListTable, type MatterListTableCopy } from './matter-list-table';
 
 describe('MatterListTable responsive density', () => {
   it('keeps the matter identity, status, and actions at narrow widths', () => {
@@ -19,24 +16,48 @@ describe('MatterListTable responsive density', () => {
     expect(html).toContain('계약 검토');
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('제안됨');
-    expect(html).toContain('aria-label="계약 검토 파일함"');
-    expect(html).toContain('aria-label="계약 검토 검색"');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0007) 파일함"');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0007) 검색"');
     expect(html).toContain('aria-hidden="true"');
     expect(html).toContain('href="/matters/11111111-1111-4111-8111-111111111122"');
     expect(html).not.toMatch(/>11111111-1111-4111-8111-111111111122</);
   });
 
-  it('keeps lower-priority client, owner, and update cells in the DOM for wider breakpoints', () => {
+  it('keeps lower-priority client, owner, and update cells accessible at narrow widths', () => {
     const html = renderToStaticMarkup(
       <MatterListTable copy={matterListCopy} matters={[matterFixture()]} />,
     );
 
-    expect(html).toContain('hidden truncate text-muted-foreground md:block');
-    expect(html).toContain('hidden truncate text-muted-foreground xl:block');
-    expect(html).toContain('hidden text-xs text-muted-foreground xl:block');
+    expect(html).toContain('sr-only truncate text-muted-foreground md:not-sr-only');
+    expect(html).toContain('sr-only truncate text-muted-foreground xl:not-sr-only');
+    expect(html).toContain('sr-only text-xs text-muted-foreground xl:not-sr-only');
     expect(html).toContain('한빛전자');
     expect(html).toContain('담당 변호사');
     expect(html).toContain('2026.06.18');
+  });
+
+  it('keeps duplicate-name actions distinct and keyboard-focusable', () => {
+    const first = matterFixture();
+    const second = matterFixture({
+      matterCode: 'AMIC-2026-0018',
+      matterId: '22222222-2222-4222-8222-222222222222',
+    });
+    const html = renderToStaticMarkup(
+      <MatterListTable copy={matterListCopy} matters={[first, second]} />,
+    );
+
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0007) 파일함"');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0018) 파일함"');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0007) 검색"');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0018) 검색"');
+    expect(
+      html.match(/<a aria-label="계약 검토 \(AMIC-2026-\d{4}\) (?:파일함|검색)"/g),
+    ).toHaveLength(4);
+    expect(html).not.toContain('tabindex="-1"');
+    expect(html).not.toMatch(
+      /aria-label="계약 검토 \(AMIC-2026-\d{4}\) (?:파일함|검색)"[^>]*role="button"/,
+    );
+    expect(html.match(/focus-visible:ring-2/g)?.length).toBeGreaterThanOrEqual(4);
   });
 });
 
@@ -53,7 +74,7 @@ const matterListCopy = {
   status: '상태',
 } satisfies MatterListTableCopy;
 
-function matterFixture(): MatterDto {
+function matterFixture(overrides: Partial<MatterDto> = {}): MatterDto {
   return {
     clientId: '11111111-1111-4111-8111-111111111111',
     clientDisplayName: '한빛전자',
@@ -82,5 +103,6 @@ function matterFixture(): MatterDto {
     updatedAt: '2026-06-18T01:00:00.000Z',
     leadLawyerId: null,
     leadPartnerId: null,
+    ...overrides,
   };
 }

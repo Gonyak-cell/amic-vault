@@ -10,7 +10,6 @@ import {
   Clock3,
   FileText,
   SearchCheck,
-  UploadCloud,
 } from 'lucide-react';
 import { DashboardWorkQueueSection } from '@/components/dashboard/dashboard-work-queue';
 import { Button } from '@/components/ui/button';
@@ -104,19 +103,23 @@ export function VaultActivityContent({
   recentMattersState: DataState<MatterDto[]>;
   workItemsState: DataState<DmsWorkQueueItem[]>;
 }) {
-  const dueItemsState = workItemsWithDueDates(workItemsState);
+  const visibleWorkItemsState =
+    workItemsState.status === 'ready'
+      ? { ...workItemsState, data: workItemsState.data.slice(0, 5) }
+      : workItemsState;
+  const dueItemsState = workItemsWithDueDates(visibleWorkItemsState);
 
   return (
     <PageShell>
       <PageHeader breadcrumbs={['문서 보관', '홈']} title="홈" />
 
       <div className="grid min-w-0 gap-4">
-        <DashboardActionLauncher />
         <DashboardWorkQueueSection
-          itemsState={workItemsState}
+          itemsState={visibleWorkItemsState}
           state={dashboardState}
           title="내 업무"
         />
+        <DashboardActionLauncher />
         <DashboardSection<DueWorkItem>
           actionHref="/work"
           actionLabel="작업함 열기"
@@ -205,9 +208,7 @@ export function VaultActivityContent({
           renderItems={(items) => (
             <DashboardList>
               {items.map((item) => (
-                <DashboardListItem
-                  key={`${item.actionLabel}-${item.occurredAt}`}
-                >
+                <DashboardListItem key={`${item.actionLabel}-${item.occurredAt}`}>
                   <div className="min-w-0">
                     <div className="font-medium text-foreground">{item.actionLabel}</div>
                     <div className="mt-1 text-[12px] text-muted-foreground">
@@ -309,10 +310,7 @@ function DashboardStateBody<T>({
 
   if (state.status === 'blocked') {
     return (
-      <EmptyState
-        variant="policy-blocked"
-        title="정보 차단 또는 권한 정책으로 표시할 수 없습니다."
-      />
+      <EmptyState variant="policy-blocked" title="정보 차단 정책에 따라 표시할 수 없습니다." />
     );
   }
 
@@ -374,12 +372,6 @@ function DashboardListItem({
 
 function DashboardActionLauncher() {
   const links = [
-    {
-      href: '/files#matter-upload',
-      icon: <UploadCloud className="h-4 w-4" />,
-      title: '문서 업로드',
-      description: 'Matter를 선택해 파일을 추가합니다.',
-    },
     {
       href: '/search',
       icon: <SearchCheck className="h-4 w-4" />,

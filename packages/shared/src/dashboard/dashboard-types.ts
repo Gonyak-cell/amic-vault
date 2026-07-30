@@ -182,6 +182,8 @@ export const dmsWorkQueueItemSchema = z
     status: dmsWorkItemStatusSchema.optional(),
     statusLabel: z.string().min(1).max(120).optional(),
     assignedToLabel: z.string().min(1).max(160).optional(),
+    canReassign: z.boolean().optional(),
+    canUpdateDueAt: z.boolean().optional(),
     dueAt: z.string().datetime({ offset: true }).optional(),
     updatedAt: z.string().datetime({ offset: true }).optional(),
   })
@@ -194,6 +196,7 @@ export type DmsWorkQueueAssigneeFilter = z.infer<typeof dmsWorkQueueAssigneeFilt
 export const dmsWorkQueueQuerySchema = z
   .object({
     kind: dmsWorkItemKindSchema.optional(),
+    matterId: z.string().uuid().optional(),
     assignee: dmsWorkQueueAssigneeFilterSchema.default('all'),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     offset: z.coerce.number().int().min(0).default(0),
@@ -207,6 +210,40 @@ export const reassignWorkItemSchema = z
   })
   .strict();
 export type ReassignWorkItemDto = z.infer<typeof reassignWorkItemSchema>;
+
+export const updateWorkItemDueAtSchema = z
+  .object({
+    dueAt: z.string().datetime({ offset: true }),
+  })
+  .strict();
+export type UpdateWorkItemDueAtDto = z.infer<typeof updateWorkItemDueAtSchema>;
+
+export const dmsWorkReassignmentCandidatesQuerySchema = z
+  .object({
+    q: z.string().trim().max(80).optional(),
+    limit: z.coerce.number().int().min(1).max(25).default(25),
+  })
+  .strict();
+export type DmsWorkReassignmentCandidatesQueryDto = z.infer<
+  typeof dmsWorkReassignmentCandidatesQuerySchema
+>;
+
+export const dmsWorkReassignmentCandidateSchema = z
+  .object({
+    userId: z.string().uuid(),
+    label: z.string().min(1).max(160),
+  })
+  .strict();
+export type DmsWorkReassignmentCandidateDto = z.infer<typeof dmsWorkReassignmentCandidateSchema>;
+
+export const dmsWorkReassignmentCandidatesResponseSchema = z
+  .object({
+    items: z.array(dmsWorkReassignmentCandidateSchema).max(25),
+  })
+  .strict();
+export type DmsWorkReassignmentCandidatesResponseDto = z.infer<
+  typeof dmsWorkReassignmentCandidatesResponseSchema
+>;
 
 export const dmsWorkQueueResponseSchema = z
   .object({
@@ -260,6 +297,16 @@ export const dmsNotificationCenterResponseSchema = z
     generatedAt: z.string().datetime({ offset: true }),
     source: z.enum(['dashboard_operational_state', 'persisted_notifications']),
     items: z.array(dmsNotificationItemSchema).max(20),
+    partial: z.boolean().optional(),
+    hasMore: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (value.partial !== value.hasMore) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'partial and hasMore must match',
+      });
+    }
+  });
 export type DmsNotificationCenterResponseDto = z.infer<typeof dmsNotificationCenterResponseSchema>;

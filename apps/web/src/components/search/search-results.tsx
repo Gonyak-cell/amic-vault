@@ -8,11 +8,18 @@ import type {
 } from '@amic-vault/shared';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { emptyStateVariantForUiErrorKind, type UiErrorKind } from '@/lib/api/error-messages';
-import { formatSearchResultCount, useI18n, type TranslationKey } from '@/lib/i18n';
+import type { UiErrorState } from '@/lib/api/error-messages';
+import {
+  documentTypeLabels as documentTypeLabelsByLanguage,
+  formatSearchResultCount,
+  useI18n,
+  type TranslationKey,
+} from '@/lib/i18n';
 import { ResultCard } from './result-card';
 
-export type SearchErrorKind = UiErrorKind;
+const documentTypeLabels: Readonly<Record<string, string>> = documentTypeLabelsByLanguage.ko;
+
+export type SearchErrorState = UiErrorState;
 
 interface SearchResultsProps {
   response: SearchResponseDto | null;
@@ -22,7 +29,7 @@ interface SearchResultsProps {
   groupBy?: SearchGroupBy;
   mode?: SearchMode;
   target?: SearchTarget;
-  error: SearchErrorKind | null;
+  error: SearchErrorState | null;
   onPage: (page: number) => void;
   onSelect?: (result: SearchResultDto) => void;
   selectedResultKey?: string | null;
@@ -44,10 +51,9 @@ export function SearchResults({
   const { language, t } = useI18n();
 
   if (error) {
-    const variant = emptyStateVariantForUiErrorKind(error);
-    return <EmptyState variant={variant} title={t(searchErrorKey(error))} />;
+    return <EmptyState variant={error.emptyStateVariant} title={t(searchErrorKey(error.kind))} />;
   }
-  if (busy && !response) return <EmptyState variant="api-unavailable" title={t('search.loading')} />;
+  if (busy && !response) return <EmptyState variant="loading" title={t('search.loading')} />;
   if (!response) return <EmptyState variant="pre-search" title={t('search.start')} />;
   if (response.results.length === 0) return <EmptyState title={t('search.empty')} />;
 
@@ -55,7 +61,9 @@ export function SearchResults({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{formatSearchResultCount(response.total, language)}</p>
+        <p className="text-sm text-muted-foreground">
+          {formatSearchResultCount(response.total, language)}
+        </p>
         <div className="flex items-center gap-2">
           <Button
             type="button"
@@ -130,7 +138,11 @@ function GroupedResults({
       {groups.map((group) => (
         <section key={group.label} className="flex flex-col gap-2">
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">{group.label}</h2>
-          <div className="flex flex-col gap-2" role="listbox" aria-label={`${group.label} 검색 결과`}>
+          <div
+            className="flex flex-col gap-2"
+            role="listbox"
+            aria-label={`${group.label} 검색 결과`}
+          >
             {group.items.map((result) => (
               <ResultCard
                 key={searchResultKey(result)}
@@ -159,7 +171,9 @@ function groupResults(results: SearchResultDto[], groupBy: Exclude<SearchGroupBy
 
 function groupLabel(result: SearchResultDto, groupBy: Exclude<SearchGroupBy, 'none'>): string {
   if (String(result.resultKind) === 'authority' || result.authorityId) return '판례·법령';
-  if (groupBy === 'type') return result.documentType || '파일 유형 없음';
+  if (groupBy === 'type') {
+    return (result.documentType && documentTypeLabels[result.documentType]) || '파일 유형 없음';
+  }
   if (groupBy === 'client') return result.clientDisplayName || '고객 표시명 없음';
   const code = result.matterDisplayCode?.trim();
   const name = result.matterDisplayName?.trim();
@@ -179,6 +193,6 @@ export function searchResultKey(result: SearchResultDto): string {
   ].join(':');
 }
 
-function searchErrorKey(error: SearchErrorKind): TranslationKey {
+function searchErrorKey(error: SearchErrorState['kind']): TranslationKey {
   return `search.${error}` as TranslationKey;
 }

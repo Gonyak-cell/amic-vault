@@ -1,12 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { QueryClient } from '../audit/audit.service';
+import type { PoolClient } from 'pg';
+import type { TenantId } from '@amic-vault/shared';
+import { AuditService, type QueryClient } from '../audit/audit.service';
+import { DatabaseService } from '../../common/db/database.service';
+import { ClosingBinderService } from './closing-binder.service';
+import { KnowledgeCandidateService } from './knowledge-candidate.service';
+import { MatterClosingService } from './matter-closing.service';
+import { MatterMemberService } from './matter-member.service';
 import { PermissionQueryBuilder } from '../permission/permission-query.builder';
+import { PermissionService } from '../permission/permission.service';
+import { TenantContextService } from '../tenant/tenant-context';
+import { UserEntity } from '../user/user.entity';
+import { UserService } from '../user/user.service';
 import {
   DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME,
   MatterService,
   canChangeLegalHoldRole,
   canCreateMatterRole,
 } from './matter.service';
+
+function typedServiceMock<T extends object>(prototype: object, methods: Partial<T> = {}): T {
+  return Object.assign(Object.create(prototype) as T, methods);
+}
 
 describe('matter conservative guards', () => {
   it('allows only firm admin and matter owner to create matters', () => {
@@ -27,29 +42,49 @@ describe('matter conservative guards', () => {
   });
 
   it('searches safe Matter labels inside the permission-filtered list query', async () => {
-    const tenantId = '11111111-1111-4111-8111-111111111100';
+    const tenantId = '11111111-1111-4111-8111-111111111100' as TenantId;
     const actorUserId = '11111111-1111-4111-8111-111111111101';
     const clientId = '11111111-1111-4111-8111-111111111102';
     const query = vi.fn<QueryClient['query']>().mockResolvedValue({ rows: [], rowCount: 0 });
-    const tenantTransaction = vi.fn(
-      async (_tenantId: string, run: (client: { query: typeof query }) => Promise<unknown>) =>
-        run({ query }),
-    );
+    const queryClient = Object.assign(Object.create(null), { query });
+    const tenantTransaction: DatabaseService['tenantTransaction'] = async <T>(
+      _tenantId: string,
+      run: (client: PoolClient) => Promise<T>,
+    ) => run(queryClient);
+    const databaseService = typedServiceMock<DatabaseService>(DatabaseService.prototype, {
+      tenantTransaction,
+    });
     const service = new MatterService(
-      {} as never,
-      { tenantTransaction } as never,
-      {} as never,
+      typedServiceMock<AuditService>(AuditService.prototype),
+      databaseService,
+      typedServiceMock<MatterMemberService>(MatterMemberService.prototype),
       new PermissionQueryBuilder(),
-      {} as never,
-      {
+      typedServiceMock<PermissionService>(PermissionService.prototype),
+      typedServiceMock<TenantContextService>(TenantContextService.prototype, {
         require: () => ({ tenantId, slug: 'alpha', status: 'active', source: 'session' }),
-      } as never,
-      {
-        findByTenantAndId: vi.fn(async () => ({ role: 'matter_owner' })),
-      } as never,
-      {} as never,
-      {} as never,
-      {} as never,
+      }),
+      typedServiceMock<UserService>(UserService.prototype, {
+        findByTenantAndId: vi.fn(
+          async () =>
+            new UserEntity({
+              userId: actorUserId,
+              tenantId,
+              email: 'owner@example.test',
+              name: 'Matter owner',
+              role: 'matter_owner',
+              practiceGroup: null,
+              status: 'active',
+              passwordHash: 'unused-fixture-hash',
+              mfaEnabled: false,
+              lastLoginAt: null,
+              createdAt: new Date('2026-01-01T00:00:00.000Z'),
+              updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+            }),
+        ),
+      }),
+      typedServiceMock<MatterClosingService>(MatterClosingService.prototype),
+      typedServiceMock<ClosingBinderService>(ClosingBinderService.prototype),
+      typedServiceMock<KnowledgeCandidateService>(KnowledgeCandidateService.prototype),
     );
 
     await service.list(actorUserId, {

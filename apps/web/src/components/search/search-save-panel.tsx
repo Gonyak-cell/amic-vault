@@ -19,7 +19,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { searchVersionStatusLabels as searchVersionStatusLabelsByLanguage } from '@/lib/i18n';
 import type { SearchFacetSelection } from './search-facets';
+
+const versionStatusLabels: Readonly<Record<string, string>> =
+  searchVersionStatusLabelsByLanguage.ko;
 
 export interface SearchSavePanelProps {
   busy: boolean;
@@ -402,7 +406,12 @@ export function searchPatternItems(
   if (selection.recordsStatus) {
     items.push({ label: '기록', value: recordsStatusLabels[selection.recordsStatus] });
   }
-  if (selection.versionStatus) items.push({ label: '버전 상태', value: selection.versionStatus });
+  if (selection.versionStatus) {
+    items.push({
+      label: '버전 상태',
+      value: versionStatusLabels[selection.versionStatus] ?? '버전 상태 확인 전',
+    });
+  }
   if (selection.dateRange)
     items.push({ label: '수정 기간', value: dateRangeLabels[selection.dateRange] });
   return items;

@@ -47,7 +47,7 @@ describe('TeamMemberList', () => {
     expect(html).toContain('min-w-[720px]');
     expect(html).not.toContain(member.userId);
     expect(html).toContain('팀원');
-    expect(html).toContain('리드 어소');
+    expect(html).toContain('담당 변호사');
     expect(html).toContain('보기');
     expect(html).not.toContain('Save team member');
     expect(html).not.toContain('Remove team member');

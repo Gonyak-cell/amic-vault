@@ -2,19 +2,18 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { DmsWorkQueueItemDto, MatterDto } from '@amic-vault/shared';
 import { describe, expect, it } from 'vitest';
+import { createDashboardUnavailableState } from '@/lib/api/dashboard';
 import { VaultActivityClient, VaultActivityContent } from './vault-activity-client';
 
 describe('VaultActivityClient', () => {
-  it('keeps three normal quick actions and omits admin, AI, integration, usage, and protection UI', () => {
+  it('keeps two working quick actions and omits dead, admin, AI, integration, usage, and protection UI', () => {
     const html = renderToStaticMarkup(<VaultActivityClient />);
     const quickActionCount = (html.match(/data-dashboard-quick-action="true"/g) ?? []).length;
 
-    expect(quickActionCount).toBe(3);
+    expect(quickActionCount).toBe(2);
     expect(html).toContain('문서 업무 바로가기');
-    expect(html).toContain('문서 업로드');
     expect(html).toContain('문서 검색');
     expect(html).toContain('내 업무');
-    expect(html).toContain('href="/files#matter-upload"');
     expect(html).toContain('href="/search"');
     expect(html).toContain('href="/work"');
     expect(html).toContain('href="/work?view=notifications"');
@@ -33,12 +32,90 @@ describe('VaultActivityClient', () => {
     expect(html).not.toContain('사용 통계');
     expect(html).not.toContain('사용 통계 CSV 다운로드');
     expect(html).not.toContain('문서 정리 준비');
+    expect(html).not.toContain('문서 업로드');
+    expect(html).not.toContain('/files#matter-upload');
     expect(html).not.toContain('연동 상태');
     expect(html).not.toContain('운영 데이터 연결 상태');
     expect(html).not.toContain('href="/admin"');
     expect(html).not.toContain('aiAllowed');
     expect(html).not.toContain('href="/integrations/outlook"');
     expect(html).not.toContain('href="/search/folders"');
+  });
+
+  it.each([
+    { count: 0, state: { status: 'empty' as const } },
+    { count: 1, state: { status: 'ready' as const, data: makeWorkItems(1) } },
+    { count: 5, state: { status: 'ready' as const, data: makeWorkItems(5) } },
+    { count: 6, state: { status: 'ready' as const, data: makeWorkItems(6) } },
+  ])('renders a server-provided work queue with $count item(s)', ({ count, state }) => {
+    const html = renderToStaticMarkup(
+      <VaultActivityContent
+        dashboardState={createDashboardUnavailableState()}
+        recentMattersState={{ status: 'empty' }}
+        workItemsState={state}
+      />,
+    );
+
+    if (state.status !== 'ready') {
+      expect(count).toBe(0);
+      expect(html).toContain('표시할 작업이 없습니다.');
+      return;
+    }
+
+    for (const item of state.data.slice(0, 5)) {
+      expect(html.match(new RegExp(item.title, 'g')) ?? []).toHaveLength(1);
+    }
+    expect(html).toContain(`${Math.min(count, 5)}건`);
+    if (count > 5) expect(html).not.toContain(state.data[5]?.title);
+  });
+
+  it('puts the work queue before quick actions and keeps long titles readable', () => {
+    const longTitle = '긴 한국어 업무 제목 '.repeat(20).trim();
+    const html = renderToStaticMarkup(
+      <VaultActivityContent
+        dashboardState={createDashboardUnavailableState()}
+        recentMattersState={{ status: 'empty' }}
+        workItemsState={{
+          status: 'ready',
+          data: [makeWorkItem('long-title', longTitle)],
+        }}
+      />,
+    );
+
+    expect(html.indexOf('내 업무')).toBeLessThan(html.indexOf('문서 업무 바로가기'));
+    expect(html).toContain(longTitle);
+    expect(html).toContain('1건');
+  });
+
+  it('keeps independent sections visible when the other request fails', () => {
+    const readyHtml = renderToStaticMarkup(
+      <VaultActivityContent
+        dashboardState={{
+          ...createDashboardUnavailableState(),
+          recentFiles: { status: 'error', error: 'connection' },
+        }}
+        recentMattersState={{ status: 'empty' }}
+        workItemsState={{ status: 'ready', data: [makeWorkItem('still-ready', '검토 대기 업무')] }}
+      />,
+    );
+
+    expect(readyHtml).toContain('검토 대기 업무');
+    expect(readyHtml).toContain('데이터를 표시할 수 없습니다.');
+
+    const failedHtml = renderToStaticMarkup(
+      <VaultActivityContent
+        dashboardState={{
+          ...createDashboardUnavailableState(),
+          recentFiles: { status: 'ready', data: [{ title: '권한 내 문서' }] },
+        }}
+        recentMattersState={{ status: 'empty' }}
+        workItemsState={{ status: 'error', error: 'connection' }}
+      />,
+    );
+
+    expect(failedHtml).toContain('권한 내 문서');
+    expect(failedHtml).toContain('업무 데이터를 표시할 수 없습니다.');
+    expect(failedHtml).not.toContain('표시할 작업이 없습니다.');
   });
 
   it('renders permission-scoped daily work, due dates, recent Matters, and recent documents', () => {
@@ -168,7 +245,7 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('표시할 활동이 없습니다.');
     expect(html).toContain('데이터를 표시할 수 없습니다.');
     expect(html).toContain('이 항목을 볼 권한이 없습니다.');
-    expect(html).toContain('정보 차단 또는 권한 정책으로 표시할 수 없습니다.');
+    expect(html).toContain('정보 차단 정책에 따라 표시할 수 없습니다.');
   });
 });
 
@@ -196,3 +273,21 @@ const recentMatter: MatterDto = {
   createdAt: '2026-07-01T00:00:00.000Z',
   updatedAt: '2026-07-30T00:00:00.000Z',
 };
+
+function makeWorkItem(itemKey: string, title: string): DmsWorkQueueItemDto {
+  return {
+    itemKey,
+    source: 'operational_data',
+    sourceLabel: '운영 데이터',
+    title,
+    description: '담당 확인이 필요한 업무입니다.',
+    href: `/work?focus=${itemKey}`,
+    tone: 'neutral',
+  };
+}
+
+function makeWorkItems(count: number): DmsWorkQueueItemDto[] {
+  return Array.from({ length: count }, (_, index) =>
+    makeWorkItem(`work-${index + 1}`, `업무 ${index + 1}`),
+  );
+}

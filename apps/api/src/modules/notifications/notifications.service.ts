@@ -19,6 +19,7 @@ import { TenantContextService } from '../tenant/tenant-context';
 
 const recordsAdminRoles = new Set<UserRole>(['firm_admin', 'security_admin']);
 const notificationKeyPrefix = 'notification-';
+const notificationPageLimit = 20;
 
 type NotificationKind =
   | 'processing_complete'
@@ -76,6 +77,11 @@ interface NotificationRow {
   due_at: Date | null;
 }
 
+interface NotificationMutationRow {
+  notification_id: string;
+  matter_id: string;
+}
+
 function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
@@ -105,6 +111,34 @@ function safeDocumentLabel(value: string | null): string {
 
 function statusLabel(status: DmsNotificationStatus): string {
   return status === 'read' ? '읽음' : '새 알림';
+}
+
+function breakGlassReasonLabel(reasonCode: string | null): string {
+  const labels: Record<string, string> = {
+    client_emergency: '의뢰인 긴급 요청',
+    court_deadline: '재판 기한 대응',
+    privileged_access_review: '특권정보 접근 검토',
+    security_review: '보안 검토',
+  };
+  return reasonCode ? (labels[reasonCode] ?? '보안 예외') : '보안 예외';
+}
+
+function recordsReasonLabel(reasonCode: string | null): string {
+  const labels: Record<string, string> = {
+    CLIENT_RECORDS: '의뢰인 기록 보존',
+    RETENTION_EXPIRED: '보존기간 만료',
+  };
+  return reasonCode ? (labels[reasonCode] ?? '기록 보존 사유') : '기록 보존 사유';
+}
+
+function disposalStatusLabel(status: string | null): string {
+  const labels: Record<string, string> = {
+    requested: '승인 대기',
+    approved: '실행 대기',
+    executed: '처리 완료',
+    rejected: '반려',
+  };
+  return status ? (labels[status] ?? '상태 확인 필요') : '상태 확인 필요';
 }
 
 function holdScopeLabel(scope: string | null): string {
@@ -141,8 +175,8 @@ function titleForKind(kind: NotificationKind): string {
     duplicate_decision_pending: '중복 결정 대기',
     edit_lock_expired: '편집 잠금 만료',
     edit_lock_released: '편집 잠금 해제',
-    break_glass_approval_requested: 'Break-glass 승인 요청',
-    legal_hold_active: 'Legal Hold 적용',
+    break_glass_approval_requested: '긴급 접근 승인 요청',
+    legal_hold_active: '법적 보존 조치 적용',
     disposal_approval_requested: '삭제 승인 요청',
     disposal_execution_ready: '삭제 실행 대기',
     dd_rfi_overdue: '기한 초과 RFI',
@@ -201,23 +235,23 @@ function toneForKind(kind: NotificationKind): DmsOperationalTone {
 
 function descriptionForRow(row: NotificationRow): string {
   if (row.kind === 'break_glass_approval_requested') {
-    return `${safeMatterLabel(row.matter_label)} · ${
-      row.break_glass_reason_code ?? '보안 예외'
-    } · 승인 필요`;
+    return `${safeMatterLabel(row.matter_label)} · ${breakGlassReasonLabel(
+      row.break_glass_reason_code,
+    )} · 승인 필요`;
   }
   if (row.kind === 'dlp_bulk_download') {
     const actor = row.dlp_actor_name?.trim() || row.dlp_actor_email?.trim() || '사용자';
     return `${actor} · ${row.dlp_event_count ?? 0}건 · ${formatBytes(row.dlp_total_bytes)}`;
   }
   if (row.kind === 'legal_hold_active') {
-    return `${safeMatterLabel(row.matter_label)} · ${holdScopeLabel(row.hold_scope)} · ${
-      row.legal_hold_reason_code ?? '기록 보존'
-    }`;
+    return `${safeMatterLabel(row.matter_label)} · ${holdScopeLabel(row.hold_scope)} · ${recordsReasonLabel(
+      row.legal_hold_reason_code,
+    )}`;
   }
   if (row.kind === 'disposal_approval_requested' || row.kind === 'disposal_execution_ready') {
-    return `${safeMatterLabel(row.matter_label)} · ${row.disposal_reason_code ?? '기록 보존'} · ${
-      row.disposal_status ?? '확인 필요'
-    }`;
+    return `${safeMatterLabel(row.matter_label)} · ${recordsReasonLabel(
+      row.disposal_reason_code,
+    )} · ${disposalStatusLabel(row.disposal_status)}`;
   }
   if (row.kind === 'dd_rfi_overdue') {
     return `${safeMatterLabel(row.matter_label)} · ${row.rfi_code ?? 'RFI'} · ${
@@ -289,10 +323,13 @@ export class NotificationsService {
       if (!actor) throw permissionDenied();
       await this.refreshNotifications(client, actor);
       const rows = await this.listNotificationRows(client, actor);
+      const hasMore = rows.length > notificationPageLimit;
       return dmsNotificationCenterResponseSchema.parse({
         generatedAt: now.toISOString(),
         source: 'persisted_notifications',
-        items: rows.map(mapNotification),
+        items: rows.slice(0, notificationPageLimit).map(mapNotification),
+        partial: hasMore,
+        hasMore,
       });
     });
   }
@@ -306,8 +343,19 @@ export class NotificationsService {
     await this.auditService.transaction(context.tenantId, async (client) => {
       const actor = await this.findActor(client, context.tenantId, actorUserId);
       if (!actor) throw permissionDenied();
-      const rowCount = await this.updateVisibleNotification(client, actor, digest, 'read');
-      if (rowCount !== 1) throw notFoundDenied();
+      const target = await this.updateVisibleNotification(client, actor, digest, 'read');
+      if (!target) throw notFoundDenied();
+      await this.auditService.log(
+        {
+          tenantId: actor.tenantId,
+          actorId: actor.userId,
+          action: 'NOTIFICATION_READ',
+          targetType: 'notification',
+          targetId: target.notification_id,
+          matterId: target.matter_id,
+        },
+        client,
+      );
     });
     return { itemKey, status: 'read' };
   }
@@ -321,8 +369,19 @@ export class NotificationsService {
     await this.auditService.transaction(context.tenantId, async (client) => {
       const actor = await this.findActor(client, context.tenantId, actorUserId);
       if (!actor) throw permissionDenied();
-      const rowCount = await this.updateVisibleNotification(client, actor, digest, 'dismissed');
-      if (rowCount !== 1) throw notFoundDenied();
+      const target = await this.updateVisibleNotification(client, actor, digest, 'dismissed');
+      if (!target) throw notFoundDenied();
+      await this.auditService.log(
+        {
+          tenantId: actor.tenantId,
+          actorId: actor.userId,
+          action: 'NOTIFICATION_DISMISSED',
+          targetType: 'notification',
+          targetId: target.notification_id,
+          matterId: target.matter_id,
+        },
+        client,
+      );
     });
     return { itemKey, status: 'dismissed' };
   }
@@ -1221,7 +1280,7 @@ export class NotificationsService {
           lhg.title AS hearing_title,
           lhg.hearing_type,
           lhg.scheduled_at AS hearing_scheduled_at,
-          coalesce(nullif(dlp_actor.name, ''), dlp_actor.email, dba.actor_user_id::text) AS dlp_actor_name,
+          nullif(dlp_actor.name, '') AS dlp_actor_name,
           dlp_actor.email AS dlp_actor_email,
           dba.event_count AS dlp_event_count,
           dba.total_bytes AS dlp_total_bytes,
@@ -1333,7 +1392,7 @@ export class NotificationsService {
           CASE n.status WHEN 'unread' THEN 0 ELSE 1 END,
           n.occurred_at DESC,
           n.notification_id
-        LIMIT 20
+        LIMIT ${notificationPageLimit + 1}
       `,
       [actor.tenantId, actor.userId, canViewRecordsAdmin, ...matterFilter.params],
     );
@@ -1345,7 +1404,7 @@ export class NotificationsService {
     actor: PermissionQueryContext,
     digest: string,
     status: 'read' | 'dismissed',
-  ): Promise<number> {
+  ): Promise<NotificationMutationRow | null> {
     const matterFilter = this.permissionQuery.buildMatterFilter(actor, 6, 'm');
     const canViewRecordsAdmin = recordsAdminRoles.has(actor.role);
     const statusSet =
@@ -1473,7 +1532,7 @@ export class NotificationsService {
         SET ${statusSet}
         FROM visible
         WHERE n.notification_id = visible.notification_id
-        RETURNING n.notification_id
+        RETURNING n.notification_id, n.matter_id
       `,
       [
         actor.tenantId,
@@ -1484,6 +1543,6 @@ export class NotificationsService {
         ...matterFilter.params,
       ],
     );
-    return result.rowCount ?? 0;
+    return (result.rows[0] as NotificationMutationRow | undefined) ?? null;
   }
 }

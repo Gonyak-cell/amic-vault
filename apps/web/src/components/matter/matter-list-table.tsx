@@ -34,10 +34,10 @@ export function MatterListTable({
       <div>
         <div className="grid min-h-12 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b px-3 py-2 text-xs font-semibold uppercase tracking-normal text-muted-foreground md:grid-cols-[minmax(0,1fr)_minmax(140px,0.55fr)_auto_auto] md:gap-3 md:px-4 xl:min-h-14 xl:grid-cols-[minmax(240px,1fr)_180px_160px_110px_120px_72px] xl:gap-4 xl:px-5 xl:py-3">
           <span>{copy.matter}</span>
-          <span className="hidden md:block">{copy.client}</span>
-          <span className="hidden xl:block">{copy.owner}</span>
+          <span className="sr-only md:not-sr-only">{copy.client}</span>
+          <span className="sr-only xl:not-sr-only">{copy.owner}</span>
           <span>{copy.status}</span>
-          <span className="hidden xl:block">{copy.recentUpdate}</span>
+          <span className="sr-only xl:not-sr-only">{copy.recentUpdate}</span>
           <span aria-hidden="true" />
         </div>
         {matters.map((matter) => (
@@ -59,10 +59,10 @@ export function MatterListTable({
                 </span>
               </span>
             </Link>
-            <span className="hidden truncate text-muted-foreground md:block">
+            <span className="sr-only truncate text-muted-foreground md:not-sr-only">
               {matter.clientDisplayName ?? '고객 표시명 없음'}
             </span>
-            <span className="hidden truncate text-muted-foreground xl:block">
+            <span className="sr-only truncate text-muted-foreground xl:not-sr-only">
               {matter.leadLawyerDisplayName ??
                 matter.leadPartnerDisplayName ??
                 matter.leadAssociateDisplayName ??
@@ -71,7 +71,7 @@ export function MatterListTable({
             <span>
               <MatterStatusBadge status={matter.status} />
             </span>
-            <span className="hidden text-xs text-muted-foreground xl:block">
+            <span className="sr-only text-xs text-muted-foreground xl:not-sr-only">
               {formatMatterDate(matter.updatedAt)}
             </span>
             <MatterRowActions copy={copy} matter={matter} />
@@ -83,14 +83,16 @@ export function MatterListTable({
 }
 
 function MatterRowActions({ copy, matter }: { copy: MatterListTableCopy; matter: MatterDto }) {
+  const matterActionName = `${matter.matterName} (${matter.matterCode})`;
+
   return (
     <span
-      aria-label={`${matter.matterName} ${copy.moreActions}`}
+      aria-label={`${matterActionName} ${copy.moreActions}`}
       className="flex justify-self-end"
       role="group"
     >
       <Link
-        aria-label={`${matter.matterName} ${copy.fileCabinet}`}
+        aria-label={`${matterActionName} ${copy.fileCabinet}`}
         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         href={matterFileCabinetUrl(matter)}
       >
@@ -98,7 +100,7 @@ function MatterRowActions({ copy, matter }: { copy: MatterListTableCopy; matter:
         <span className="sr-only">{copy.fileCabinet}</span>
       </Link>
       <Link
-        aria-label={`${matter.matterName} ${copy.searchMatter}`}
+        aria-label={`${matterActionName} ${copy.searchMatter}`}
         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         href={matterSearchUrl(matter)}
       >

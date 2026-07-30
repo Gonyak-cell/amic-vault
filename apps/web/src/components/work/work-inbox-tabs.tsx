@@ -1,25 +1,33 @@
 import React from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import {
+  workQueueUrl,
+  workQueueUrlStateFromParams,
+  type WorkQueueUrlState,
+} from '@/lib/api/work-ops';
 
 export type WorkInboxView = 'mine' | 'notifications';
 
 const workInboxViews = [
-  { value: 'mine', label: '내 업무', href: '/work?view=mine' },
-  { value: 'notifications', label: '알림', href: '/work?view=notifications' },
+  { value: 'mine', label: '내 업무' },
+  { value: 'notifications', label: '알림' },
 ] as const satisfies readonly {
   value: WorkInboxView;
   label: string;
-  href: string;
 }[];
 
-export function resolveWorkInboxView(
-  value: string | string[] | undefined,
-): WorkInboxView {
-  return value === 'notifications' ? 'notifications' : 'mine';
+export function resolveWorkInboxView(value: string | string[] | undefined): WorkInboxView {
+  return workQueueUrlStateFromParams(value === undefined ? {} : { view: value }).view;
 }
 
-export function WorkInboxTabs({ activeView }: { activeView: WorkInboxView }) {
+export function WorkInboxTabs({
+  activeView,
+  urlState = workQueueUrlStateFromParams(),
+}: {
+  activeView: WorkInboxView;
+  urlState?: WorkQueueUrlState;
+}) {
   return (
     <nav aria-label="업무 보기" className="border-b">
       <ul className="-mb-px flex gap-5">
@@ -35,7 +43,7 @@ export function WorkInboxTabs({ activeView }: { activeView: WorkInboxView }) {
                     ? 'border-foreground text-foreground'
                     : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
                 )}
-                href={view.href}
+                href={workQueueUrl({ ...urlState, view: view.value })}
               >
                 {view.label}
               </Link>

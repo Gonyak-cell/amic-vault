@@ -10,8 +10,302 @@ import React, {
   type ReactNode,
 } from 'react';
 import { ChevronDown } from 'lucide-react';
+import type {
+  DocumentConfidentialityLevel,
+  DocumentComparisonStatus,
+  DocumentEditSessionStatus,
+  DocumentExtractionMethod,
+  DocumentExtractionStatus,
+  DocumentPrivilegeStatus,
+  DocumentStatus,
+  DocumentType,
+  DocumentVersionStatus,
+  ClientConfidentialityLevel,
+  ClientStatus,
+  ClientType,
+  MatterLeadRole,
+  MatterMemberAccessLevel,
+  MatterMemberRole,
+  MatterStatus,
+  SearchVersionStatus,
+  UserRole,
+} from '@amic-vault/shared';
 
 export type Language = 'ko' | 'en';
+
+type LabelsByLanguage<T extends string> = Record<Language, Record<T, string>>;
+
+/**
+ * User-facing labels for API enums. Keep the wire values in API contracts and
+ * use these maps at render boundaries so internal identifiers never become UI
+ * copy accidentally.
+ */
+export const userRoleLabels = {
+  ko: {
+    firm_admin: '운영 관리자',
+    security_admin: '보안 관리자',
+    knowledge_manager: '지식 관리자',
+    matter_owner: '사건 책임자',
+    matter_member: 'Matter 구성원',
+    limited_reviewer: '제한 검토자',
+    external_user: '외부 사용자',
+  },
+  en: {
+    firm_admin: 'Firm administrator',
+    security_admin: 'Security administrator',
+    knowledge_manager: 'Knowledge manager',
+    matter_owner: 'Matter owner',
+    matter_member: 'Matter member',
+    limited_reviewer: 'Limited reviewer',
+    external_user: 'External user',
+  },
+} as const satisfies LabelsByLanguage<UserRole>;
+
+export const matterMemberRoleLabels = {
+  ko: { owner: '소유자', member: '팀원', limited_reviewer: '제한된 검토자' },
+  en: { owner: 'Owner', member: 'Member', limited_reviewer: 'Limited reviewer' },
+} as const satisfies LabelsByLanguage<MatterMemberRole>;
+
+export const matterLeadRoleLabels = {
+  ko: { lead_partner: '리드 파트너', lead_associate: '담당 변호사' },
+  en: { lead_partner: 'Lead partner', lead_associate: 'Lead associate' },
+} as const satisfies LabelsByLanguage<MatterLeadRole>;
+
+export const matterMemberAccessLabels = {
+  ko: { read: '보기', edit: '편집' },
+  en: { read: 'View', edit: 'Edit' },
+} as const satisfies LabelsByLanguage<MatterMemberAccessLevel>;
+
+export const matterStatusLabels = {
+  ko: {
+    proposed: '제안됨',
+    open: '접수',
+    active: '진행 중',
+    closing: '종결 준비',
+    closed: '종결',
+    archived: '보관됨',
+    disposal_review: '폐기 검토',
+    disposed: '폐기됨',
+  },
+  en: {
+    proposed: 'Proposed',
+    open: 'Open',
+    active: 'Active',
+    closing: 'Closing',
+    closed: 'Closed',
+    archived: 'Archived',
+    disposal_review: 'Disposal review',
+    disposed: 'Disposed',
+  },
+} as const satisfies LabelsByLanguage<MatterStatus>;
+
+export const clientTypeLabels = {
+  ko: {
+    corporation: '법인',
+    fund: '펀드',
+    government: '공공기관',
+    individual: '개인',
+    npo: '비영리',
+    other: '기타',
+  },
+  en: {
+    corporation: 'Corporation',
+    fund: 'Fund',
+    government: 'Government',
+    individual: 'Individual',
+    npo: 'Nonprofit',
+    other: 'Other',
+  },
+} as const satisfies LabelsByLanguage<ClientType>;
+
+export const clientStatusLabels = {
+  ko: { active: '활성', closed: '종료', dormant: '휴면' },
+  en: { active: 'Active', closed: 'Closed', dormant: 'Dormant' },
+} as const satisfies LabelsByLanguage<ClientStatus>;
+
+export const clientConfidentialityLabels = {
+  ko: { standard: '표준', high: '높음', restricted: '제한' },
+  en: { standard: 'Standard', high: 'High', restricted: 'Restricted' },
+} as const satisfies LabelsByLanguage<ClientConfidentialityLevel>;
+
+export const clientUnknownLabels = {
+  ko: {
+    type: '확인되지 않은 고객 유형',
+    status: '확인되지 않은 고객 상태',
+    confidentiality: '확인되지 않은 기밀도',
+  },
+  en: {
+    type: 'Unknown client type',
+    status: 'Unknown client status',
+    confidentiality: 'Unknown confidentiality',
+  },
+} as const;
+
+export const documentTypeLabels = {
+  ko: {
+    contract: '계약',
+    memo: '메모',
+    opinion: '의견서',
+    court_filing: '소송 제출',
+    evidence: '증거',
+    email: '이메일',
+    correspondence: '서신',
+    corporate_record: '회사 기록',
+    financial: '재무',
+    other: '기타',
+  },
+  en: {
+    contract: 'Contract',
+    memo: 'Memo',
+    opinion: 'Opinion',
+    court_filing: 'Court filing',
+    evidence: 'Evidence',
+    email: 'Email',
+    correspondence: 'Correspondence',
+    corporate_record: 'Corporate record',
+    financial: 'Financial',
+    other: 'Other',
+  },
+} as const satisfies LabelsByLanguage<DocumentType>;
+
+export const documentStatusLabels = {
+  ko: {
+    draft: '초안',
+    internal_review: '내부 검토',
+    client_sent: '고객 발송',
+    counterparty_sent: '상대방 발송',
+    markup_received: '마크업 수령',
+    negotiation: '협상',
+    final: '최종',
+    executed: '체결',
+    archived: '보관',
+    disposal_locked: '처분 잠금',
+    deleted: '삭제',
+  },
+  en: {
+    draft: 'Draft',
+    internal_review: 'Internal review',
+    client_sent: 'Sent to client',
+    counterparty_sent: 'Sent to counterparty',
+    markup_received: 'Markup received',
+    negotiation: 'Negotiation',
+    final: 'Final',
+    executed: 'Executed',
+    archived: 'Archived',
+    disposal_locked: 'Disposal locked',
+    deleted: 'Deleted',
+  },
+} as const satisfies LabelsByLanguage<DocumentStatus>;
+
+export const documentConfidentialityLabels = {
+  ko: { standard: '일반', high: '높음', restricted: '제한' },
+  en: { standard: 'Standard', high: 'High', restricted: 'Restricted' },
+} as const satisfies LabelsByLanguage<DocumentConfidentialityLevel>;
+
+export const documentPrivilegeLabels = {
+  ko: {
+    none: '특권 없음',
+    privileged: '변호사-의뢰인 특권',
+    work_product: '변호사 업무상 작성자료',
+    joint_privilege: '공동 특권',
+  },
+  en: {
+    none: 'No privilege',
+    privileged: 'Attorney-client privilege',
+    work_product: 'Work product',
+    joint_privilege: 'Joint privilege',
+  },
+} as const satisfies LabelsByLanguage<DocumentPrivilegeStatus>;
+
+export const documentExtractionStatusLabels = {
+  ko: {
+    pending: '추출 대기',
+    ready: '본문 검색 가능',
+    ocr_pending: 'OCR 필요',
+    failed: '추출 실패',
+  },
+  en: {
+    pending: 'Extraction pending',
+    ready: 'Body searchable',
+    ocr_pending: 'OCR required',
+    failed: 'Extraction failed',
+  },
+} as const satisfies LabelsByLanguage<DocumentExtractionStatus>;
+
+export const documentExtractionMethodLabels = {
+  ko: {
+    pending: '추출 대기',
+    pdf_text: 'PDF 본문',
+    docx: 'Word 문서',
+    doc: 'Word 문서',
+    hwpx: 'HWPX 문서',
+    hwp5: 'HWP 문서',
+    email: '이메일 본문',
+    text: '텍스트 본문',
+    csv: 'CSV 표',
+    markdown: 'Markdown 문서',
+    html: 'HTML 문서',
+    xlsx: 'Excel 표',
+    xls: 'Excel 표',
+    pptx: 'PowerPoint 문서',
+    ppt: 'PowerPoint 문서',
+    ocr: 'OCR',
+    ocr_required: 'OCR 필요',
+    failed: '추출 실패',
+  },
+  en: {
+    pending: 'Extraction pending',
+    pdf_text: 'PDF text',
+    docx: 'Word document',
+    doc: 'Word document',
+    hwpx: 'HWPX document',
+    hwp5: 'HWP document',
+    email: 'Email body',
+    text: 'Text body',
+    csv: 'CSV table',
+    markdown: 'Markdown document',
+    html: 'HTML document',
+    xlsx: 'Excel table',
+    xls: 'Excel table',
+    pptx: 'PowerPoint document',
+    ppt: 'PowerPoint document',
+    ocr: 'OCR',
+    ocr_required: 'OCR required',
+    failed: 'Extraction failed',
+  },
+} as const satisfies LabelsByLanguage<DocumentExtractionMethod>;
+
+export const documentVersionStatusLabels = {
+  ko: { current: '현재 버전', superseded: '이전 버전' },
+  en: { current: 'Current version', superseded: 'Previous version' },
+} as const satisfies LabelsByLanguage<DocumentVersionStatus>;
+
+export const searchVersionStatusLabels = {
+  ko: { current: '현재 버전', superseded: '이전 버전', all: '전체 버전' },
+  en: { current: 'Current version', superseded: 'Previous version', all: 'All versions' },
+} as const satisfies LabelsByLanguage<SearchVersionStatus>;
+
+export const documentEditSessionStatusLabels = {
+  ko: {
+    active: '편집 중',
+    checked_in: '체크인 완료',
+    cancelled: '취소됨',
+    expired: '만료됨',
+    conflicted: '충돌 확인 필요',
+  },
+  en: {
+    active: 'Editing',
+    checked_in: 'Checked in',
+    cancelled: 'Cancelled',
+    expired: 'Expired',
+    conflicted: 'Conflict needs review',
+  },
+} as const satisfies LabelsByLanguage<DocumentEditSessionStatus>;
+
+export const documentComparisonStatusLabels = {
+  ko: { pending: '비교 대기', completed: '완료', failed: '비교 실패' },
+  en: { pending: 'Comparison pending', completed: 'Completed', failed: 'Comparison failed' },
+} as const satisfies LabelsByLanguage<DocumentComparisonStatus>;
 
 type Translation = {
   ko: string;
@@ -183,8 +477,8 @@ const translations = {
     en: 'You do not have permission to view this item.',
   },
   'search.policy': {
-    ko: '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
-    en: 'Information barrier or permission policy prevents display.',
+    ko: '정보 차단 정책에 따라 표시할 수 없습니다.',
+    en: 'An information barrier policy prevents display.',
   },
   'search.api': { ko: '데이터를 표시할 수 없습니다.', en: 'Unable to display data.' },
   'search.previous': { ko: '이전', en: 'Previous' },
@@ -347,17 +641,22 @@ const translations = {
   'matter.list.empty': { ko: '표시할 Matter가 없습니다.', en: 'No matters to show.' },
   'matter.list.loading': { ko: 'Matter 목록을 불러오는 중입니다.', en: 'Loading matters.' },
   'dataState.loading': { ko: '불러오는 중입니다.', en: 'Loading.' },
+  'dataState.empty': { ko: '표시할 항목이 없습니다.', en: 'No items to show.' },
+  'dataState.unavailable': {
+    ko: '데이터 연결을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+    en: 'The data connection is unavailable. Please try again shortly.',
+  },
   'dataState.error': {
-    ko: '데이터를 표시할 수 없습니다.',
-    en: 'Unable to display data.',
+    ko: '요청한 데이터를 표시할 수 없습니다.',
+    en: 'The requested data cannot be displayed.',
   },
   'dataState.forbidden': {
     ko: '이 항목을 볼 권한이 없습니다.',
     en: 'You do not have permission to view this item.',
   },
   'dataState.blocked': {
-    ko: '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
-    en: 'Information barrier or permission policy prevents display.',
+    ko: '정보 차단 정책에 따라 표시할 수 없습니다.',
+    en: 'An information barrier policy prevents display.',
   },
   'matter.detail.fallbackTitle': { ko: 'Matter', en: 'Matter' },
   'matter.detail.errorTitle': {

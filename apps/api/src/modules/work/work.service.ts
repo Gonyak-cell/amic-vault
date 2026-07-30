@@ -1,9 +1,12 @@
 import { createHash } from 'node:crypto';
 import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import {
+  dmsWorkReassignmentCandidatesResponseSchema,
   dmsWorkQueueResponseSchema,
   isUserRole,
   type DmsOperationalTone,
+  type DmsWorkReassignmentCandidatesQueryDto,
+  type DmsWorkReassignmentCandidatesResponseDto,
   type DmsWorkItemKind,
   type DmsWorkItemSource,
   type DmsWorkItemStatus,
@@ -12,7 +15,10 @@ import {
   type DmsWorkQueueItemDto,
   type DmsWorkQueueQueryDto,
   type DmsWorkQueueResponseDto,
+  type PermissionDecision,
   type ReassignWorkItemDto,
+  type TenantId,
+  type UpdateWorkItemDueAtDto,
   type UserRole,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
@@ -20,9 +26,11 @@ import {
   PermissionQueryBuilder,
   type PermissionQueryContext,
 } from '../permission/permission-query.builder';
+import { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
 
 const recordsAdminRoles = new Set<UserRole>(['firm_admin', 'security_admin']);
+const workMutationDeniedRoles = new Set<UserRole>(['limited_reviewer', 'external_user']);
 
 type RecordsDisposalKind = 'records_disposal_approval' | 'records_disposal_execution';
 type DocumentOperationalKind =
@@ -52,11 +60,11 @@ const workflowKindTargetTypes: Record<DmsWorkflowWorkItemKind, WorkflowTargetTyp
   wiki_page_review: 'matter_wiki_page',
 };
 
-const defaultWorkQueueQuery = {
+const defaultWorkQueueQuery: DmsWorkQueueQueryDto = {
   assignee: 'all',
   limit: 20,
   offset: 0,
-} as const satisfies DmsWorkQueueQueryDto;
+};
 
 export interface OpenRecordsDisposalWorkInput {
   tenantId: string;
@@ -143,6 +151,7 @@ interface WorkItemRow {
   extraction_status: string | null;
   ai_prep_artifact_kind: string | null;
   graph_claim_text: string | null;
+  can_mutate: boolean;
   total_count?: string | number;
 }
 
@@ -150,16 +159,29 @@ interface WorkItemUpdateRow {
   work_item_id: string;
   kind: WorkItemKind;
   matter_id: string;
-  assigned_to_user_id: string;
+  assigned_to_user_id: string | null;
   assignee_name: string | null;
+}
+
+interface WorkReassignmentCandidateRow {
+  user_id: string | null;
+  label: string | null;
 }
 
 function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
 
+function ethicalWallBlocked(): ForbiddenException {
+  return new ForbiddenException({ code: 'ETHICAL_WALL_BLOCKED' });
+}
+
 function validationFailed(): BadRequestException {
   return new BadRequestException({ code: 'VALIDATION_FAILED' });
+}
+
+function canMutateWorkItems(actor: PermissionQueryContext): boolean {
+  return !workMutationDeniedRoles.has(actor.role);
 }
 
 function iso(value: Date): string {
@@ -322,7 +344,9 @@ function toneForWorkflowRow(row: WorkItemRow, now: Date): DmsOperationalTone {
 
 function digestFromItemKey(itemKey: string): string {
   const match =
-    /^(?:records-disposal|document-work|workflow-work|ai-prep-work)-([0-9a-f]{12})$/u.exec(itemKey);
+    /^(?:records-disposal|document-work|workflow-work|ai-prep-work|graph-fact-review)-([0-9a-f]{12})$/u.exec(
+      itemKey,
+    );
   const digest = match?.[1];
   if (!digest) throw validationFailed();
   return digest;
@@ -334,6 +358,7 @@ export class WorkService {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(PermissionQueryBuilder) private readonly permissionQuery: PermissionQueryBuilder,
+    @Inject(PermissionService) private readonly permissionService: PermissionService,
   ) {}
 
   async listWorkItems(
@@ -344,6 +369,9 @@ export class WorkService {
     const query = queryOrNow instanceof Date ? defaultWorkQueueQuery : queryOrNow;
     const now = queryOrNow instanceof Date ? queryOrNow : nowArg;
     const context = this.tenantContext.require();
+    if (query.matterId) {
+      await this.assertCanReadMatter(context.tenantId, actorUserId, query.matterId);
+    }
     return this.auditService.transaction(context.tenantId, async (client) => {
       const actor = await this.findActor(client, context.tenantId, actorUserId);
       if (!actor) throw permissionDenied();
@@ -352,13 +380,174 @@ export class WorkService {
       return dmsWorkQueueResponseSchema.parse({
         generatedAt: now.toISOString(),
         source: 'persisted_work_items',
-        items: rows.map((row) => this.mapRecordsDisposalItem(row, now)),
+        items: rows.map((row) => ({
+          ...this.mapRecordsDisposalItem(row, now),
+          canReassign: canMutateWorkItems(actor) && Boolean(row.can_mutate),
+          canUpdateDueAt: canMutateWorkItems(actor) && Boolean(row.can_mutate),
+        })),
         page: {
           limit: query.limit,
           offset: query.offset,
           total,
           hasNext: query.offset + query.limit < total,
         },
+      });
+    });
+  }
+
+  async listReassignmentCandidates(
+    actorUserId: string,
+    itemKey: string,
+    query: DmsWorkReassignmentCandidatesQueryDto,
+  ): Promise<DmsWorkReassignmentCandidatesResponseDto> {
+    const digest = digestFromItemKey(itemKey);
+    const context = this.tenantContext.require();
+    return this.auditService.transaction(context.tenantId, async (client) => {
+      const actor = await this.findActor(client, context.tenantId, actorUserId);
+      if (!actor || !canMutateWorkItems(actor)) throw permissionDenied();
+      const matterFilter = this.permissionQuery.buildMatterFilter(actor, 4, 'm');
+      const digestParam = 4 + matterFilter.params.length;
+      const queryParam = digestParam + 1;
+      const limitParam = queryParam + 1;
+      const result = await client.query(
+        `
+          WITH visible AS (
+            SELECT wi.matter_id
+            FROM work_items wi
+            JOIN matters m
+              ON m.tenant_id = wi.tenant_id
+             AND m.matter_id = wi.matter_id
+            JOIN users actor_user
+              ON actor_user.tenant_id = wi.tenant_id
+             AND actor_user.user_id = $2::uuid
+             AND actor_user.status = 'active'
+             AND actor_user.role = $3::text
+             AND actor_user.role NOT IN ('limited_reviewer', 'external_user')
+            LEFT JOIN disposal_requests dr
+              ON wi.target_type = 'disposal_request'
+             AND dr.tenant_id = wi.tenant_id
+             AND dr.disposal_request_id = wi.target_id
+            LEFT JOIN documents d
+              ON d.tenant_id = wi.tenant_id
+             AND (
+               (wi.target_type = 'document' AND d.document_id = wi.target_id)
+               OR (wi.target_type <> 'document' AND d.document_id = wi.document_id)
+             )
+            LEFT JOIN ai_prep_artifacts apa
+              ON wi.target_type = 'ai_prep_artifact'
+             AND apa.tenant_id = wi.tenant_id
+             AND apa.ai_prep_artifact_id = wi.target_id
+            LEFT JOIN graph_nodes gn
+              ON wi.target_type = 'graph_node'
+             AND gn.tenant_id = wi.tenant_id
+             AND gn.node_id = wi.target_id
+            WHERE wi.tenant_id = $1
+              AND wi.source IN ('records', 'operational_data', 'ai_prep')
+              AND wi.status IN ('open', 'in_progress')
+              AND substring(encode(digest(wi.work_item_id::text, 'sha256'), 'hex') from 1 for 12) = $${digestParam}
+              AND (
+                (
+                  wi.assignment_scope = 'records_admin'
+                  AND actor_user.role IN ('firm_admin', 'security_admin')
+                )
+                OR (
+                  wi.assignment_scope = 'user'
+                  AND (
+                    wi.assigned_to_user_id = $2::uuid
+                    OR actor_user.role IN ('firm_admin', 'security_admin')
+                  )
+                )
+              )
+              AND (
+                actor_user.role IN ('firm_admin', 'security_admin')
+                OR EXISTS (
+                  SELECT 1
+                  FROM matter_members actor_mm
+                  WHERE actor_mm.tenant_id = wi.tenant_id
+                    AND actor_mm.matter_id = wi.matter_id
+                    AND actor_mm.user_id = $2::uuid
+                    AND actor_mm.matter_role <> 'limited_reviewer'
+                )
+              )
+              AND (
+                (wi.target_type = 'disposal_request' AND dr.disposal_request_id IS NOT NULL)
+                OR (
+                  wi.target_type = 'document'
+                  AND d.document_id IS NOT NULL
+                  AND d.deleted_at IS NULL
+                )
+                OR wi.target_type IN (
+                  'document_version',
+                  'upload_preflight',
+                  'contract_review',
+                  'dd_rfi',
+                  'dd_mapping',
+                  'external_qa',
+                  'litigation_key_date',
+                  'knowledge_candidate',
+                  'matter_wiki_page'
+                )
+                OR (wi.target_type = 'ai_prep_artifact' AND apa.ai_prep_artifact_id IS NOT NULL)
+                OR (wi.target_type = 'graph_node' AND gn.node_id IS NOT NULL)
+              )
+              AND (${matterFilter.sql})
+            LIMIT 1
+            FOR SHARE OF wi
+          )
+          SELECT candidate.user_id, candidate.label
+          FROM visible v
+          LEFT JOIN LATERAL (
+            SELECT
+              u.user_id,
+              left(
+                concat(
+                  coalesce(nullif(btrim(u.name), ''), '사용자'),
+                  ' · ',
+                  lower(btrim(u.email))
+                ),
+                160
+              ) AS label
+            FROM matter_members mm
+            JOIN users u
+              ON u.tenant_id = mm.tenant_id
+             AND u.user_id = mm.user_id
+            WHERE mm.tenant_id = $1
+              AND mm.matter_id = v.matter_id
+              AND mm.matter_role <> 'limited_reviewer'
+              AND u.status = 'active'
+              AND u.role NOT IN ('limited_reviewer', 'external_user')
+              AND (
+                $${queryParam}::text IS NULL
+                OR strpos(lower(u.name), lower($${queryParam}::text)) > 0
+                OR strpos(lower(u.email), lower($${queryParam}::text)) > 0
+              )
+            ORDER BY lower(u.name), u.user_id
+            LIMIT $${limitParam}
+          ) candidate ON TRUE
+        `,
+        [
+          actor.tenantId,
+          actor.userId,
+          actor.role,
+          ...matterFilter.params,
+          digest,
+          query.q || null,
+          query.limit,
+        ],
+      );
+      const rows = result.rows as WorkReassignmentCandidateRow[];
+      if (rows.length === 0) throw permissionDenied();
+      return dmsWorkReassignmentCandidatesResponseSchema.parse({
+        items: rows.flatMap((row) =>
+          row.user_id && row.label
+            ? [
+                {
+                  userId: row.user_id,
+                  label: row.label,
+                },
+              ]
+            : [],
+        ),
       });
     });
   }
@@ -577,9 +766,9 @@ export class WorkService {
     const context = this.tenantContext.require();
     return this.auditService.transaction(context.tenantId, async (client) => {
       const actor = await this.findActor(client, context.tenantId, actorUserId);
-      if (!actor) throw permissionDenied();
-      const target = await this.findReassignTarget(client, actor, digest, input.assignedToUserId);
-      if (!target) throw permissionDenied();
+      if (!actor || !canMutateWorkItems(actor)) throw permissionDenied();
+      const target = await this.findMutationTarget(client, actor, digest, input.assignedToUserId);
+      if (!target?.assigned_to_user_id) throw permissionDenied();
       const audit = await this.auditService.log(
         {
           tenantId: actor.tenantId,
@@ -598,7 +787,7 @@ export class WorkService {
         },
         client,
       );
-      await client.query(
+      const update = await client.query(
         `
           UPDATE work_items
           SET assignment_scope = 'user',
@@ -611,11 +800,59 @@ export class WorkService {
         `,
         [actor.tenantId, target.work_item_id, target.assigned_to_user_id, audit.eventId],
       );
+      if (update.rowCount !== 1) throw permissionDenied();
       return {
         itemKey,
         assignedToUserId: target.assigned_to_user_id,
         assignedToLabel: target.assignee_name,
       };
+    });
+  }
+
+  async updateWorkItemDueAt(
+    actorUserId: string,
+    itemKey: string,
+    input: UpdateWorkItemDueAtDto,
+  ): Promise<{ itemKey: string; dueAt: string }> {
+    const digest = digestFromItemKey(itemKey);
+    const context = this.tenantContext.require();
+    return this.auditService.transaction(context.tenantId, async (client) => {
+      const actor = await this.findActor(client, context.tenantId, actorUserId);
+      if (!actor || !canMutateWorkItems(actor)) throw permissionDenied();
+      const target = await this.findMutationTarget(client, actor, digest, null);
+      if (!target) throw permissionDenied();
+      const audit = await this.auditService.log(
+        {
+          tenantId: actor.tenantId,
+          actorId: actor.userId,
+          action: 'WORK_ITEM_DUE_AT_CHANGED',
+          targetType: 'work_item',
+          targetId: target.work_item_id,
+          matterId: target.matter_id,
+          metadata: {
+            work_item_ref: itemKey,
+            work_kind: target.kind,
+            matter_id: target.matter_id,
+          },
+        },
+        client,
+      );
+      const update = await client.query(
+        `
+          UPDATE work_items
+          SET due_at = $3,
+            last_audit_event_id = $4,
+            updated_at = now()
+          WHERE tenant_id = $1
+            AND work_item_id = $2
+            AND status IN ('open', 'in_progress')
+          RETURNING due_at
+        `,
+        [actor.tenantId, target.work_item_id, new Date(input.dueAt), audit.eventId],
+      );
+      const row = update.rows[0] as { due_at: Date } | undefined;
+      if (update.rowCount !== 1 || !row) throw permissionDenied();
+      return { itemKey, dueAt: iso(row.due_at) };
     });
   }
 
@@ -637,6 +874,25 @@ export class WorkService {
     const row = result.rows[0] as ActorRow | undefined;
     if (!row || row.status !== 'active' || !isUserRole(row.role)) return null;
     return { tenantId, userId, role: row.role };
+  }
+
+  private async assertCanReadMatter(
+    tenantId: TenantId,
+    actorUserId: string,
+    matterId: string,
+  ): Promise<void> {
+    let decision: PermissionDecision;
+    try {
+      decision = await this.permissionService.canReadMatter(
+        { tenantId, userId: actorUserId },
+        matterId,
+      );
+    } catch {
+      throw permissionDenied();
+    }
+    if (decision.effect === 'ALLOW') return;
+    if (decision.reasonCode === 'ETHICAL_WALL_BLOCKED') throw ethicalWallBlocked();
+    throw permissionDenied();
   }
 
   private async refreshDocumentOperationalWorkItems(
@@ -696,6 +952,7 @@ export class WorkService {
           ) latest_audit ON TRUE
           WHERE d.tenant_id = $1
             AND d.status <> 'deleted'
+            AND d.deleted_at IS NULL
             AND ($3::boolean OR d.created_by = $2::uuid)
             AND (${matterFilter.sql})
         ),
@@ -755,6 +1012,7 @@ export class WorkService {
             WHERE d.tenant_id = wi.tenant_id
               AND d.document_id = wi.target_id
               AND d.status <> 'deleted'
+              AND d.deleted_at IS NULL
               AND (
                 (wi.kind = 'document_extraction_failed' AND cd.extraction_status = 'failed')
                 OR (wi.kind = 'document_ocr_pending' AND cd.extraction_status = 'ocr_pending')
@@ -779,8 +1037,9 @@ export class WorkService {
     const canViewRecordsAdmin = recordsAdminRoles.has(actor.role);
     const kindParam = 4 + matterFilter.params.length;
     const assigneeParam = kindParam + 1;
-    const limitParam = kindParam + 2;
-    const offsetParam = kindParam + 3;
+    const matterParam = kindParam + 2;
+    const limitParam = kindParam + 3;
+    const offsetParam = kindParam + 4;
     const assigneeFilter: DmsWorkQueueAssigneeFilter = query.assignee;
     const result = await client.query(
       `
@@ -803,6 +1062,17 @@ export class WorkService {
           cd.extraction_status,
           apa.artifact_kind AS ai_prep_artifact_kind,
           ac.claim_text AS graph_claim_text,
+          (
+            $3::boolean
+            OR EXISTS (
+              SELECT 1
+              FROM matter_members actor_mm
+              WHERE actor_mm.tenant_id = wi.tenant_id
+                AND actor_mm.matter_id = wi.matter_id
+                AND actor_mm.user_id = $2::uuid
+                AND actor_mm.matter_role <> 'limited_reviewer'
+            )
+          ) AS can_mutate,
           count(*) OVER() AS total_count
         FROM work_items wi
         JOIN matters m
@@ -852,7 +1122,11 @@ export class WorkService {
           )
           AND (
             (wi.target_type = 'disposal_request' AND dr.disposal_request_id IS NOT NULL)
-            OR (wi.target_type = 'document' AND d.document_id IS NOT NULL)
+            OR (
+              wi.target_type = 'document'
+              AND d.document_id IS NOT NULL
+              AND d.deleted_at IS NULL
+            )
             OR wi.target_type IN (
               'document_version',
               'upload_preflight',
@@ -873,9 +1147,9 @@ export class WorkService {
             OR ($${assigneeParam}::text = 'mine' AND wi.assigned_to_user_id = $2::uuid)
             OR ($${assigneeParam}::text = 'unassigned' AND wi.assigned_to_user_id IS NULL)
           )
+          AND ($${matterParam}::uuid IS NULL OR wi.matter_id = $${matterParam}::uuid)
           AND (${matterFilter.sql})
         ORDER BY
-          CASE WHEN wi.source = 'records' THEN 0 ELSE 1 END,
           wi.due_at ASC,
           wi.updated_at DESC,
           wi.work_item_id
@@ -889,6 +1163,7 @@ export class WorkService {
         ...matterFilter.params,
         query.kind ?? null,
         assigneeFilter,
+        query.matterId ?? null,
         query.limit,
         query.offset,
       ],
@@ -898,11 +1173,12 @@ export class WorkService {
     return { rows, total: Number.isFinite(total) ? total : 0 };
   }
 
-  private async findReassignTarget(
+  private async findMutationTarget(
     client: QueryClient,
     actor: PermissionQueryContext,
     digest: string,
-    assignedToUserId: string,
+    assignedToUserId: string | null,
+    lockRow = true,
   ): Promise<WorkItemUpdateRow | null> {
     const matterFilter = this.permissionQuery.buildMatterFilter(actor, 4, 'm');
     const canViewRecordsAdmin = recordsAdminRoles.has(actor.role);
@@ -946,8 +1222,23 @@ export class WorkService {
               )
             )
             AND (
+              $3::boolean
+              OR EXISTS (
+                SELECT 1
+                FROM matter_members actor_mm
+                WHERE actor_mm.tenant_id = wi.tenant_id
+                  AND actor_mm.matter_id = wi.matter_id
+                  AND actor_mm.user_id = $2::uuid
+                  AND actor_mm.matter_role <> 'limited_reviewer'
+              )
+            )
+            AND (
               (wi.target_type = 'disposal_request' AND dr.disposal_request_id IS NOT NULL)
-              OR (wi.target_type = 'document' AND d.document_id IS NOT NULL)
+              OR (
+                wi.target_type = 'document'
+                AND d.document_id IS NOT NULL
+                AND d.deleted_at IS NULL
+              )
               OR wi.target_type IN (
                 'document_version',
                 'upload_preflight',
@@ -964,18 +1255,21 @@ export class WorkService {
             )
             AND (${matterFilter.sql})
           LIMIT 1
+          ${lockRow ? 'FOR UPDATE OF wi SKIP LOCKED' : ''}
         ),
         assignee AS (
           SELECT u.user_id, u.name
           FROM visible v
           JOIN users u
-            ON u.tenant_id = $1
+           ON u.tenant_id = $1
            AND u.user_id = $${assignedParam}::uuid
            AND u.status = 'active'
+           AND u.role NOT IN ('limited_reviewer', 'external_user')
           JOIN matter_members mm
             ON mm.tenant_id = u.tenant_id
            AND mm.matter_id = v.matter_id
            AND mm.user_id = u.user_id
+           AND mm.matter_role <> 'limited_reviewer'
           LIMIT 1
         )
         SELECT
@@ -985,7 +1279,9 @@ export class WorkService {
           assignee.user_id AS assigned_to_user_id,
           assignee.name AS assignee_name
         FROM visible
-        JOIN assignee ON TRUE
+        LEFT JOIN assignee ON TRUE
+        WHERE $${assignedParam}::uuid IS NULL
+          OR assignee.user_id IS NOT NULL
       `,
       [
         actor.tenantId,

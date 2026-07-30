@@ -13,7 +13,10 @@ import type { DataState } from '@/lib/data-state';
 
 export function dashboardActionItems(state: DashboardOverviewState): DmsWorkQueueItemDto[] {
   const items: DmsWorkQueueItemDto[] = [];
-  if (state.permissionPolicyAlerts.status === 'ready' && state.permissionPolicyAlerts.data.length > 0) {
+  if (
+    state.permissionPolicyAlerts.status === 'ready' &&
+    state.permissionPolicyAlerts.data.length > 0
+  ) {
     items.push({
       itemKey: 'permission-policy-0',
       source: 'permission_policy',
@@ -126,7 +129,8 @@ function workQueueMeta(
   items: DmsWorkQueueItemDto[],
 ): string {
   if (!state) return items.length > 0 ? '운영 데이터 기준' : '표시할 항목 없음';
-  if (state.status === 'ready') return state.data.length > 0 ? `${state.data.length}건` : '표시할 항목 없음';
+  if (state.status === 'ready')
+    return state.data.length > 0 ? `${state.data.length}건` : '표시할 항목 없음';
   if (state.status === 'empty') return '표시할 항목 없음';
   if (state.status === 'error') return '연결 확인 필요';
   if (state.status === 'forbidden' || state.status === 'blocked') return '권한 정책 적용';
@@ -150,10 +154,7 @@ function WorkQueueStateEmpty({ state }: { state: DataState<DmsWorkQueueItemDto[]
   }
   if (state.status === 'blocked') {
     return (
-      <EmptyState
-        variant="policy-blocked"
-        title="정보 차단 또는 권한 정책으로 표시할 수 없습니다."
-      />
+      <EmptyState variant="policy-blocked" title="정보 차단 정책에 따라 표시할 수 없습니다." />
     );
   }
   return <EmptyState variant="api-unavailable" title="업무 상태 연결 대기 중입니다." />;

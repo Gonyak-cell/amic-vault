@@ -10,6 +10,7 @@ import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { assignAccountLedgerId } from '@/lib/api/account-ledger';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { userRoleLabels } from '@/lib/i18n';
 
 function subjectLabel(subject: OrgDirectorySubjectDto | null): string {
   if (!subject) return '사용자 미선택';
@@ -68,7 +69,9 @@ export function AccountLedgerAdminClient() {
           <div className="rounded-md border bg-muted/30 p-3 text-sm">
             <p className="truncate font-medium text-foreground">{subjectLabel(selectedSubject)}</p>
             {selectedSubject?.role ? (
-              <p className="mt-1 text-xs text-muted-foreground">{selectedSubject.role}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {userRoleLabels.ko[selectedSubject.role]}
+              </p>
             ) : null}
           </div>
           <label className="grid gap-1.5">
@@ -87,7 +90,12 @@ export function AccountLedgerAdminClient() {
             />
           </label>
           <Button disabled={!canSubmit} type="submit">
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {isSaving ? (
+              <Loader2
+                className="h-4 w-4 motion-safe:[animation:spin_1s_linear_infinite] motion-reduce:[animation:none]"
+                aria-hidden="true"
+              />
+            ) : null}
             배정
           </Button>
           {status ? <p className="text-sm text-emerald-700">{status}</p> : null}

@@ -39,6 +39,7 @@ describe('SearchSavePanel', () => {
           legalHold: 'document_hold',
           privilegeStatus: 'privileged',
           recordsStatus: 'archived',
+          versionStatus: 'superseded',
         }}
       />,
     );
@@ -54,6 +55,7 @@ describe('SearchSavePanel', () => {
     expect(html).toContain('OCR 필요');
     expect(html).toContain('파일 삭제 금지');
     expect(html).toContain('보관됨');
+    expect(html).toContain('이전 버전');
     expect(html).toContain('저장 이름');
     expect(html).toContain('공유 범위');
     expect(html).toContain('검색 목록');
@@ -132,6 +134,7 @@ describe('SearchSavePanel', () => {
         recordsStatus: 'disposal_locked',
         sortBy: 'title_asc',
         target: 'title',
+        versionStatus: 'current',
       }),
     ).toEqual(
       expect.arrayContaining([
@@ -147,6 +150,7 @@ describe('SearchSavePanel', () => {
         { label: '추출/OCR', value: '추출 실패' },
         { label: '보존', value: 'Matter 삭제 금지' },
         { label: '기록', value: '처분 잠금' },
+        { label: '버전 상태', value: '현재 버전' },
         { label: '수정 기간', value: '최근 30일' },
       ]),
     );

@@ -10,7 +10,6 @@ import {
   type DlpBehaviorAlertDto,
   type EthicalWallDetailDto,
   type MfaEnrollResponseDto,
-  type UserRole,
   type UserSummary,
 } from '@amic-vault/shared';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -30,6 +29,7 @@ import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge, type StatusBadgeTone } from '@/components/ui/status-badge';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
+import { userRoleLabels } from '@/lib/i18n';
 import {
   approveBreakGlassRequest,
   createBreakGlassRequest,
@@ -42,15 +42,7 @@ import { deactivateUser, listUsers, reactivateUser } from '@/lib/api/user-lifecy
 import { activateMfa, enrollMfa, getCurrentUser } from '@/lib/auth';
 import { qrSvgDataUri } from '@/lib/qr-code';
 
-const roleLabels = {
-  firm_admin: '운영 관리자',
-  security_admin: '보안 관리자',
-  knowledge_manager: '지식 관리자',
-  matter_owner: '사건 책임자',
-  matter_member: '구성원',
-  limited_reviewer: '제한 검토자',
-  external_user: '외부 사용자',
-} as const satisfies Record<UserRole, string>;
+const roleLabels = userRoleLabels.ko;
 
 const userStatusMeta = {
   active: { label: '활성', tone: 'success' },
@@ -453,7 +445,7 @@ export function AdminSecurityClient({
           meta={`${activeUserCount}명 활성`}
           actions={
             <StatusBadge tone={canDeactivateUsers ? 'success' : 'warning'}>
-              {canDeactivateUsers ? 'firm_admin' : '읽기 전용'}
+              {canDeactivateUsers ? roleLabels.firm_admin : '읽기 전용'}
             </StatusBadge>
           }
         >

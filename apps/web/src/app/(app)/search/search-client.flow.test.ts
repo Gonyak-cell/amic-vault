@@ -1,49 +1,40 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import {
+  readSearchSelectionState,
+  searchSelectionStateKey,
+  withSearchSelectionState,
+} from './search-selection-state';
 
-describe('SearchClient workbench flow', () => {
-  const source = readFileSync(new URL('./search-client.tsx', import.meta.url), 'utf8');
+describe('SearchClient selection browser contract', () => {
+  it('stores only the opaque selected-result key while preserving unrelated history state', () => {
+    const existingState = { as: '/search', __N: 1 };
+    const nextState = withSearchSelectionState(existingState, 'document-result-7');
 
-  it('stores only an opaque selected-result key in browser history', () => {
-    expect(source).toContain("const searchSelectionStateKey = 'amicVaultSearchSelection'");
-    expect(source).toContain('window.history.replaceState(nextState');
-    expect(source).not.toContain('sessionStorage');
-    expect(source).not.toContain('localStorage');
-    expect(source).not.toContain('document.body.innerText');
+    expect(nextState).toEqual({
+      as: '/search',
+      __N: 1,
+      [searchSelectionStateKey]: 'document-result-7',
+    });
+    expect(existingState).toEqual({ as: '/search', __N: 1 });
+    expect(readSearchSelectionState(nextState)).toBe('document-result-7');
   });
 
-  it('keeps row selection local and leaves preview behind an explicit action', () => {
-    const selectResultBody = source.match(
-      /function selectResult\(result: SearchResultDto\) \{([\s\S]*?)\n {2}\}/,
-    )?.[1];
-    expect(selectResultBody).toContain('setSelectedResultKey');
-    expect(selectResultBody).toContain('rememberSearchSelection');
-    expect(selectResultBody).not.toContain('searchDocuments');
-    expect(selectResultBody).not.toContain('PreviewSessionFrame');
-    expect(source).toContain('onPreview={setPreviewResult}');
+  it('removes the selection without retaining a stale browser value', () => {
+    const cleared = withSearchSelectionState(
+      { [searchSelectionStateKey]: 'document-result-7', preserved: true },
+      null,
+    );
+
+    expect(cleared).toEqual({ preserved: true });
+    expect(readSearchSelectionState(cleared)).toBeNull();
   });
 
-  it('exposes responsive drawer state and grouped search-surface semantics', () => {
-    for (const id of [
-      'search-workbench-rail',
-      'search-workbench-inspector',
-      'search-workbench-save',
-    ]) {
-      expect(source).toContain(`aria-controls="${id}"`);
-      expect(source).toContain(`id="${id}"`);
-    }
-    expect(source).toContain('aria-expanded={railOpen}');
-    expect(source).toContain('aria-expanded={inspectorOpen}');
-    expect(source).toContain('aria-expanded={saveOpen}');
-    expect(source).toContain('aria-label="검색 표면"');
-    expect(source).toContain('role="group"');
-  });
-
-  it('keeps saved-search list, create, and run ownership on the canonical Search Workbench', () => {
-    expect(source).toContain('listSavedSearches()');
-    expect(source).toContain('setSavedSearches(sortSavedSearches(result.items))');
-    expect(source).toContain('saveSavedSearch({');
-    expect(source).toContain('recordSavedSearchOpen(savedSearch.savedSearchId)');
-    expect(source).not.toContain('href="/search/folders"');
+  it('ignores malformed or non-object history state instead of exposing it as a selection', () => {
+    expect(readSearchSelectionState(null)).toBeNull();
+    expect(readSearchSelectionState({ [searchSelectionStateKey]: 7 })).toBeNull();
+    expect(readSearchSelectionState('document-result-7')).toBeNull();
+    expect(withSearchSelectionState('document-result-7', 'next')).toEqual({
+      [searchSelectionStateKey]: 'next',
+    });
   });
 });

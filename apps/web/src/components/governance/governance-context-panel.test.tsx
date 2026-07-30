@@ -111,6 +111,9 @@ describe('governance context panels', () => {
     expect(html).toContain('정책 관리 상태');
     expect(html).toContain('보존 조치');
     expect(html).toContain('본문 추출 대기');
+    expect(html).toContain('OCR 필요');
+    expect(html).not.toContain('ocr_pending');
+    expect(html).not.toContain('ocr_required');
     expect(html).toContain('파일 정리 준비');
     expect(html).not.toContain('legal analysis');
     expect(html).not.toContain('summary');
@@ -130,6 +133,8 @@ describe('governance context panels', () => {
     expect(html).toContain('AMIC-2026-001');
     expect(html).toContain('접근 범위');
     expect(html).toContain('제한 Matter');
+    expect(html).toContain('진행 중');
+    expect(html).not.toContain('>active<');
     expect(html).not.toContain('펌 전체 열람');
     expect(html).toContain('파일 정리 준비 실패 확인');
     expect(html).toContain('추가로 확인할 작업이 없습니다.');

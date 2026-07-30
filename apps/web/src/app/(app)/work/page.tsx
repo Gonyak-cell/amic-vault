@@ -1,16 +1,23 @@
 import React from 'react';
-import { resolveWorkInboxView } from '@/components/work/work-inbox-tabs';
+import { workQueueUrlStateFromParams } from '@/lib/api/work-ops';
 import { NotificationsClient } from '../notifications/notifications-client';
 import { WorkQueueClient } from './work-queue-client';
 
 export default function WorkQueuePage({
   searchParams = {},
 }: {
-  searchParams?: { view?: string | string[] };
+  searchParams?: {
+    view?: string | string[];
+    assignee?: string | string[];
+    kind?: string | string[];
+    limit?: string | string[];
+    offset?: string | string[];
+  };
 }) {
-  return resolveWorkInboxView(searchParams.view) === 'notifications' ? (
-    <NotificationsClient />
+  const urlState = workQueueUrlStateFromParams(searchParams);
+  return urlState.view === 'notifications' ? (
+    <NotificationsClient urlState={urlState} />
   ) : (
-    <WorkQueueClient />
+    <WorkQueueClient urlState={urlState} />
   );
 }

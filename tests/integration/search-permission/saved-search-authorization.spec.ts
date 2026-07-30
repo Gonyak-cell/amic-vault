@@ -16,6 +16,7 @@ import {
   alphaOwnerUserId,
   createEthicalWall,
   insertSearchIndexedRow,
+  removeMatterMember,
 } from './search-fixtures';
 import { loginSearchUser } from './search-http-helpers';
 
@@ -23,6 +24,14 @@ interface HttpResult<T> {
   body: T;
   status: number;
   text: string;
+}
+
+function errorCode(result: HttpResult<unknown>): string | undefined {
+  const body = result.body;
+  if (typeof body !== 'object' || body === null || Array.isArray(body) || !('code' in body)) {
+    return undefined;
+  }
+  return typeof body.code === 'string' ? body.code : undefined;
 }
 
 async function requestJson<T>(
@@ -93,6 +102,25 @@ async function saveMatterBoundSearch(
         query: 'saved authorization',
       },
       scope,
+    }),
+  });
+}
+
+async function saveUnboundAdminSharedSearch(
+  baseUrl: string,
+  cookie: string,
+  name: string,
+): Promise<HttpResult<SavedSearchDto>> {
+  return requestJson<SavedSearchDto>(baseUrl, cookie, '/v1/search/saved-searches', {
+    method: 'POST',
+    body: JSON.stringify({
+      name,
+      query: {
+        page: 1,
+        pageSize: 10,
+        query: 'unbound admin shared',
+      },
+      scope: 'admin-shared',
     }),
   });
 }
@@ -279,7 +307,7 @@ describe('saved-search Matter authorization integration', () => {
         'matter-team',
       );
       expect(save.status, save.text).toBe(403);
-      expect((save.body as unknown as { code?: string }).code).toBe('PERMISSION_DENIED');
+      expect(errorCode(save)).toBe('PERMISSION_DENIED');
     },
   );
 
@@ -347,7 +375,7 @@ describe('saved-search Matter authorization integration', () => {
         'personal',
       );
       expect(save.status, save.text).toBe(403);
-      expect((save.body as unknown as { code?: string }).code).toBe('PERMISSION_DENIED');
+      expect(errorCode(save)).toBe('PERMISSION_DENIED');
     },
   );
 
@@ -439,9 +467,116 @@ describe('saved-search Matter authorization integration', () => {
         'admin-shared',
       );
       expect(save.status, save.text).toBe(403);
-      expect((save.body as unknown as { code?: string }).code).toBe('PERMISSION_DENIED');
+      expect(errorCode(save)).toBe('PERMISSION_DENIED');
     },
   );
+
+  it.each([
+    { actor: 'owner', index: 1040, scope: 'personal' },
+    { actor: 'owner', index: 1041, scope: 'matter-team' },
+    { actor: 'admin', index: 1042, scope: 'admin-shared' },
+  ] as const)(
+    'blocks $scope list, open, and revoke immediately after membership removal',
+    async ({ actor, index, scope }) => {
+      const matterId = randomUUID();
+      await seedReadableMatter(matterId, index);
+      const actorCookie = actor === 'admin' ? adminCookie : cookie;
+      const actorUserId = actor === 'admin' ? alphaFirmAdminUserId : alphaOwnerUserId;
+      if (actor === 'admin') {
+        await addMatterMember({
+          tenantId: tenantAlphaId,
+          matterId,
+          userId: actorUserId,
+        });
+      }
+
+      const saved = await saveMatterBoundSearch(
+        baseUrl,
+        actorCookie,
+        matterId,
+        `Membership removal ${scope} ${randomUUID().slice(0, 8)}`,
+        scope,
+      );
+      expect(saved.status, saved.text).toBe(201);
+
+      await removeMatterMember({
+        tenantId: tenantAlphaId,
+        matterId,
+        userId: actorUserId,
+      });
+
+      const list = await requestJson<SavedSearchListDto>(
+        baseUrl,
+        actorCookie,
+        '/v1/search/saved-searches',
+      );
+      expect(list.status, list.text).toBe(200);
+      expect(list.body.items.map((item) => item.savedSearchId)).not.toContain(
+        saved.body.savedSearchId,
+      );
+      expect(list.text).not.toContain(matterId);
+
+      const open = await requestJson<{ code?: string }>(
+        baseUrl,
+        actorCookie,
+        `/v1/search/saved-searches/${saved.body.savedSearchId}/open`,
+        { method: 'POST' },
+      );
+      expect(open.status, open.text).toBe(403);
+      expect(open.body.code).toBe('PERMISSION_DENIED');
+
+      const revoke = await requestJson<{ code?: string }>(
+        baseUrl,
+        actorCookie,
+        `/v1/search/saved-searches/${saved.body.savedSearchId}`,
+        { method: 'DELETE' },
+      );
+      expect(revoke.status, revoke.text).toBe(403);
+      expect(revoke.body.code).toBe('PERMISSION_DENIED');
+    },
+  );
+
+  it('keeps an unbound admin-shared search available without tenant/user disclosure', async () => {
+    const saved = await saveUnboundAdminSharedSearch(
+      baseUrl,
+      adminCookie,
+      `Unbound admin shared ${randomUUID().slice(0, 8)}`,
+    );
+    expect(saved.status, saved.text).toBe(201);
+
+    const list = await requestJson<SavedSearchListDto>(
+      baseUrl,
+      memberCookie,
+      '/v1/search/saved-searches',
+    );
+    expect(list.status, list.text).toBe(200);
+    expect(list.body.items.map((item) => item.savedSearchId)).toContain(saved.body.savedSearchId);
+    expect(list.text).not.toContain(tenantAlphaId);
+    expect(list.text).not.toContain(alphaFirmAdminUserId);
+
+    const open = await requestJson<SavedSearchDto>(
+      baseUrl,
+      memberCookie,
+      `/v1/search/saved-searches/${saved.body.savedSearchId}/open`,
+      { method: 'POST' },
+    );
+    expect(open.status, open.text).toBe(201);
+    expect(open.body).toMatchObject({
+      savedSearchId: saved.body.savedSearchId,
+      scope: 'admin-shared',
+    });
+    expect(open.text).not.toContain(tenantAlphaId);
+    expect(open.text).not.toContain(alphaFirmAdminUserId);
+
+    const revoke = await requestJson<void>(
+      baseUrl,
+      adminCookie,
+      `/v1/search/saved-searches/${saved.body.savedSearchId}`,
+      { method: 'DELETE' },
+    );
+    expect(revoke.status, revoke.text).toBe(204);
+    expect(revoke.text).toBe('');
+  });
 
   it('fails closed for malformed and mismatched legacy Matter references', async () => {
     const persistedMatterId = randomUUID();

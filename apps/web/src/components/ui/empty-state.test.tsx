@@ -30,7 +30,20 @@ describe('EmptyState', () => {
 
     expect(html).toContain('role="alert"');
     expect(html).toContain('aria-live="assertive"');
-    expect(html).toContain('정보 차단 또는 권한 정책으로 표시할 수 없습니다.');
+    expect(html).toContain('정보 차단 정책에 따라 표시할 수 없습니다.');
+  });
+
+  it('keeps connection failure separate from request errors and denied states', () => {
+    const unavailable = renderToStaticMarkup(<EmptyState variant="api-unavailable" />);
+    const requestError = renderToStaticMarkup(<EmptyState variant="api-error" />);
+    const denied = renderToStaticMarkup(<EmptyState variant="no-access" />);
+
+    expect(unavailable).toContain('데이터 연결을 확인할 수 없습니다.');
+    expect(unavailable).not.toContain('권한');
+    expect(requestError).toContain('요청한 데이터를 표시할 수 없습니다.');
+    expect(requestError).not.toContain('연결');
+    expect(denied).toContain('볼 권한이 없습니다.');
+    expect(denied).not.toContain('연결');
   });
 
   it('keeps caller-provided accessibility attributes when a screen needs a custom region', () => {

@@ -1,5 +1,12 @@
 # 소규모 로펌용 OSS SaaS UI 검증 기록 — `b3681493`
 
+> **재검증 주의:** 이 기록은 2026-07-31 gap audit에서 100% 완료 증거로 사용할 수
+> 없는 것으로 판정되었다. integration inventory 수치, Home dead target, Work 동시성,
+> deep-link 복원 등 확인된 차이는
+> `docs/ui/2026-07-31-small-firm-oss-saas-gap-closure-plan-b3681493.md`에서 폐쇄 중이다.
+> 최종 gap-closure receipt가 작성되기 전에는 아래 완료 문구를 현재 판정으로 인용하지
+> 않는다.
+
 > 구현 코드 SHA: `1d0333c9ba957dfced1d4d893ef30e0261b9e39d`
 >
 > 기준선: `origin/main@b3681493970714fa2d1f583a2a16f7c5d4a26582`
@@ -24,18 +31,18 @@
 
 ### 2.1 루트 및 UI 게이트
 
-| 명령 | 결과 |
-|---|---|
-| `pnpm lint` | 6/6 workspace 통과 |
-| `pnpm typecheck` | 9/9 task 통과 |
-| `pnpm test` | domain 18, desktop 18, shared 213, AI 13, API 1,012, Web 429 — 합계 1,703 통과 |
-| `pnpm build` | 6/6 workspace 통과, Next 정적 생성 31개 통과 |
-| `pnpm docs:frozen` | frozen package 51개 불변 통과 |
-| `pnpm backlog:validate` | 174·266 TUW registry 통과 |
-| `pnpm check:production-ui-literals` | 통과 |
-| `pnpm check:ui-pr-checklist` | 통과 |
-| `pnpm ui:production-smoke` | 통과 |
-| `git diff --check` | 통과 |
+| 명령                                | 결과                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------ |
+| `pnpm lint`                         | 6/6 workspace 통과                                                             |
+| `pnpm typecheck`                    | 9/9 task 통과                                                                  |
+| `pnpm test`                         | domain 18, desktop 18, shared 213, AI 13, API 1,012, Web 429 — 합계 1,703 통과 |
+| `pnpm build`                        | 6/6 workspace 통과, Next 정적 생성 31개 통과                                   |
+| `pnpm docs:frozen`                  | frozen package 51개 불변 통과                                                  |
+| `pnpm backlog:validate`             | 174·266 TUW registry 통과                                                      |
+| `pnpm check:production-ui-literals` | 통과                                                                           |
+| `pnpm check:ui-pr-checklist`        | 통과                                                                           |
+| `pnpm ui:production-smoke`          | 통과                                                                           |
+| `git diff --check`                  | 통과                                                                           |
 
 `pnpm typecheck`를 `pnpm build`와 동시에 처음 실행했을 때 Next 빌드가 `.next/types`를 교체하는 동안 Web typecheck가 생성 파일을 읽어 `TS6053`이 발생했다. 빌드 완료 뒤 동일 소스에서 `pnpm typecheck`를 단독 재실행해 9/9가 통과했다. 소스 오류로 분류하거나 테스트를 완화하지 않았다.
 
@@ -138,11 +145,11 @@
 
 ## 5. 조건부 TUW 판정
 
-| ID | 판정 | 검증 근거 |
-|---|---|---|
-| `SF-B368-C01` | 코드 불필요 | `matter_members` 필요조건을 제거하지 않았고 non-member, explicit DENY, Wall negative 통합 테스트가 통과했다. 자동 구성원 확대로 권한 의미를 바꾸지 않았다. |
-| `SF-B368-C02` | 코드 불필요 | 기존 permission-scoped work/dashboard/Matter/Client read 계약으로 확인 가능한 최소 정보만 표시했다. 출처 없는 recent·KPI·aggregate를 추가하지 않았다. |
-| `SF-B368-C03` | 기존 계약 충족 | 기존 `work_items.assigned_to_user_id`, `due_at`, audited reassignment를 사용했다. migration, 신규 endpoint, localStorage 권위 상태를 만들지 않았다. |
+| ID            | 판정           | 검증 근거                                                                                                                                                  |
+| ------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SF-B368-C01` | 코드 불필요    | `matter_members` 필요조건을 제거하지 않았고 non-member, explicit DENY, Wall negative 통합 테스트가 통과했다. 자동 구성원 확대로 권한 의미를 바꾸지 않았다. |
+| `SF-B368-C02` | 코드 불필요    | 기존 permission-scoped work/dashboard/Matter/Client read 계약으로 확인 가능한 최소 정보만 표시했다. 출처 없는 recent·KPI·aggregate를 추가하지 않았다.      |
+| `SF-B368-C03` | 기존 계약 충족 | 기존 `work_items.assigned_to_user_id`, `due_at`, audited reassignment를 사용했다. migration, 신규 endpoint, localStorage 권위 상태를 만들지 않았다.        |
 
 ## 6. AI slop 검토
 

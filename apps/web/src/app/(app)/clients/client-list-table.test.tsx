@@ -32,6 +32,22 @@ describe('ClientListTable responsive density', () => {
   it('preserves encoded detail links for client identifiers', () => {
     expect(clientDetailPath('client/ref')).toBe('/clients/client%2Fref');
   });
+
+  it('renders natural fallback labels when the wire sends unknown client enums', () => {
+    const client = clientFixture();
+    Reflect.set(client, 'clientType', 'legacy_partner');
+    Reflect.set(client, 'status', 'pending');
+    Reflect.set(client, 'confidentialityLevel', 'secret');
+
+    const html = renderToStaticMarkup(<ClientListTable clients={[client]} />);
+
+    expect(html).toContain('확인되지 않은 고객 유형');
+    expect(html).toContain('확인되지 않은 고객 상태');
+    expect(html).toContain('확인되지 않은 기밀도');
+    expect(html).not.toContain('legacy_partner');
+    expect(html).not.toContain('pending');
+    expect(html).not.toContain('secret');
+  });
 });
 
 function clientFixture(): ClientDto {

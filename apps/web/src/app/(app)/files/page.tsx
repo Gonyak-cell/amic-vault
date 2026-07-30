@@ -22,6 +22,11 @@ import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import { useSavedItems } from '@/hooks/use-saved-items';
 import { matterAppSourceMode, type MatterCodeOption } from '@/lib/matter-app';
 import { useI18n } from '@/lib/i18n';
+import {
+  matterReferenceForSelection,
+  nextUploadRevision,
+  previewDocumentIdForSelection,
+} from './files-workbench-state';
 
 export default function FilesPage() {
   const { t } = useI18n();
@@ -42,16 +47,17 @@ export default function FilesPage() {
   const inspectorTriggerRef = React.useRef<HTMLButtonElement>(null);
   const uploadTriggerRef = React.useRef<HTMLButtonElement>(null);
   const previewTriggerRef = React.useRef<HTMLButtonElement>(null);
+  const selectedMatterReference = matterReferenceForSelection(selectedMatter);
 
   React.useEffect(() => {
-    if (!selectedMatter) {
+    if (!selectedMatterReference) {
       setFolders([]);
       setFolderError(null);
       return;
     }
     let active = true;
     setFolderError(null);
-    listDocumentFolders(selectedMatter.matterReference)
+    listDocumentFolders(selectedMatterReference)
       .then((nextFolders) => {
         if (active) setFolders(nextFolders);
       })
@@ -63,7 +69,7 @@ export default function FilesPage() {
     return () => {
       active = false;
     };
-  }, [selectedMatter]);
+  }, [selectedMatterReference]);
 
   const handleMatterSelected = React.useCallback((matter: MatterCodeOption | null) => {
     setSelectedMatter(matter);
@@ -84,8 +90,10 @@ export default function FilesPage() {
 
   const handleUploadComplete = React.useCallback((result: DocumentUploadCompletionResult) => {
     setLatestUpload(isUploadDocumentResponse(result) ? result : null);
-    setUploadRevision((current) => current + 1);
+    setUploadRevision(nextUploadRevision);
   }, []);
+
+  const previewDocumentId = previewDocumentIdForSelection(selectedDocument, previewOpen);
 
   const rail = (
     <DocumentWorkbenchRail
@@ -260,7 +268,7 @@ export default function FilesPage() {
         sourceMode={sourceMode}
       />
       <DocumentPreviewDrawer
-        document={selectedDocument}
+        document={previewDocumentId ? selectedDocument : null}
         onClose={() => setPreviewOpen(false)}
         open={previewOpen}
         returnFocusRef={previewTriggerRef}

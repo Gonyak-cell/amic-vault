@@ -4,6 +4,8 @@ import {
   isProtectedAppPath,
   loginRedirectUrl,
   protectedPaths,
+  resolveLoginNextPath,
+  safeNextPath,
   shouldRedirectToLogin,
 } from './auth-guard';
 
@@ -55,6 +57,78 @@ describe('auth guard paths', () => {
 
     expect(url.pathname).toBe('/login');
     expect(url.searchParams.get('next')).toBe('/dashboard');
+  });
+
+  it('fails closed for protocol-relative, backslash, encoded, and login-loop next targets', () => {
+    const unsafeNextValues = [
+      '//evil.example/dashboard',
+      '/\\evil.example/dashboard',
+      '/%5Cevil.example/dashboard',
+      '/%2F%2Fevil.example/dashboard',
+      '/%252F%252Fevil.example/dashboard',
+      '/%6Cogin?next=%2Fdashboard',
+      '/login?next=%2Fdashboard',
+      '/login/settings',
+      '/foo',
+      '/api/v1/documents',
+    ];
+
+    for (const value of unsafeNextValues) {
+      expect(safeNextPath(value), value).toBe('/dashboard');
+    }
+  });
+
+  it('keeps only allowlisted deep-link state and strips legacy folder query text', () => {
+    const searchRef = '11111111-1111-4111-8111-111111111902';
+    const documentId = '11111111-1111-4111-8111-111111111201';
+    const versionId = '11111111-1111-4111-8111-111111111501';
+
+    expect(
+      safeNextPath(
+        `/search/folders?searchRef=${searchRef}&q=${encodeURIComponent('민감한 본문')}&title=secret`,
+      ),
+    ).toBe(`/search/folders?searchRef=${searchRef}`);
+    expect(safeNextPath('/search/folders?searchRef=not-a-uuid&q=secret')).toBe('/search/folders');
+    expect(
+      safeNextPath(
+        `/documents/${documentId}?edit=1&versionId=${versionId}&secret=${encodeURIComponent('본문')}`,
+      ),
+    ).toBe(`/documents/${documentId}?edit=1&versionId=${versionId}`);
+    expect(safeNextPath(`/documents/${documentId}?edit=1&malformed=%ZZ`)).toBe(
+      `/documents/${documentId}`,
+    );
+    expect(safeNextPath('/matters/11111111-1111-4111-8111-111111111001?tab=work#matter-work')).toBe(
+      '/matters/11111111-1111-4111-8111-111111111001?tab=work#matter-work',
+    );
+    expect(
+      safeNextPath('/matters/11111111-1111-4111-8111-111111111001?tab=work#not-allowlisted'),
+    ).toBe('/matters/11111111-1111-4111-8111-111111111001?tab=work');
+    expect(
+      safeNextPath(
+        '/work?view=mine&assignee=unassigned&kind=document_ocr_pending&limit=50&offset=100&page=7&cursor=secret',
+      ),
+    ).toBe('/work?view=mine&assignee=unassigned&kind=document_ocr_pending&limit=50&offset=100');
+    expect(safeNextPath('/work?view=all&assignee=admin')).toBe('/work');
+    expect(safeNextPath('/work?view=notifications&assignee=mine')).toBe(
+      '/work?view=notifications&assignee=mine',
+    );
+    expect(
+      safeNextPath(
+        '/work?view=notifications&view=mine&assignee=all&assignee=mine&kind=dd_rfi_due&limit=20&offset=40',
+      ),
+    ).toBe('/work?kind=dd_rfi_due&limit=20&offset=40');
+    expect(safeNextPath('/work?limit=101&offset=-1')).toBe('/work');
+  });
+
+  it('resolves exactly one sanitized next value for login navigation', () => {
+    expect(resolveLoginNextPath('?next=%2Fdocuments%2Fdoc%3Fedit%3D1')).toBe(
+      '/documents/doc?edit=1',
+    );
+    expect(resolveLoginNextPath('?next=%2Flogin&next=%2Fdashboard')).toBe('/dashboard');
+    expect(resolveLoginNextPath('?next=%2Fsearch%2Ffolders%3FsearchRef%3Dnot-a-uuid')).toBe(
+      '/search/folders',
+    );
+    expect(resolveLoginNextPath('?next=%ZZ')).toBe('/dashboard');
   });
 
   it('keeps the Next middleware matcher aligned with protected app paths', () => {

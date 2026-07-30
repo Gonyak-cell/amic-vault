@@ -52,10 +52,7 @@ const matterDetailTabs: readonly MatterDetailTabDefinition[] = [
     key: 'work',
     label: '업무',
     panelId: 'matter-work',
-    hashes: [
-      'matter-work',
-      'matter-workstreams',
-    ],
+    hashes: ['matter-work', 'matter-workstreams'],
   },
   {
     key: 'team',
@@ -101,6 +98,32 @@ export function matterDetailTabPanelId(tab: MatterDetailTabKey): string {
   return tabByKey.get(tab)?.panelId ?? 'matter-overview';
 }
 
+export function matterDetailTabUrl(href: string, tab: MatterDetailTabKey): string {
+  const url = new URL(href);
+  if (tab === 'overview') url.searchParams.delete('tab');
+  else url.searchParams.set('tab', tab);
+  url.hash = matterDetailTabPanelId(tab);
+  return url.toString();
+}
+
+export function matterDetailTabFromUrl(href: string): MatterDetailTabKey {
+  const url = new URL(href);
+  return parseMatterDetailTab({ hash: url.hash, query: url.search });
+}
+
+export function matterDetailTabForKeyboard(
+  currentTab: MatterDetailTabKey,
+  key: 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End',
+): MatterDetailTabKey {
+  if (key === 'Home') return matterDetailTabKeys[0];
+  if (key === 'End') return matterDetailTabKeys[matterDetailTabKeys.length - 1] ?? 'overview';
+  const direction = key === 'ArrowRight' ? 1 : -1;
+  const currentIndex = matterDetailTabKeys.indexOf(currentTab);
+  const nextIndex =
+    (currentIndex + direction + matterDetailTabKeys.length) % matterDetailTabKeys.length;
+  return matterDetailTabKeys[nextIndex] ?? matterDetailTabKeys[0];
+}
+
 export function MatterDetailTabs({
   initialTab,
   panels,
@@ -118,20 +141,14 @@ export function MatterDetailTabs({
     setActiveTab(nextTab);
     if (typeof window === 'undefined') return;
 
-    const url = new URL(window.location.href);
-    if (nextTab === 'overview') url.searchParams.delete('tab');
-    else url.searchParams.set('tab', nextTab);
-    url.hash = matterDetailTabPanelId(nextTab);
+    const url = matterDetailTabUrl(window.location.href, nextTab);
     const method = replace ? 'replaceState' : 'pushState';
     window.history[method]({ matterDetailTab: nextTab }, '', url);
   }, []);
 
   const syncFromLocation = useCallback((focus = false) => {
     if (typeof window === 'undefined') return;
-    const nextTab = parseMatterDetailTab({
-      hash: window.location.hash,
-      query: window.location.search,
-    });
+    const nextTab = matterDetailTabFromUrl(window.location.href);
     setActiveTab(nextTab);
     if (focus) {
       window.requestAnimationFrame(() => {
@@ -146,7 +163,8 @@ export function MatterDetailTabs({
 
   useEffect(() => {
     const hasDeepLink =
-      Boolean(window.location.hash) || Boolean(new URLSearchParams(window.location.search).get('tab'));
+      Boolean(window.location.hash) ||
+      Boolean(new URLSearchParams(window.location.search).get('tab'));
     syncFromLocation(hasDeepLink);
     const handleLocationChange = () => syncFromLocation(true);
     window.addEventListener('popstate', handleLocationChange);
@@ -157,11 +175,11 @@ export function MatterDetailTabs({
     };
   }, [syncFromLocation]);
 
-  function moveFocus(currentTab: MatterDetailTabKey, direction: 1 | -1): void {
-    const currentIndex = matterDetailTabKeys.indexOf(currentTab);
-    const nextIndex =
-      (currentIndex + direction + matterDetailTabKeys.length) % matterDetailTabKeys.length;
-    const nextTab = matterDetailTabKeys[nextIndex] ?? matterDetailTabKeys[0];
+  function moveFocus(
+    currentTab: MatterDetailTabKey,
+    key: 'ArrowRight' | 'ArrowLeft' | 'Home' | 'End',
+  ): void {
+    const nextTab = matterDetailTabForKeyboard(currentTab, key);
     selectTab(nextTab);
     tabRefs.current[nextTab]?.focus();
   }
@@ -169,27 +187,21 @@ export function MatterDetailTabs({
   function onTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, tab: MatterDetailTabKey) {
     if (event.key === 'ArrowRight') {
       event.preventDefault();
-      moveFocus(tab, 1);
+      moveFocus(tab, 'ArrowRight');
     } else if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      moveFocus(tab, -1);
+      moveFocus(tab, 'ArrowLeft');
     } else if (event.key === 'Home') {
       event.preventDefault();
-      selectTab(matterDetailTabKeys[0]);
-      tabRefs.current[matterDetailTabKeys[0]]?.focus();
+      moveFocus(tab, 'Home');
     } else if (event.key === 'End') {
       event.preventDefault();
-      const lastTab = matterDetailTabKeys[matterDetailTabKeys.length - 1] ?? matterDetailTabKeys[0];
-      selectTab(lastTab);
-      tabRefs.current[lastTab]?.focus();
+      moveFocus(tab, 'End');
     }
   }
 
   return (
-    <section
-      className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4"
-      aria-label="Matter 기본 탭"
-    >
+    <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4" aria-label="Matter 기본 탭">
       <div
         className="flex min-w-0 overflow-x-auto border-b"
         role="tablist"

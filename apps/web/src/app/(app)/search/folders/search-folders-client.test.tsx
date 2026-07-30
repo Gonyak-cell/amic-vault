@@ -24,5 +24,17 @@ describe('search/folders compatibility', () => {
       }),
     ).toBe('/search');
     expect(searchFoldersCompatibilityPath({ q: '비밀 계약서 본문' })).toBe('/search');
+    expect(
+      searchFoldersCompatibilityPath({
+        searchRef: ['not-a-saved-search-ref', savedSearchRef],
+        q: '비밀 계약서 본문',
+      }),
+    ).toBe('/search');
+    expect(
+      searchFoldersCompatibilityPath({
+        searchRef: `${savedSearchRef}%5C%5Cevil`,
+        q: '비밀 계약서 본문',
+      }),
+    ).toBe('/search');
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ban, RefreshCw, SearchCheck, ShieldCheck } from 'lucide-react';
 import type {
   ConflictCheckCandidateDto,
@@ -19,10 +19,10 @@ import {
   runMatterConflictCheck,
   updateMatterStatus,
 } from '@/lib/api-client';
-import { dataStateStatusForApiError } from '@/lib/api/error-messages';
+import { uiErrorStateForApiError } from '@/lib/api/error-messages';
 import type { DataState } from '@/lib/data-state';
 
-type ConflictLoadStatus = DataState<ConflictCheckDto[]>['status'];
+export type ConflictLoadStatus = DataState<ConflictCheckDto[]>['status'];
 type ConflictActionState = 'idle' | 'loading' | 'running' | 'resolving' | 'opening' | 'error';
 type ConflictResolutionStatus = 'cleared' | 'blocked';
 
@@ -89,10 +89,13 @@ export function formatConflictSimilarity(value: number): string {
 
 function emptyStateFor(loadStatus: ConflictLoadStatus) {
   if (loadStatus === 'loading') {
-    return <EmptyState variant="api-unavailable" title="이해상충 검토 이력을 불러오는 중입니다." />;
+    return <EmptyState variant="loading" title="이해상충 검토 이력을 불러오는 중입니다." />;
   }
   if (loadStatus === 'empty') {
     return <EmptyState title="검토 이력이 없습니다." />;
+  }
+  if (loadStatus === 'unavailable') {
+    return <EmptyState variant="api-unavailable" title="이해상충 검토 이력 연결에 실패했습니다." />;
   }
   if (loadStatus === 'error') {
     return <EmptyState variant="api-error" title="이해상충 검토 이력을 표시할 수 없습니다." />;
@@ -106,6 +109,140 @@ function emptyStateFor(loadStatus: ConflictLoadStatus) {
     );
   }
   return null;
+}
+
+export function conflictLoadStatusForError(error: unknown): ConflictLoadStatus {
+  const state = uiErrorStateForApiError(error);
+  return state.emptyStateVariant === 'api-unavailable' ? 'unavailable' : state.dataStatus;
+}
+
+export type ConflictChecksState = {
+  ownerMatterId: MatterDto['matterId'];
+  checks: ConflictCheckDto[];
+  loadStatus: ConflictLoadStatus;
+};
+
+export function conflictChecksStateForMatter(
+  state: ConflictChecksState,
+  matterId: MatterDto['matterId'],
+): ConflictChecksState {
+  return state.ownerMatterId === matterId
+    ? state
+    : { ownerMatterId: matterId, checks: [], loadStatus: 'loading' };
+}
+
+export function createConflictChecksRequestCoordinator() {
+  let generation = 0;
+
+  return {
+    begin() {
+      const requestGeneration = generation + 1;
+      generation = requestGeneration;
+      return {
+        isCurrent: () => generation === requestGeneration,
+      };
+    },
+    invalidate() {
+      generation += 1;
+    },
+  };
+}
+
+export function useMatterConflictChecks(matterId: MatterDto['matterId']) {
+  const [state, setState] = useState<ConflictChecksState>(() => ({
+    ownerMatterId: matterId,
+    checks: [],
+    loadStatus: 'loading',
+  }));
+  const requestCoordinator = useRef<ReturnType<
+    typeof createConflictChecksRequestCoordinator
+  > | null>(null);
+  if (!requestCoordinator.current) {
+    requestCoordinator.current = createConflictChecksRequestCoordinator();
+  }
+
+  const refreshChecks = useCallback(() => {
+    const request = requestCoordinator.current?.begin();
+    if (!request) return;
+    setState((current) => ({
+      ownerMatterId: matterId,
+      checks: current.ownerMatterId === matterId ? current.checks : [],
+      loadStatus: 'loading',
+    }));
+
+    listMatterConflictChecks(matterId)
+      .then((result) => {
+        if (!request.isCurrent()) return;
+        setState((current) =>
+          current.ownerMatterId === matterId
+            ? {
+                ownerMatterId: matterId,
+                checks: result.items,
+                loadStatus: result.items.length === 0 ? 'empty' : 'ready',
+              }
+            : current,
+        );
+      })
+      .catch((error: unknown) => {
+        if (!request.isCurrent()) return;
+        setState((current) =>
+          current.ownerMatterId === matterId
+            ? { ownerMatterId: matterId, checks: [], loadStatus: conflictLoadStatusForError(error) }
+            : current,
+        );
+      });
+  }, [matterId]);
+
+  useEffect(() => {
+    setState({ ownerMatterId: matterId, checks: [], loadStatus: 'loading' });
+    refreshChecks();
+    return () => {
+      requestCoordinator.current?.invalidate();
+    };
+  }, [matterId, refreshChecks]);
+
+  const addCheck = useCallback(
+    (check: ConflictCheckDto) => {
+      setState((current) =>
+        current.ownerMatterId === matterId
+          ? {
+              ownerMatterId: matterId,
+              checks: [
+                check,
+                ...current.checks.filter((item) => item.conflictCheckId !== check.conflictCheckId),
+              ],
+              loadStatus: 'ready',
+            }
+          : current,
+      );
+    },
+    [matterId],
+  );
+  const updateCheck = useCallback(
+    (check: ConflictCheckDto) => {
+      setState((current) =>
+        current.ownerMatterId === matterId
+          ? {
+              ...current,
+              checks: current.checks.map((item) =>
+                item.conflictCheckId === check.conflictCheckId ? check : item,
+              ),
+            }
+          : current,
+      );
+    },
+    [matterId],
+  );
+
+  const visibleState = conflictChecksStateForMatter(state, matterId);
+
+  return {
+    addCheck,
+    checks: visibleState.checks,
+    loadStatus: visibleState.loadStatus,
+    refreshChecks,
+    updateCheck,
+  };
 }
 
 function openMatterErrorMessage(error: unknown, conflictsStatus: MatterConflictStatus): string {
@@ -278,34 +415,19 @@ export function MatterConflictsPanel({
   matter: MatterDto;
   onMatterUpdated?: (matter: MatterDto) => void;
 }) {
-  const [checks, setChecks] = useState<ConflictCheckDto[]>([]);
-  const [loadStatus, setLoadStatus] = useState<ConflictLoadStatus>('loading');
   const [rationale, setRationale] = useState('');
   const [actionState, setActionState] = useState<ConflictActionState>('idle');
   const [actionError, setActionError] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
 
+  const { addCheck, checks, loadStatus, refreshChecks, updateCheck } = useMatterConflictChecks(
+    matter.matterId,
+  );
+
   const refreshMatter = useCallback(async () => {
     const updated = await getMatter(matter.matterId);
     onMatterUpdated?.(updated);
   }, [matter.matterId, onMatterUpdated]);
-
-  const refreshChecks = useCallback(() => {
-    setLoadStatus('loading');
-    listMatterConflictChecks(matter.matterId)
-      .then((result) => {
-        setChecks(result.items);
-        setLoadStatus(result.items.length === 0 ? 'empty' : 'ready');
-      })
-      .catch((error: unknown) => {
-        setChecks([]);
-        setLoadStatus(dataStateStatusForApiError(error));
-      });
-  }, [matter.matterId]);
-
-  useEffect(() => {
-    refreshChecks();
-  }, [refreshChecks]);
 
   async function runCheck() {
     setActionState('running');
@@ -313,11 +435,7 @@ export function MatterConflictsPanel({
     setOpenError(null);
     try {
       const check = await runMatterConflictCheck(matter.matterId);
-      setChecks((current) => [
-        check,
-        ...current.filter((item) => item.conflictCheckId !== check.conflictCheckId),
-      ]);
-      setLoadStatus('ready');
+      addCheck(check);
       setRationale('');
       await refreshMatter();
       setActionState('idle');
@@ -340,9 +458,7 @@ export function MatterConflictsPanel({
         status,
         rationale: trimmed,
       });
-      setChecks((current) =>
-        current.map((item) => (item.conflictCheckId === updated.conflictCheckId ? updated : item)),
-      );
+      updateCheck(updated);
       setRationale('');
       await refreshMatter();
       setActionState('idle');

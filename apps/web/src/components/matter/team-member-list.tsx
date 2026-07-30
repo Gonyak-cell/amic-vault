@@ -10,7 +10,13 @@ import type {
   UpdateMatterMemberDto,
 } from '@amic-vault/shared';
 import { matterMemberAccessLevels, matterMemberRoles } from '@amic-vault/shared';
-import { useI18n, type Language } from '@/lib/i18n';
+import {
+  matterLeadRoleLabels,
+  matterMemberAccessLabels,
+  matterMemberRoleLabels,
+  useI18n,
+  type Language,
+} from '@/lib/i18n';
 import { Button } from '../ui/button';
 import {
   DataTable,
@@ -70,19 +76,9 @@ const teamCopy: Record<Language, TeamCopy> = {
     empty: '등록된 구성원이 없습니다.',
     denied: '이 작업을 할 권한이 없습니다.',
     failed: '요청을 처리하지 못했습니다. 다시 시도해 주세요.',
-    roleLabels: {
-      owner: '소유자',
-      member: '팀원',
-      limited_reviewer: '제한된 검토자',
-    },
-    leadRoleLabels: {
-      lead_partner: '리드 파트너',
-      lead_associate: '리드 어소',
-    },
-    accessLabels: {
-      read: '보기',
-      edit: '편집',
-    },
+    roleLabels: matterMemberRoleLabels.ko,
+    leadRoleLabels: matterLeadRoleLabels.ko,
+    accessLabels: matterMemberAccessLabels.ko,
   },
   en: {
     title: 'Team members',
@@ -98,19 +94,9 @@ const teamCopy: Record<Language, TeamCopy> = {
     empty: 'No members yet.',
     denied: 'Request denied.',
     failed: 'Request failed.',
-    roleLabels: {
-      owner: 'Owner',
-      member: 'Member',
-      limited_reviewer: 'Limited reviewer',
-    },
-    leadRoleLabels: {
-      lead_partner: 'Lead partner',
-      lead_associate: 'Lead associate',
-    },
-    accessLabels: {
-      read: 'View',
-      edit: 'Edit',
-    },
+    roleLabels: matterMemberRoleLabels.en,
+    leadRoleLabels: matterLeadRoleLabels.en,
+    accessLabels: matterMemberAccessLabels.en,
   },
 };
 

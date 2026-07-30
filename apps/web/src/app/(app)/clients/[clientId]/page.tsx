@@ -1,10 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { ClientDto, MatterDto } from '@amic-vault/shared';
 import { getClient, listMatters } from '@/lib/api-client';
-import { dataStateStatusForApiError } from '@/lib/api/error-messages';
-import { ClientDetailView, type ClientDetailLoadState } from './client-detail-view';
+import {
+  ClientDetailView,
+  type ClientDetailLoadState,
+  type ClientPortfolioLoadState,
+} from './client-detail-view';
+import { loadClientDetailSections, type ClientDetailSectionUpdate } from './client-detail-load';
 
 export default function ClientDetailPage({ params }: { params: { clientId: string } }) {
   const clientId = params.clientId;
@@ -12,35 +16,44 @@ export default function ClientDetailPage({ params }: { params: { clientId: strin
   const [matters, setMatters] = useState<MatterDto[]>([]);
   const [matterTotalCount, setMatterTotalCount] = useState<number | undefined>(undefined);
   const [matterPage, setMatterPage] = useState<number | undefined>(undefined);
-  const [loadState, setLoadState] = useState<ClientDetailLoadState>('loading');
+  const [clientLoadState, setClientLoadState] = useState<ClientDetailLoadState>('loading');
+  const [matterLoadState, setMatterLoadState] = useState<ClientPortfolioLoadState>('loading');
+  const cancelRequestRef = useRef<(() => void) | null>(null);
 
   const refresh = useCallback(() => {
-    setLoadState('loading');
-    Promise.all([getClient(clientId), listMatters({ clientId, pageSize: 100 })])
-      .then(([clientResult, matterResult]) => {
-        setClient(clientResult);
-        setMatters(matterResult.items);
-        setMatterTotalCount(matterResult.totalCount);
-        setMatterPage(matterResult.page);
-        setLoadState('ready');
-      })
-      .catch((error: unknown) => {
-        setClient(null);
-        setMatters([]);
-        setMatterTotalCount(undefined);
-        setMatterPage(undefined);
-        setLoadState(dataStateStatusForApiError(error));
-      });
+    cancelRequestRef.current?.();
+    setClientLoadState('loading');
+    setMatterLoadState('loading');
+
+    cancelRequestRef.current = loadClientDetailSections(
+      clientId,
+      { getClient, listMatters },
+      (update: ClientDetailSectionUpdate) => {
+        if (update.section === 'client') {
+          setClient(update.client);
+          setClientLoadState(update.loadState);
+          return;
+        }
+
+        setMatters(update.matters);
+        setMatterTotalCount(update.matterTotalCount);
+        setMatterPage(update.matterPage);
+        setMatterLoadState(update.loadState);
+      },
+    );
   }, [clientId]);
 
   useEffect(() => {
     refresh();
+    return () => cancelRequestRef.current?.();
   }, [refresh]);
 
   return (
     <ClientDetailView
+      clientId={clientId}
       client={client}
-      loadState={loadState}
+      loadState={clientLoadState}
+      matterLoadState={matterLoadState}
       matters={matters}
       matterPage={matterPage}
       matterTotalCount={matterTotalCount}

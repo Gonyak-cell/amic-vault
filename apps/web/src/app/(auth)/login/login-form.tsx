@@ -5,7 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { login } from '@/lib/auth';
+import { resolveLoginNextPath } from '@/lib/auth-guard';
 import { LanguageToggle, useI18n } from '@/lib/i18n';
+
+export function navigateAfterLogin(
+  search: string | URLSearchParams | null | undefined,
+  replace: (destination: string) => void,
+): void {
+  replace(resolveLoginNextPath(search));
+}
 
 export function LoginForm() {
   const { t } = useI18n();
@@ -25,7 +33,9 @@ export function LoginForm() {
           ? { email: trimmedIdentifier, password }
           : { accountLedgerId: trimmedIdentifier, password },
       );
-      window.location.assign('/dashboard');
+      navigateAfterLogin(window.location.search, (destination) => {
+        window.location.replace(destination);
+      });
     } catch {
       setError(t('auth.invalid'));
     } finally {

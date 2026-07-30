@@ -8,6 +8,7 @@ import type {
   OrgDirectorySubjectFilter,
 } from '@amic-vault/shared';
 import { searchOrgDirectorySubjects } from '@/lib/api/org-directory';
+import { userRoleLabels } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
@@ -42,7 +43,9 @@ interface OrgSubjectPickerContentProps {
 }
 
 function secondaryLabel(subject: OrgDirectorySubjectDto): string {
-  if (subject.subjectType === 'user') return subject.displayEmail ?? subject.role ?? '';
+  if (subject.subjectType === 'user') {
+    return subject.displayEmail ?? (subject.role ? userRoleLabels.ko[subject.role] : '');
+  }
   if (subject.groupType) return groupTypeLabels[subject.groupType];
   return '';
 }
@@ -79,9 +82,9 @@ export function OrgSubjectPickerContent({
   if (hasLoadError) {
     return (
       <EmptyState
-        variant="api-error"
+        variant="api-unavailable"
         title="조직 디렉터리를 불러올 수 없습니다."
-        description="권한 또는 연결 상태를 확인해 주세요."
+        description="조직 디렉터리 연결을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요."
       />
     );
   }
@@ -89,7 +92,10 @@ export function OrgSubjectPickerContent({
   if (isLoading) {
     return (
       <div className="flex min-h-24 items-center justify-center rounded-md border border-dashed bg-muted/30 text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+        <Loader2
+          className="mr-2 h-4 w-4 motion-safe:[animation:spin_1s_linear_infinite] motion-reduce:[animation:none]"
+          aria-hidden="true"
+        />
         조직 디렉터리를 확인하는 중입니다.
       </div>
     );

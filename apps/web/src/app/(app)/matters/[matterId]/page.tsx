@@ -47,10 +47,23 @@ import { MatterWorkstreamTabs } from '@/components/matter/matter-workstream-tabs
 import { MatterWorkspaceActions } from '@/components/matter/matter-workspace-actions';
 import { TeamMemberList } from '@/components/matter/team-member-list';
 import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
+import {
+  MatterResourceNotice,
+  MatterWorkItems,
+  matterLoadStatusForError,
+  type MatterLoadStatus,
+} from './matter-work-items';
+import {
+  MatterContextSummary,
+  matterConfidentialityLabel,
+  matterStatusLabel,
+  matterTypeLabel,
+  resolveMatterEmailTimeline,
+  riskLabel,
+} from './matter-detail-state';
 import { getMatterAiPrepReadiness } from '@/lib/api/ai-prep';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
@@ -59,28 +72,39 @@ import {
   fileEmailThreadToMatter,
   getMatter,
   getMatterDashboard,
-  listMatterEmailTimeline,
   listMatterMembers,
   listMatterRelatedMatters,
   listMatters,
   removeMatterRelatedMatter,
 } from '@/lib/api-client';
 
-type LoadStatus = 'loading' | 'ready' | 'error';
+export default function MatterDetailPage(props: {
+  params: { matterId: string };
+  searchParams?: { created?: string; tab?: string };
+}) {
+  return (
+    <MatterDetailContent
+      key={props.params.matterId}
+      params={props.params}
+      searchParams={props.searchParams}
+    />
+  );
+}
 
-export default function MatterDetailPage({
+function MatterDetailContent({
   params,
   searchParams,
 }: {
   params: { matterId: string };
-  searchParams?: { created?: string; tab?: string };
+  searchParams?: { created?: string; tab?: string } | undefined;
 }) {
   const [matter, setMatter] = useState<MatterDto | null>(null);
   const [emails, setEmails] = useState<EmailMatterFilingDto[]>([]);
   const [emailThreads, setEmailThreads] = useState<EmailThreadGroupDto[]>([]);
+  const [emailLoadStatus, setEmailLoadStatus] = useState<MatterLoadStatus>('loading');
   const [relatedMatters, setRelatedMatters] = useState<MatterRelatedMatterDto[]>([]);
   const [matterOptions, setMatterOptions] = useState<MatterDto[]>([]);
-  const [loadStatus, setLoadStatus] = useState<LoadStatus>('loading');
+  const [loadStatus, setLoadStatus] = useState<MatterLoadStatus>('loading');
   const [dashboard, setDashboard] = useState<MatterDashboardDto | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<AiPrepMatterReadinessDto | null>(null);
@@ -91,15 +115,12 @@ export default function MatterDetailPage({
   const [emailThreadBusyId, setEmailThreadBusyId] = useState<string | null>(null);
 
   const refreshEmails = useCallback(() => {
-    listMatterEmailTimeline(params.matterId)
-      .then((timeline) => {
-        setEmails([...timeline.items]);
-        setEmailThreads([...(timeline.threads ?? [])]);
-      })
-      .catch(() => {
-        setEmails([]);
-        setEmailThreads([]);
-      });
+    setEmailLoadStatus('loading');
+    resolveMatterEmailTimeline(params.matterId).then((result) => {
+      setEmails(result.emails);
+      setEmailThreads(result.threads);
+      setEmailLoadStatus(result.status);
+    });
   }, [params.matterId]);
 
   const refreshReadiness = useCallback(() => {
@@ -123,21 +144,27 @@ export default function MatterDetailPage({
   useEffect(() => {
     let active = true;
     setLoadStatus('loading');
-    Promise.all([getMatter(params.matterId), listMatterEmailTimeline(params.matterId)])
-      .then(([matterResult, timeline]) => {
+    setMatter(null);
+    getMatter(params.matterId)
+      .then((matterResult) => {
         if (!active) return;
         setMatter(matterResult);
-        setEmails([...timeline.items]);
-        setEmailThreads([...(timeline.threads ?? [])]);
         setLoadStatus('ready');
       })
-      .catch(() => {
+      .catch((caught: unknown) => {
         if (!active) return;
         setMatter(null);
-        setEmails([]);
-        setEmailThreads([]);
-        setLoadStatus('error');
+        setLoadStatus(matterLoadStatusForError(caught));
       });
+    setEmailLoadStatus('loading');
+    setEmails([]);
+    setEmailThreads([]);
+    resolveMatterEmailTimeline(params.matterId).then((result) => {
+      if (!active) return;
+      setEmails(result.emails);
+      setEmailThreads(result.threads);
+      setEmailLoadStatus(result.status);
+    });
     getMatterAiPrepReadiness(params.matterId)
       .then((result) => {
         if (!active) return;
@@ -248,8 +275,8 @@ export default function MatterDetailPage({
         }
       />
 
-      {loadStatus === 'error' ? (
-        <EmptyState variant="api-error" title="Matter를 표시할 수 없습니다." />
+      {loadStatus !== 'ready' ? (
+        <MatterResourceNotice resource="matter" status={loadStatus} />
       ) : null}
 
       {createdFromIntake ? (
@@ -281,49 +308,7 @@ export default function MatterDetailPage({
           panels={{
             overview: (
               <>
-                <dl className="grid min-w-0 gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="min-w-0 rounded-md border bg-card p-3">
-                    <dt className="text-xs uppercase text-muted-foreground">고객</dt>
-                    <dd className="mt-1 break-words font-medium">
-                      {matter.clientDisplayName ?? '고객 표시명 없음'}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 rounded-md border bg-card p-3">
-                    <dt className="text-xs uppercase text-muted-foreground">유형</dt>
-                    <dd className="mt-1 break-words font-medium">{matter.matterType}</dd>
-                  </div>
-                  <div className="min-w-0 rounded-md border bg-card p-3">
-                    <dt className="text-xs uppercase text-muted-foreground">그룹</dt>
-                    <dd className="mt-1 break-words font-medium">
-                      {matter.practiceGroup ?? '표시할 항목이 없습니다.'}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 rounded-md border bg-card p-3">
-                    <dt className="text-xs uppercase text-muted-foreground">보안 등급</dt>
-                    <dd className="mt-1 break-words font-medium">
-                      {matterConfidentialityLabels[matter.confidentialityLevel]}
-                      {matter.ethicalWallActive ? ' · Wall 활성' : ''}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 rounded-md border bg-card p-3">
-                    <dt className="text-xs uppercase text-muted-foreground">보존 제한</dt>
-                    <dd className="mt-1 break-words font-medium">
-                      {matter.legalHold ? '적용됨' : '없음'}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 rounded-md border bg-card p-3">
-                    <dt className="text-xs uppercase text-muted-foreground">리드 파트너</dt>
-                    <dd className="mt-1 break-words font-medium">
-                      {matter.leadPartnerDisplayName ?? matter.leadLawyerDisplayName ?? '미지정'}
-                    </dd>
-                  </div>
-                  <div className="min-w-0 rounded-md border bg-card p-3">
-                    <dt className="text-xs uppercase text-muted-foreground">리드 어소</dt>
-                    <dd className="mt-1 break-words font-medium">
-                      {matter.leadAssociateDisplayName ?? '미지정'}
-                    </dd>
-                  </div>
-                </dl>
+                <MatterContextSummary matter={matter} />
 
                 <MatterDashboardPanel
                   matterId={matter.matterId}
@@ -343,7 +328,7 @@ export default function MatterDetailPage({
                     meta={
                       matter.ethicalWallActive
                         ? '정보 차단 활성'
-                        : matterConfidentialityLabels[matter.confidentialityLevel]
+                        : matterConfidentialityLabel(matter.confidentialityLevel)
                     }
                   >
                     <MatterRelationsPanel
@@ -364,7 +349,7 @@ export default function MatterDetailPage({
                   <SectionCard
                     icon={<CalendarDays className="h-4 w-4" />}
                     title="쟁점·기한"
-                    meta={matter.matterType}
+                    meta={matterTypeLabel(matter.matterType)}
                   >
                     <MatterIssuesKeyDatesPanel matterId={matter.matterId} />
                   </SectionCard>
@@ -410,18 +395,26 @@ export default function MatterDetailPage({
                   title="이메일 업로드"
                   meta="EML·MSG 원문 보관"
                 >
-                  <EmailUploadCard matter={matterToEmailUploadMatter(matter)} onFiled={refreshEmails} />
+                  <EmailUploadCard
+                    matter={matterToEmailUploadMatter(matter)}
+                    onFiled={refreshEmails}
+                  />
                 </SectionCard>
-                <MatterEmailTimeline
-                  emails={emails}
-                  threads={emailThreads}
-                  busyThreadId={emailThreadBusyId}
-                  onFileThread={(threadId) => void fileEmailThread(threadId)}
-                />
+                {emailLoadStatus === 'ready' ? (
+                  <MatterEmailTimeline
+                    emails={emails}
+                    threads={emailThreads}
+                    busyThreadId={emailThreadBusyId}
+                    onFileThread={(threadId) => void fileEmailThread(threadId)}
+                  />
+                ) : (
+                  <MatterResourceNotice resource="timeline" status={emailLoadStatus} />
+                )}
               </>
             ),
             work: (
               <>
+                <MatterWorkItems matterId={matter.matterId} />
                 <div id="matter-workstreams">
                   <MatterWorkstreamTabs matterId={matter.matterId} />
                 </div>
@@ -470,9 +463,7 @@ function MatterTeamTab({ matterId }: { matterId: string }) {
           <h2 id="matter-team-title" className="text-base font-semibold text-foreground">
             Matter 팀
           </h2>
-          <p className="text-sm text-muted-foreground">
-            현재 Matter에 권한이 부여된 구성원입니다.
-          </p>
+          <p className="text-sm text-muted-foreground">현재 Matter에 권한이 부여된 구성원입니다.</p>
         </div>
         <Button asChild size="sm" variant="outline">
           <Link href={`/matters/${encodeURIComponent(matterId)}/team`}>팀 권한 관리</Link>
@@ -626,25 +617,11 @@ function matterToEmailUploadMatter(matter: MatterDto) {
   };
 }
 
-const matterConfidentialityLabels = {
-  standard: '표준',
-  high: '높음',
-  restricted: '제한',
-} as const satisfies Record<MatterDto['confidentialityLevel'], string>;
-
 const matterRelationLabels = {
   preceding: '선행',
   parallel: '병행',
   subsequent: '후속',
 } as const satisfies Record<MatterRelationType, string>;
-
-function riskLabel(value: MatterDashboardDto['issueSummary']['highestRiskLevel']): string {
-  if (value === 'critical') return '최고 위험 critical';
-  if (value === 'high') return '최고 위험 high';
-  if (value === 'medium') return '최고 위험 medium';
-  if (value === 'low') return '최고 위험 low';
-  return '열린 쟁점 없음';
-}
 
 function aiSessionStatusLabel(value: string): string {
   if (value === 'submitted') return '요청됨';
@@ -745,7 +722,11 @@ function MatterRelationsPanel({
               </div>
               {item.canReadRelatedMatter ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {[item.relatedMatterCode, item.relatedMatterType, item.relatedMatterStatus]
+                  {[
+                    item.relatedMatterCode,
+                    item.relatedMatterType ? matterTypeLabel(item.relatedMatterType) : null,
+                    item.relatedMatterStatus ? matterStatusLabel(item.relatedMatterStatus) : null,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>

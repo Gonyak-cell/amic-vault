@@ -1,18 +1,9 @@
 'use client';
 
-import React, { FormEvent, useCallback, useEffect, useState } from 'react';
-import { Building2, CircleAlert, Plus, RefreshCw, Save, Search } from 'lucide-react';
-import {
-  clientConfidentialityLevels,
-  clientTypes,
-  type ClientConfidentialityLevel,
-  type ClientDto,
-  type ClientListDto,
-  type ClientType,
-} from '@amic-vault/shared';
+import React, { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { Building2, Plus, RefreshCw, Search } from 'lucide-react';
+import { type ClientDto, type ClientListDto } from '@amic-vault/shared';
 import { ApiClientError, createClient, listClients } from '@/lib/api-client';
-import { dataStateStatusForApiError } from '@/lib/api/error-messages';
-import type { DataState } from '@/lib/data-state';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
@@ -24,25 +15,16 @@ import {
   prependCreatedClient,
   type NewClientFormState,
 } from './client-create-contract';
+import { ClientCreateDialog, closeClientCreateDialog } from './client-create-dialog';
 import { ClientListTable } from './client-list-table';
+import {
+  loadClientList,
+  type ClientListLoadUpdate,
+  type ClientResourceLoadState,
+} from './client-load-state';
 
-type ClientLoadState = DataState<ClientDto[]>['status'];
+type ClientLoadState = ClientResourceLoadState;
 type SubmitState = 'idle' | 'submitting' | 'invalid' | 'error';
-
-const clientTypeLabels = {
-  corporation: '법인',
-  fund: '펀드',
-  government: '공공기관',
-  individual: '개인',
-  npo: '비영리',
-  other: '기타',
-} satisfies Record<ClientType, string>;
-
-const confidentialityLabels = {
-  high: '높음',
-  restricted: '제한',
-  standard: '표준',
-} satisfies Record<ClientConfidentialityLevel, string>;
 
 const initialForm: NewClientFormState = {
   aliasesText: '',
@@ -67,45 +49,73 @@ export default function ClientsPage() {
   const [loadState, setLoadState] = useState<ClientLoadState>('loading');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearchQuery, setActiveSearchQuery] = useState('');
-  const [listMeta, setListMeta] = useState<Pick<ClientListDto, 'totalCount' | 'page' | 'pageSize'> | null>(
-    null,
-  );
+  const [listMeta, setListMeta] = useState<Pick<
+    ClientListDto,
+    'totalCount' | 'page' | 'pageSize'
+  > | null>(null);
   const [form, setForm] = useState<NewClientFormState>(initialForm);
   const [submitState, setSubmitState] = useState<SubmitState>('idle');
   const [submitError, setSubmitError] = useState<unknown>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const createTriggerRef = useRef<HTMLButtonElement>(null);
+  const cancelClientListRequestRef = useRef<(() => void) | null>(null);
+
+  const invalidateClientList = useCallback(() => {
+    cancelClientListRequestRef.current?.();
+    cancelClientListRequestRef.current = null;
+    setClients([]);
+    setListMeta(null);
+    setLoadState('loading');
+  }, []);
 
   const refreshClients = useCallback(() => {
-    setLoadState('loading');
-    listClients({
-      pageSize: 100,
-      ...(activeSearchQuery ? { q: activeSearchQuery } : {}),
-    })
-      .then((result) => {
-        setClients(result.items);
-        setListMeta({
-          page: result.page,
-          pageSize: result.pageSize,
-          totalCount: result.totalCount,
-        });
-        setLoadState(result.items.length === 0 ? 'empty' : 'ready');
-      })
-      .catch((error: unknown) => {
-        setClients([]);
-        setListMeta(null);
-        setLoadState(dataStateStatusForApiError(error));
-      });
-  }, [activeSearchQuery]);
+    invalidateClientList();
+    cancelClientListRequestRef.current = loadClientList(
+      {
+        pageSize: 100,
+        ...(activeSearchQuery ? { q: activeSearchQuery } : {}),
+      },
+      (update: ClientListLoadUpdate) => {
+        setClients(update.clients);
+        setListMeta(update.listMeta);
+        setLoadState(update.loadState);
+      },
+      listClients,
+    );
+  }, [activeSearchQuery, invalidateClientList]);
 
   useEffect(() => {
     refreshClients();
+    return () => {
+      cancelClientListRequestRef.current?.();
+      cancelClientListRequestRef.current = null;
+    };
   }, [refreshClients]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setActiveSearchQuery(searchQuery.trim());
+    const nextSearchQuery = searchQuery.trim();
+    invalidateClientList();
+    if (nextSearchQuery === activeSearchQuery) {
+      refreshClients();
+      return;
+    }
+    setActiveSearchQuery(nextSearchQuery);
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  function openCreateDialog() {
+    setSubmitError(null);
+    setSubmitState('idle');
+    setCreateDialogOpen(true);
+  }
+
+  function closeCreateDialog(): boolean {
+    if (submitState === 'submitting') return false;
+    setCreateDialogOpen(false);
+    return true;
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>): Promise<boolean> {
     event.preventDefault();
     setSubmitError(null);
     let input: ReturnType<typeof buildCreateClientInput>;
@@ -114,7 +124,7 @@ export default function ClientsPage() {
     } catch (error) {
       setSubmitError(error);
       setSubmitState('invalid');
-      return;
+      return false;
     }
 
     setSubmitState('submitting');
@@ -125,7 +135,7 @@ export default function ClientsPage() {
       setSearchQuery('');
       if (activeSearchQuery) {
         setActiveSearchQuery('');
-        return;
+        return true;
       }
       setClients((current) => prependCreatedClient(current, client));
       setListMeta((current) =>
@@ -134,9 +144,11 @@ export default function ClientsPage() {
           : { page: 1, pageSize: 100, totalCount: 1 },
       );
       setLoadState('ready');
+      return true;
     } catch (error) {
       setSubmitError(error);
       setSubmitState('error');
+      return false;
     }
   }
 
@@ -160,31 +172,45 @@ export default function ClientsPage() {
         title="고객 목록"
         meta={clientListMetaLabel(listMeta, activeSearchQuery, clients.length)}
         actions={
-          <form
-            className="flex min-w-0 items-center gap-2"
-            onSubmit={submitSearch}
-            role="search"
-            aria-label="고객 목록 검색"
-          >
-            <label className="sr-only" htmlFor="client-search">
-              고객 검색
-            </label>
-            <Input
-              id="client-search"
-              name="q"
-              placeholder="고객 검색"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-            />
-            <Button type="submit" variant="outline" size="sm">
-              <Search className="h-4 w-4" aria-hidden="true" />
-              검색
+          <>
+            <Button
+              ref={createTriggerRef}
+              aria-expanded={createDialogOpen}
+              aria-haspopup="dialog"
+              type="button"
+              variant="outline"
+              onClick={openCreateDialog}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              고객 등록
             </Button>
-          </form>
+            <form
+              className="flex min-w-0 items-center gap-2"
+              onSubmit={submitSearch}
+              role="search"
+              aria-label="고객 목록 검색"
+            >
+              <label className="sr-only" htmlFor="client-search">
+                고객 검색
+              </label>
+              <Input
+                id="client-search"
+                name="q"
+                placeholder="고객 검색"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+              />
+              <Button type="submit" variant="outline" size="sm">
+                <Search className="h-4 w-4" aria-hidden="true" />
+                검색
+              </Button>
+            </form>
+          </>
         }
       >
         <ClientListTable clients={clients} />
-        {loadState === 'loading' ? (
+        {loadState === 'loading' ? <EmptyState variant="loading" className="m-5" /> : null}
+        {loadState === 'unavailable' ? (
           <EmptyState variant="api-unavailable" className="m-5" />
         ) : null}
         {loadState === 'empty' ? (
@@ -193,106 +219,29 @@ export default function ClientsPage() {
             className="m-5"
           />
         ) : null}
+        {loadState === 'ready' && clients.length === 0 ? (
+          <EmptyState
+            title="현재 페이지에 표시할 고객이 없습니다."
+            description="전체 고객 수는 목록 상단의 서버 집계를 따릅니다."
+            className="m-5"
+          />
+        ) : null}
         {loadState === 'error' ? <EmptyState variant="api-error" className="m-5" /> : null}
         {loadState === 'forbidden' ? <EmptyState variant="no-access" className="m-5" /> : null}
-        {loadState === 'blocked' ? (
-          <EmptyState variant="policy-blocked" className="m-5" />
-        ) : null}
+        {loadState === 'blocked' ? <EmptyState variant="policy-blocked" className="m-5" /> : null}
       </SectionCard>
-
-      <details className="rounded-md border bg-card" id="client-create">
-        <summary
-          aria-controls="client-create-form"
-          className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:px-[18px]"
-        >
-          <span className="flex min-w-0 items-center gap-2.5">
-            <Plus className="h-4 w-4 text-primary" aria-hidden="true" />
-            <span>고객 등록</span>
-          </span>
-          <span className="text-xs font-normal text-muted-foreground">등록 양식 열기</span>
-        </summary>
-        <div className="border-t p-4 sm:p-[18px]">
-          <form className="grid gap-4" id="client-create-form" onSubmit={submit}>
-            <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_180px_180px]">
-              <label className="grid gap-1.5 text-sm font-medium">
-                고객명
-                <Input
-                  required
-                  aria-label="고객명"
-                  autoComplete="off"
-                  disabled={submitState === 'submitting'}
-                  maxLength={1000}
-                  value={form.name}
-                  onChange={(event) => setForm({ ...form, name: event.target.value })}
-                />
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                고객 유형
-                <select
-                  aria-label="고객 유형"
-                  className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  disabled={submitState === 'submitting'}
-                  value={form.clientType}
-                  onChange={(event) =>
-                    setForm({ ...form, clientType: event.target.value as ClientType })
-                  }
-                >
-                  {clientTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {clientTypeLabels[type]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="grid gap-1.5 text-sm font-medium">
-                기밀도
-                <select
-                  aria-label="기밀도"
-                  className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  disabled={submitState === 'submitting'}
-                  value={form.confidentialityLevel}
-                  onChange={(event) =>
-                    setForm({
-                      ...form,
-                      confidentialityLevel: event.target.value as ClientConfidentialityLevel,
-                    })
-                  }
-                >
-                  {clientConfidentialityLevels.map((level) => (
-                    <option key={level} value={level}>
-                      {confidentialityLabels[level]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label className="grid gap-1.5 text-sm font-medium">
-              별칭
-              <textarea
-                aria-label="별칭"
-                className="min-h-20 rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={submitState === 'submitting'}
-                maxLength={4000}
-                placeholder="구명칭, 약칭"
-                value={form.aliasesText}
-                onChange={(event) => setForm({ ...form, aliasesText: event.target.value })}
-              />
-            </label>
-            {errorMessage ? (
-              <p className="flex items-center gap-2 text-sm font-medium text-destructive" role="alert">
-                <CircleAlert className="h-4 w-4" aria-hidden="true" />
-                {errorMessage}
-              </p>
-            ) : null}
-            <div className="flex justify-end">
-              <Button type="submit" disabled={submitState === 'submitting'}>
-                <Save className="h-4 w-4" />
-                고객 등록
-              </Button>
-            </div>
-          </form>
-        </div>
-      </details>
+      <ClientCreateDialog
+        errorMessage={errorMessage}
+        form={form}
+        onChange={setForm}
+        onClose={closeCreateDialog}
+        onSubmit={async (event) => {
+          if (await submit(event)) closeClientCreateDialog(closeCreateDialog, createTriggerRef);
+        }}
+        open={createDialogOpen}
+        returnFocusRef={createTriggerRef}
+        submitState={submitState}
+      />
     </PageShell>
   );
 }

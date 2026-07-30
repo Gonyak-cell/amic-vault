@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { MatterDto } from '@amic-vault/shared';
 import { FolderKanban, FolderPlus, Search } from 'lucide-react';
-import { listMatters } from '@/lib/api-client';
 import { MatterListTable } from '@/components/matter/matter-list-table';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -12,12 +11,9 @@ import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
-import { dataStateStatusForApiError } from '@/lib/api/error-messages';
-import type { DataState } from '@/lib/data-state';
 import { useI18n, type Language } from '@/lib/i18n';
+import { loadMatterList, type MatterLoadState } from './matter-list-load';
 import { listMatterQueryFromSearchParams, type MatterSearchParams } from './matter-list-query';
-
-type MatterLoadState = DataState<MatterDto[]>['status'];
 
 const mattersCopy: Record<
   Language,
@@ -100,21 +96,15 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
   useEffect(() => {
     let active = true;
     setLoadState('loading');
-    listMatters({
+    loadMatterList({
       pageSize: 20,
       ...(clientIdFilter ? { clientId: clientIdFilter } : {}),
       ...(searchQuery ? { q: searchQuery } : {}),
-    })
-      .then((result) => {
-        if (!active) return;
-        setMatters(result.items);
-        setLoadState(result.items.length === 0 ? 'empty' : 'ready');
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setMatters([]);
-        setLoadState(matterLoadStateForError(error));
-      });
+    }).then((result) => {
+      if (!active) return;
+      setMatters(result.matters);
+      setLoadState(result.loadState);
+    });
     return () => {
       active = false;
     };
@@ -192,6 +182,13 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
         {loadState === 'error' ? (
           <EmptyState variant="api-error" title={t('dataState.error')} className="m-5" />
         ) : null}
+        {loadState === 'unavailable' ? (
+          <EmptyState
+            variant="api-unavailable"
+            title="Matter 목록 연결에 실패했습니다."
+            className="m-5"
+          />
+        ) : null}
         {loadState === 'forbidden' ? (
           <EmptyState variant="no-access" title={t('dataState.forbidden')} className="m-5" />
         ) : null}
@@ -201,8 +198,4 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
       </SectionCard>
     </PageShell>
   );
-}
-
-function matterLoadStateForError(error: unknown): MatterLoadState {
-  return dataStateStatusForApiError(error);
 }
