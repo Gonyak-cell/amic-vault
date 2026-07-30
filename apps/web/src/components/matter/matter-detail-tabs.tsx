@@ -36,6 +36,10 @@ const matterDetailTabs: readonly MatterDetailTabDefinition[] = [
       'matter-governance',
       'matter-parties',
       'matter-ai',
+      'matter-knowledge',
+      'matter-graph',
+      'matter-citations',
+      'matter-wiki',
     ],
   },
   {
@@ -51,10 +55,6 @@ const matterDetailTabs: readonly MatterDetailTabDefinition[] = [
     hashes: [
       'matter-work',
       'matter-workstreams',
-      'matter-knowledge',
-      'matter-graph',
-      'matter-citations',
-      'matter-wiki',
     ],
   },
   {

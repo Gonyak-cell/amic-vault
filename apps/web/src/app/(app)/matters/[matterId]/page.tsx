@@ -344,6 +344,11 @@ export default function MatterDetailPage({
                   error={dashboardError}
                 />
 
+                <MatterKnowledgeTab
+                  matterId={matter.matterId}
+                  latestSessionId={dashboard?.aiSessions[0]?.sessionId ?? null}
+                />
+
                 <div id="matter-related">
                   <SectionCard
                     icon={<Link2 className="h-4 w-4" />}
@@ -433,10 +438,6 @@ export default function MatterDetailPage({
                 <div id="matter-workstreams">
                   <MatterWorkstreamTabs matterId={matter.matterId} />
                 </div>
-                <MatterKnowledgeTab
-                  matterId={matter.matterId}
-                  latestSessionId={dashboard?.aiSessions[0]?.sessionId ?? null}
-                />
                 <MatterWorkflowOpsPanel matter={matter} readiness={readiness} />
               </>
             ),

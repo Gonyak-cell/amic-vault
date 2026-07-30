@@ -35,7 +35,7 @@ describe('MatterDetailTabs', () => {
   it('maps query and existing hash links without changing specialized route ownership', () => {
     expect(parseMatterDetailTab({ query: '?tab=documents' })).toBe('documents');
     expect(parseMatterDetailTab({ hash: '#matter-activity' })).toBe('activity');
-    expect(parseMatterDetailTab({ hash: '#matter-knowledge' })).toBe('work');
+    expect(parseMatterDetailTab({ hash: '#matter-knowledge' })).toBe('overview');
     expect(parseMatterDetailTab({ hash: '#matter-files', query: '?tab=overview' })).toBe(
       'documents',
     );
