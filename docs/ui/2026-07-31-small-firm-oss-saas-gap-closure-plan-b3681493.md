@@ -617,6 +617,24 @@ unit, build, migration 왕복과 전체 integration이 통과하더라도 아래
 - Verification: full Work service spec, API lint/typecheck, Prettier,
   `git diff --check`, independent read-only code review.
 
+### `SF-B368-G31` — Graph 성능 검증의 실행 예산 정합화
+
+- Risk / Size: M / XS
+- 소유 파일:
+  - `tests/integration/graph.spec.ts`
+- 발견 근거: final fresh-DB 통합 회귀에서 100문서 graph sync 시나리오가 제품
+  acceptance인 30초보다 훨씬 짧은 Vitest 기본 5초 제한에 먼저 종료됐다. 집중 실행
+  4회의 실제 처리 시간은 2.96~3.48초였으며 제품 성능 assertion은 통과했다.
+- 목표: 제품 예산 `<30초`는 유지하고 test process 예산만 그 assertion을 끝까지
+  관찰할 수 있도록 명시한다.
+- Acceptance:
+  - 100문서 시나리오의 제품 assertion `elapsed < 30_000`을 유지한다.
+  - 해당 test process timeout은 35초로 제한하며 skip, quarantine, retry,
+    production source 변경을 도입하지 않는다.
+  - exact 8-spec batch와 141-spec 전체 통합 회귀가 fresh DB에서 통과한다.
+- Verification: focused performance scenario 반복, exact 8-spec batch, full
+  `pnpm test:integration`, `git diff --check`.
+
 ## 4. 실행 순서
 
 ```text
@@ -645,7 +663,8 @@ G22 ─ G27 ──────────────────────�
 G06/G12/G16 ─ G28 ───────────────┤
 G28 ─ G29 ────────────────────────┤
 G29 ─ G30 ────────────────────────┤
-G01~G30 전체 ───────────────────┴─ G11
+G30 ─ G31 ────────────────────────┤
+G01~G31 전체 ───────────────────┴─ G11
 ```
 
 - 파일 소유권이 겹치지 않는 G01~G06, G10은 병렬 실행할 수 있다.
@@ -656,7 +675,7 @@ G01~G30 전체 ───────────────────┴─ G
 
 ## 5. 완료 기준
 
-`SF-B368-G01~G30`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
+`SF-B368-G01~G31`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
 `SF-B368-001~020`, `C01~C03`를 최종 코드 SHA에서 다시 판정했을 때만
 “계획과 goal대로 100% 로컬 구현”이라고 기록한다. 그렇지 않으면 통과 범위와 남은
 경계를 수치로 보고한다.
