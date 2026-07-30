@@ -667,9 +667,6 @@ export function DocumentVaultList({
             <h2 className="shrink-0 text-[15px] font-semibold tracking-normal text-foreground">
               문서함 검색
             </h2>
-            <p className="min-w-0 flex-1 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
-              접근 가능한 문서를 문서명과 Matter 코드 기준으로 찾습니다.
-            </p>
             <div aria-live="polite" className="text-xs leading-5 text-muted-foreground">
               {isLoading
                 ? '문서함을 확인하는 중입니다.'

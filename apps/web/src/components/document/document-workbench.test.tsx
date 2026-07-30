@@ -64,7 +64,7 @@ describe('Document workbench components', () => {
     expect(drawer).toContain('문서 탐색 닫기');
   });
 
-  it('shows authorized folder names, not raw folder identifiers, and preserves honest recent-item copy', () => {
+  it('shows authorized folder names without raw identifiers or unsupported recent-item placeholders', () => {
     const html = renderToStaticMarkup(
       <DocumentWorkbenchRail
         folders={[folder]}
@@ -86,7 +86,8 @@ describe('Document workbench components', () => {
     );
 
     expect(html).toContain('Signing');
-    expect(html).toContain('최근 문서는 권한 범위가 준비되면 표시합니다.');
+    expect(html).not.toContain('최근 문서는 권한 범위가 준비되면 표시합니다.');
+    expect(html).not.toContain('접근 가능한 Matter를 선택하면 해당 폴더만 표시합니다.');
     expect(html).not.toContain(folder.folderId);
   });
 

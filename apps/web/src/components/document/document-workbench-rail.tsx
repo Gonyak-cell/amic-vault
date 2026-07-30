@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Clock3, FileText, FolderTree, Search } from 'lucide-react';
+import { FileText, FolderTree, Search } from 'lucide-react';
 import type { DocumentFolderDto, SavedItemDto } from '@amic-vault/shared';
 import { MatterCodePicker } from '@/components/matter/matter-code-picker';
 import { SavedItemsSection } from '@/components/saved-item/saved-items-section';
@@ -60,10 +60,6 @@ export function DocumentWorkbenchRail({
           <FileText aria-hidden="true" className="h-4 w-4" />
           전체 문서
         </Button>
-        <p className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-          <Clock3 aria-hidden="true" className="h-4 w-4" />
-          최근 문서는 권한 범위가 준비되면 표시합니다.
-        </p>
         <Button asChild className="justify-start" size="sm" type="button" variant="ghost">
           <Link href="/search">
             <Search aria-hidden="true" className="h-4 w-4" />
@@ -75,17 +71,9 @@ export function DocumentWorkbenchRail({
       <SavedItemsSection error={savedItemError} items={savedItems} loading={savedItemsLoading} />
 
       <section className="grid gap-3 border-t pt-4" aria-labelledby="workbench-matter-title">
-        <div className="flex min-w-0 items-baseline gap-x-2 overflow-hidden">
-          <h2
-            className="shrink-0 text-sm font-semibold text-foreground"
-            id="workbench-matter-title"
-          >
-            Matter
-          </h2>
-          <p className="min-w-0 truncate whitespace-nowrap text-xs leading-5 text-muted-foreground">
-            접근 가능한 Matter를 선택하면 해당 폴더만 표시합니다.
-          </p>
-        </div>
+        <h2 className="text-sm font-semibold text-foreground" id="workbench-matter-title">
+          Matter
+        </h2>
         <MatterCodePicker
           onMatterSelected={onMatterSelected}
           selectedMatter={selectedMatter}
