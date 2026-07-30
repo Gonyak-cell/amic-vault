@@ -32,7 +32,7 @@ function firstSearchParam(value: string | string[] | undefined): string | undefi
 /**
  * Kept as a small compatibility helper for stale imports. Search state is
  * intentionally not copied from a saved query into a URL: query text,
- * document titles/bodies, and raw tenant/user identifiers are not URL state.
+ * document titles/bodies, and raw organization/account keys are not URL state.
  * The canonical Workbench resolves authorized saved searches by reference.
  */
 export function searchUrlForSavedQuery(
