@@ -50,6 +50,12 @@ export function getCurrentUser(): Promise<CurrentUserResponseDto> {
   return apiFetch<CurrentUserResponseDto>('/auth/me');
 }
 
+export function getCurrentUserWithoutRedirect(): Promise<CurrentUserResponseDto> {
+  return apiFetch<CurrentUserResponseDto>('/auth/me', {
+    redirectOnAuthRequired: false,
+  });
+}
+
 export function confirmPasswordReset(
   input: PasswordResetConfirmDto,
 ): Promise<PasswordResetAcceptedDto> {

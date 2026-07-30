@@ -174,7 +174,7 @@ async function handleApiResponse<T>(
       redirectOnAuthRequired !== false &&
       typeof window !== 'undefined'
     ) {
-      window.location.assign('/login');
+      window.location.replace('/login');
     }
     throw error;
   }

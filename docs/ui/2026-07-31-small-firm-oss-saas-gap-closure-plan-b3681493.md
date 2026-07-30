@@ -653,6 +653,34 @@ unit, build, migration 왕복과 전체 integration이 통과하더라도 아래
 - Verification: focused integration, full `pnpm test:integration`, `git diff --check`,
   independent read-only code review.
 
+### `SF-B368-G33` — 인증 history의 로그인 화면 재노출 폐쇄
+
+- Risk / Size: H / S
+- 소유 파일:
+  - `apps/web/src/app/(auth)/login/login-form.tsx`
+  - `apps/web/src/app/(app)/logout-button.tsx`
+  - `apps/web/src/lib/auth.ts`
+  - `apps/web/src/lib/api-client.ts`
+  - 관련 Web tests
+- 발견 근거: 최종 운영 모드 브라우저 검증에서 로그아웃 뒤 보호 경로를 직접 열고
+  로그인하면 올바른 `next`로 복귀했지만, 브라우저 Back이 history에 남은 이전
+  `/login`을 다시 표시했다. 또한 명시적 로그아웃과 세션 만료 이동이
+  `location.assign`으로 로그인 entry를 추가하고 있었다.
+- 목표: 로그인 성공 시 현재 entry 소비뿐 아니라, 활성 세션으로 과거 로그인 entry를
+  다시 방문한 경우에도 서버로 확인한 세션만 원래 목적지 또는 Home으로 복귀시키고
+  명시적 로그아웃·세션 만료 이동은 replace 의미를 사용한다.
+- Acceptance:
+  - 명시적 로그아웃과 `AUTH_REQUIRED` 전역 이동은 `/login`을 새 history entry로
+    추가하지 않는다.
+  - 로그인 화면은 `/auth/me`가 실제로 성공한 경우에만 allowlisted `next` 또는
+    `/dashboard`로 replace하며, stale/없는 세션·연결 실패에서는 로그인 폼을 유지한다.
+  - 초기 진입과 BFCache `pageshow` 복원 모두 같은 세션 확인 계약을 사용한다.
+  - 로그아웃 → 보호 deep link → 로그인 → Back 시 `/login`이 다시 표시되지 않는다.
+  - 기존 absolute/protocol-relative/loop/malformed/repeated `next` fail-closed 계약을
+    유지하고 신규 dependency를 추가하지 않는다.
+- Verification: focused navigation/session tests, Web full tests/lint/typecheck/build,
+  운영 모드 브라우저 deep-link/login/Back 재현, independent read-only code review.
+
 ## 4. 실행 순서
 
 ```text
@@ -683,7 +711,8 @@ G28 ─ G29 ──────────────────────�
 G29 ─ G30 ────────────────────────┤
 G30 ─ G31 ────────────────────────┤
 G31 ─ G32 ────────────────────────┤
-G01~G32 전체 ───────────────────┴─ G11
+G16 ─ G33 ────────────────────────┤
+G01~G33 전체 ───────────────────┴─ G11
 ```
 
 - 파일 소유권이 겹치지 않는 G01~G06, G10은 병렬 실행할 수 있다.
@@ -694,7 +723,7 @@ G01~G32 전체 ───────────────────┴─ G
 
 ## 5. 완료 기준
 
-`SF-B368-G01~G32`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
+`SF-B368-G01~G33`의 acceptance와 전체 회귀가 모두 통과하고, 원 계획의
 `SF-B368-001~020`, `C01~C03`를 최종 코드 SHA에서 다시 판정했을 때만
 “계획과 goal대로 100% 로컬 구현”이라고 기록한다. 그렇지 않으면 통과 범위와 남은
 경계를 수치로 보고한다.

@@ -19,7 +19,7 @@ export function LogoutButton({
 
   async function handleLogout() {
     await logout().catch(() => undefined);
-    window.location.assign('/login');
+    window.location.replace('/login');
   }
 
   return (
