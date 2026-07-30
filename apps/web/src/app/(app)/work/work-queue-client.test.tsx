@@ -14,7 +14,11 @@ describe('WorkQueueClient', () => {
     expect(html).toContain('value="mine" selected="">내 업무</option>');
     expect(html).toContain('전체 구분');
     expect(html).toContain('전체 상태');
+    expect(html).toContain('마감 임박순');
     expect(html).toContain('주의 항목 우선');
+    expect(html).toContain('aria-label="업무 보기"');
+    expect(html).toContain('href="/work?view=mine"');
+    expect(html).toContain('href="/work?view=notifications"');
     expect(html).toContain('업무 상태 연결 대기 중입니다.');
     expect(html).toContain('문서함 조치 필터');
     expect(html).toContain(
@@ -169,5 +173,57 @@ describe('WorkQueueClient', () => {
     expect(html).not.toContain('표시할 작업이 없습니다.');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');
+  });
+
+  it('orders the default queue by real dueAt values and leaves missing deadlines last', () => {
+    const html = renderToStaticMarkup(
+      <WorkQueueContent
+        dashboardState={{
+          recentFiles: { status: 'ready', data: [] },
+          recentActivity: { status: 'ready', data: [] },
+          permissionPolicyAlerts: { status: 'ready', data: [] },
+          aiPrepStatus: { status: 'ready', data: [] },
+          integrationStatus: { status: 'ready', data: [] },
+          usageStats: { status: 'unavailable' },
+        }}
+        workItemsState={{
+          status: 'ready',
+          data: [
+            {
+              itemKey: 'later',
+              source: 'operational_data',
+              sourceLabel: '문서 운영',
+              title: '나중 업무',
+              description: '실제 기한이 늦은 업무',
+              href: '/files',
+              tone: 'warning',
+              dueAt: '2026-07-03T00:00:00.000Z',
+            },
+            {
+              itemKey: 'unknown',
+              source: 'operational_data',
+              sourceLabel: '문서 운영',
+              title: '기한 미정 업무',
+              description: '기한 값이 없는 업무',
+              href: '/files',
+              tone: 'neutral',
+            },
+            {
+              itemKey: 'sooner',
+              source: 'operational_data',
+              sourceLabel: '문서 운영',
+              title: '임박 업무',
+              description: '실제 기한이 이른 업무',
+              href: '/files',
+              tone: 'success',
+              dueAt: '2026-07-01T00:00:00.000Z',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(html.indexOf('임박 업무')).toBeLessThan(html.indexOf('나중 업무'));
+    expect(html.indexOf('나중 업무')).toBeLessThan(html.indexOf('기한 미정 업무'));
   });
 });

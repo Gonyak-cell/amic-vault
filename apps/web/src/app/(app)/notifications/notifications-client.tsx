@@ -31,6 +31,7 @@ import {
   type DmsNotificationItem,
 } from '@/lib/api/work-ops';
 import type { DataState } from '@/lib/data-state';
+import { WorkInboxTabs } from '@/components/work/work-inbox-tabs';
 
 type NotificationSourceFilter = 'all' | DmsNotificationItem['source'];
 type NotificationToneFilter = 'all' | DmsNotificationItem['tone'];
@@ -184,6 +185,7 @@ export function NotificationsContent({
           <StatusBadge tone={items.length > 0 ? 'warning' : 'success'}>실제 상태 기반</StatusBadge>
         }
       />
+      <WorkInboxTabs activeView="notifications" />
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">

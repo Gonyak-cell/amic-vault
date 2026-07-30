@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { NotificationsClient, NotificationsContent } from './notifications-client';
+import NotificationsPage from './page';
 
 describe('NotificationsClient', () => {
   it('renders an unavailable real-data-only notification center before API success', () => {
@@ -12,6 +13,9 @@ describe('NotificationsClient', () => {
     expect(html).toContain('전체 구분');
     expect(html).toContain('전체 상태');
     expect(html).toContain('주의 알림 우선');
+    expect(html).toContain('aria-label="업무 보기"');
+    expect(html).toContain('href="/work?view=mine"');
+    expect(html).toContain('href="/work?view=notifications"');
     expect(html).toContain('알림 연결 대기 중입니다.');
     expect(html).toContain('데이터를 불러오는 중입니다.');
     expect(html).not.toContain('김민준');
@@ -98,5 +102,34 @@ describe('NotificationsClient', () => {
     expect(html).not.toContain('표시할 알림이 없습니다.');
     expect(html).not.toContain('김민준');
     expect(html).not.toContain('DOC-204');
+  });
+
+  it('keeps the old notifications route on the same data UI without a home redirect', () => {
+    const html = renderToStaticMarkup(<NotificationsPage />);
+
+    expect(html).toContain('알림 조치 콘솔');
+    expect(html).toContain('href="/work?view=notifications"');
+    expect(html).not.toContain('href="/"');
+  });
+
+  it('keeps forbidden notification data fail-closed inside the compatible view', () => {
+    const html = renderToStaticMarkup(
+      <NotificationsContent
+        dashboardState={{
+          recentFiles: { status: 'unavailable' },
+          recentActivity: { status: 'unavailable' },
+          permissionPolicyAlerts: { status: 'unavailable' },
+          aiPrepStatus: { status: 'unavailable' },
+          integrationStatus: { status: 'unavailable' },
+          usageStats: { status: 'unavailable' },
+        }}
+        notificationState={{ status: 'forbidden', error: '접근 권한을 확인할 수 없습니다.' }}
+      />,
+    );
+
+    expect(html).toContain('알림 데이터에 접근할 권한이 없습니다.');
+    expect(html).toContain('권한 정책 적용');
+    expect(html).toContain('href="/work?view=notifications"');
+    expect(html).not.toContain('href="/"');
   });
 });

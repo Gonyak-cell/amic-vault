@@ -30,6 +30,8 @@ describe('work ops API client', () => {
       limit: 20,
       offset: 20,
     });
+    await getWorkQueue({ assignee: 'all' });
+    await getWorkQueue({ assignee: 'unassigned' });
     await getNotificationCenter();
     await markNotificationRead('notification-aabbccddeeff0011');
     await dismissNotification('notification-aabbccddeeff0011');
@@ -49,6 +51,12 @@ describe('work ops API client', () => {
         redirectOnAuthRequired: false,
       },
     );
+    expect(apiFetch).toHaveBeenCalledWith('/work/items', {
+      redirectOnAuthRequired: false,
+    });
+    expect(apiFetch).toHaveBeenCalledWith('/work/items?assignee=unassigned', {
+      redirectOnAuthRequired: false,
+    });
     expect(apiFetch).toHaveBeenCalledWith('/notifications', {
       redirectOnAuthRequired: false,
     });
@@ -114,6 +122,41 @@ describe('work ops API client', () => {
         ],
       }).status,
     ).toBe('ready');
+  });
+
+  it('preserves persisted assignment and due fields from the work DTO without browser state', () => {
+    const state = workQueueToState({
+      generatedAt: '2026-06-19T00:00:00.000Z',
+      source: 'persisted_work_items',
+      items: [
+        {
+          itemKey: 'workflow-work-aabbccddeeff',
+          source: 'operational_data',
+          kind: 'contract_review_stage',
+          sourceLabel: '워크플로',
+          title: '계약 검토 단계 확인',
+          description: 'AMIC-2026-0003 · Alpha Reviewer · 대기',
+          href: '/work?kind=contract_review_stage',
+          tone: 'warning',
+          status: 'open',
+          statusLabel: '대기',
+          assignedToLabel: 'Alpha Reviewer',
+          dueAt: '2026-06-23T00:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(state).toEqual({
+      status: 'ready',
+      data: [
+        expect.objectContaining({
+          assignedToLabel: 'Alpha Reviewer',
+          dueAt: '2026-06-23T00:00:00.000Z',
+          href: '/work?kind=contract_review_stage',
+          status: 'open',
+        }),
+      ],
+    });
   });
 
   it('maps permission failures to fail-closed operational states', () => {

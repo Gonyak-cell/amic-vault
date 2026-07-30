@@ -41,11 +41,12 @@ import type {
 } from '@amic-vault/shared';
 import type { DataState } from '@/lib/data-state';
 import { OrgSubjectPicker } from '@/components/access/org-subject-picker';
+import { WorkInboxTabs } from '@/components/work/work-inbox-tabs';
 
 type WorkSourceFilter = 'all' | DmsWorkQueueItem['source'];
 type WorkKindFilter = 'all' | NonNullable<DmsWorkQueueItem['kind']>;
 type WorkToneFilter = 'all' | DmsWorkQueueItem['tone'];
-type WorkSortMode = 'attention' | 'updated_desc' | 'source';
+type WorkSortMode = 'due_asc' | 'attention' | 'updated_desc' | 'source';
 type WorkQueuePage = { limit: number; offset: number; total: number; hasNext: boolean };
 type ReassignHandler = (itemKey: string, assignedToUserId: string) => Promise<void>;
 type GraphFactReviewHandler = (nodeId: string, action: GraphNodeReviewAction) => Promise<void>;
@@ -104,6 +105,7 @@ const toneFilterLabels = {
 } as const satisfies Record<WorkToneFilter, string>;
 
 const sortModeLabels = {
+  due_asc: '마감 임박순',
   attention: '주의 항목 우선',
   updated_desc: '최근 업데이트',
   source: '업무 구분별',
@@ -274,7 +276,7 @@ export function WorkQueueContent({
 }) {
   const [sourceFilter, setSourceFilter] = useState<WorkSourceFilter>('all');
   const [toneFilter, setToneFilter] = useState<WorkToneFilter>('all');
-  const [sortMode, setSortMode] = useState<WorkSortMode>('attention');
+  const [sortMode, setSortMode] = useState<WorkSortMode>('due_asc');
   const actionItems =
     workItemsState?.status === 'ready' ? workItemsState.data : dashboardActionItems(dashboardState);
   const visibleActionItems = useMemo(
@@ -287,7 +289,7 @@ export function WorkQueueContent({
   );
   const hasServerFilters = kindFilter !== 'all' || assigneeFilter !== 'all';
   const hasDisplayFilters =
-    sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'attention';
+    sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'due_asc';
   const canPageBackward = Boolean(workPage && workPage.offset > 0);
   const canPageForward = Boolean(workPage?.hasNext);
   return (
@@ -301,6 +303,7 @@ export function WorkQueueContent({
           </StatusBadge>
         }
       />
+      <WorkInboxTabs activeView="mine" />
 
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid min-w-0 gap-4">
@@ -332,7 +335,7 @@ export function WorkQueueContent({
                       onPageOffsetChange?.(0);
                       setSourceFilter('all');
                       setToneFilter('all');
-                      setSortMode('attention');
+                      setSortMode('due_asc');
                     }}
                   >
                     초기화
@@ -952,6 +955,11 @@ function compareWorkItems(
     const sourceDelta = sourceRank(left.source) - sourceRank(right.source);
     if (sourceDelta !== 0) return sourceDelta;
   }
+  if (sortMode === 'due_asc') {
+    const leftDue = dueRank(left.dueAt);
+    const rightDue = dueRank(right.dueAt);
+    if (leftDue !== rightDue) return leftDue - rightDue;
+  }
   if (sortMode === 'attention') {
     const toneDelta = toneRank(left.tone) - toneRank(right.tone);
     if (toneDelta !== 0) return toneDelta;
@@ -980,6 +988,12 @@ function updatedRank(updatedAt: string | undefined): number {
   if (!updatedAt) return 0;
   const time = Date.parse(updatedAt);
   return Number.isNaN(time) ? 0 : time;
+}
+
+function dueRank(dueAt: string | undefined): number {
+  if (!dueAt) return Number.POSITIVE_INFINITY;
+  const time = Date.parse(dueAt);
+  return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
 }
 
 function workFilterSummary(
