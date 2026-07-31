@@ -1,6 +1,6 @@
 # 소규모 로펌용 OSS SaaS UI 실행 계획 — `b3681493`
 
-> 상태: **GAP CLOSURE IN PROGRESS — NOT RELEASED**
+> 상태: **VERIFIED — LOCAL IMPLEMENTATION COMPLETE; NOT RELEASED**
 >
 > 기준선: `origin/main@b3681493970714fa2d1f583a2a16f7c5d4a26582`
 >
@@ -10,10 +10,11 @@
 >
 > 대상: 10명 안팎의 한국 로펌이 매일 사용하는 Matter·문서·검색·마감·인계 화면
 
-> 2026-07-31 재검증에서 일부 acceptance와 증거 공백이 확인되었다. 현재 폐쇄 작업과
-> 최종 판정은
-> `docs/ui/2026-07-31-small-firm-oss-saas-gap-closure-plan-b3681493.md`를 따른다.
-> 아래의 기존 “구현 완료” 표시는 gap closure 최종 검증 전까지 잠정 기록이다.
+> 2026-07-31 재검증에서 확인한 acceptance와 증거 공백은
+> `docs/ui/2026-07-31-small-firm-oss-saas-gap-closure-plan-b3681493.md`의
+> G01~G35로 폐쇄했다. 최종 판정과 exact-SHA 증거는
+> `docs/ui/2026-07-31-small-firm-oss-saas-gap-closure-verification-b3681493.md`를
+> 따른다.
 
 ## 0. 이 문서의 효력과 실행 전제
 
@@ -87,31 +88,31 @@ persona는 새 backend role이 아니라 기존 role을 같은 정보 구조로 
 
 ## 3. 현재 동시 구현 관찰과 진행 현황
 
-아래 상태는 이 문서를 작성할 때의 작업 트리 관찰이다. 테스트·커밋·리뷰가 끝나기 전까지 `완료`가 아니다.
+아래 상태는 최초 작업 트리 관찰을 2026-07-31 exact-SHA 최종 검증 결과로 갱신한 것이다.
 
-| ID                | 상태              | 현재 관찰                                                                                  | 완료 전 남은 증빙                                                                                                |
-| ----------------- | ----------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | -------------------- |
-| `SF-B368-001`     | 완료(계획)        | exact-main, 세 UI persona, route 소유권, 완료 기반을 이 문서에 고정                        | 코드 완료가 아니라 계획 증빙                                                                                     |
-| `SF-B368-002`     | 구현 완료         | 일반 사용자 rail을 홈·Matter·고객·문서함·작업함 5개로 고정하고 관리자만 관리자 설정을 추가 | 역할별 route·모바일·키보드 검증 완료                                                                             |
-| `SF-B368-003`     | 구현 완료         | 전역 검색, Work 알림, Search saved-search로 진입점 소유권 통합                             | deep-link 회귀 완료                                                                                              |
-| `SF-B368-004`     | 구현 완료         | 공통 loading/error/forbidden/blocked 상태와 자연스러운 한국어 접근 범위 문구 적용          | 공통 상태·seed 회귀 완료                                                                                         |
-| `SF-B368-005`     | 구현 완료         | 고정 최소 폭을 제거하고 좁은 화면에서 핵심 열을 우선 노출                                  | 네 viewport와 primitive 검증 완료                                                                                |
-| `SF-B368-006`     | 구현 완료         | 홈을 내 작업·마감·Matter·문서 복귀 경로로 단순화                                           | 부분 실패·빈 상태 의미 테스트 완료                                                                               |
-| `SF-B368-007`     | 구현 완료         | 빠른 작업을 업로드·검색·작업함으로 한정하고 관리/연동 홍보 패널 제거                       | dead action 회귀 완료                                                                                            |
-| `SF-B368-008`     | 구현 완료         | Matter 표를 업무 식별·상태 중심으로 정리                                                   | 접근성·좁은 폭 회귀 완료                                                                                         |
-| `SF-B368-009`     | 구현 완료         | 권한 쿼리와 같은 WHERE에 code/name/client 이름의 최소 `q` 검색 추가                        | explicit DENY·조건부 권한·insider-required Wall negative test 및 전체 통합 회귀 통과                             |
-| `SF-B368-010`     | 구현 완료         | Matter 상세를 개요·문서·업무·팀·활동 5탭으로 통합                                          | 탭 keyboard·URL·history·legacy anchor 회귀 완료                                                                  |
-| `SF-B368-011`     | 구현 완료         | 정상 Matter의 상시 보안 장식은 제거하고 실제 제한·Wall·hold 의미는 보존                    | 차단 상태 회귀 완료                                                                                              |
-| `SF-B368-012`     | 구현 완료         | 고객 화면을 검색 가능한 목록 우선 흐름과 접을 수 있는 생성 폼으로 정리                     | 목록·생성·상세 회귀 완료                                                                                         |
-| `SF-B368-013`     | 구현 완료         | `getClient + listMatters(clientId)`의 정확한 total/items/partial 의미만 노출               | fake aggregate 없음 검증 완료                                                                                    |
-| `SF-B368-014`     | 구현 완료         | 문서 Workbench 중복 helper를 줄이고 기존 기능 보존                                         | 렌더·기능 회귀 완료                                                                                              |
-| `SF-B368-015`     | 구현 완료         | saved search 소유권을 `/search`로 통일하고 `/search/folders` 호환 redirect 유지            | matter-team·personal·admin-shared list/open/save/revoke와 legacy Matter 참조의 현재 권한·Wall negative test 통과 |
-| `SF-B368-016`     | 구현 완료         | `/work?view=mine                                                                           | notifications` 단일 Inbox shell 제공                                                                             | 기존 route 호환 완료 |
-| `SF-B368-017`     | 구현 완료         | 소규모 기본값을 `mine`으로 유지하고 기존 서버 영속 assignment/due 계약 재사용              | `C03` 불필요 판정 완료                                                                                           |
-| `SF-B368-018`     | 구현 완료         | 기존 7개 backend role을 바꾸지 않고 일반/관리 UI 행렬 고정                                 | persona·role 회귀 완료                                                                                           |
-| `SF-B368-019`     | 구현 완료         | 숨긴 고급 route의 직접 접근 guard와 기존 deep link 보존                                    | 관리자 허용·일반 사용자 차단·조회 오류 fail-closed 동작 테스트와 실화면 통과                                     |
-| `SF-B368-020`     | 구현 완료         | 자동·보안·렌더·접근성·AI slop closeout 수행                                                | exact 코드 SHA 검증 기록 연결                                                                                    |
-| `SF-B368-C01~C03` | 종결(코드 불필요) | canonical 권한과 기존 read/work 계약이 trigger를 해소                                      | §10.3 결정 근거 완료                                                                                             |
+| ID                | 상태       | 현재 관찰                                                                                       | 최종 증빙                                                                                                        |
+| ----------------- | ---------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `SF-B368-001`     | 완료(계획) | exact-main, 세 UI persona, route 소유권, 완료 기반을 이 문서에 고정                             | 코드 완료가 아니라 계획 증빙                                                                                     |
+| `SF-B368-002`     | 구현 완료  | 일반 사용자 rail을 홈·Matter·고객·문서함·작업함 5개로 고정하고 관리자만 관리자 설정을 추가      | 역할별 route·모바일·키보드 검증 완료                                                                             |
+| `SF-B368-003`     | 구현 완료  | 전역 검색, Work 알림, Search saved-search로 진입점 소유권 통합                                  | deep-link 회귀 완료                                                                                              |
+| `SF-B368-004`     | 구현 완료  | 공통 loading/error/forbidden/blocked 상태와 자연스러운 한국어 접근 범위 문구 적용               | 공통 상태·seed 회귀 완료                                                                                         |
+| `SF-B368-005`     | 구현 완료  | 고정 최소 폭을 제거하고 좁은 화면에서 핵심 열을 우선 노출                                       | 네 viewport와 primitive 검증 완료                                                                                |
+| `SF-B368-006`     | 구현 완료  | 홈을 내 작업·마감·Matter·문서 복귀 경로로 단순화                                                | 부분 실패·빈 상태 의미 테스트 완료                                                                               |
+| `SF-B368-007`     | 구현 완료  | 빠른 작업을 업로드·검색·작업함으로 한정하고 관리/연동 홍보 패널 제거                            | dead action 회귀 완료                                                                                            |
+| `SF-B368-008`     | 구현 완료  | Matter 표를 업무 식별·상태 중심으로 정리                                                        | 접근성·좁은 폭 회귀 완료                                                                                         |
+| `SF-B368-009`     | 구현 완료  | 권한 쿼리와 같은 WHERE에 code/name/client 이름의 최소 `q` 검색 추가                             | explicit DENY·조건부 권한·insider-required Wall negative test 및 전체 통합 회귀 통과                             |
+| `SF-B368-010`     | 구현 완료  | Matter 상세를 개요·문서·업무·팀·활동 5탭으로 통합                                               | 탭 keyboard·URL·history·legacy anchor 회귀 완료                                                                  |
+| `SF-B368-011`     | 구현 완료  | 정상 Matter의 상시 보안 장식은 제거하고 실제 제한·Wall·hold 의미는 보존                         | 차단 상태 회귀 완료                                                                                              |
+| `SF-B368-012`     | 구현 완료  | 고객 화면을 검색 가능한 목록 우선 흐름과 접을 수 있는 생성 폼으로 정리                          | 목록·생성·상세 회귀 완료                                                                                         |
+| `SF-B368-013`     | 구현 완료  | `getClient + listMatters(clientId)`의 정확한 total/items/partial 의미만 노출                    | fake aggregate 없음 검증 완료                                                                                    |
+| `SF-B368-014`     | 구현 완료  | 문서 Workbench 중복 helper를 줄이고 기존 기능 보존                                              | 렌더·기능 회귀 완료                                                                                              |
+| `SF-B368-015`     | 구현 완료  | saved search 소유권을 `/search`로 통일하고 `/search/folders` 호환 redirect 유지                 | matter-team·personal·admin-shared list/open/save/revoke와 legacy Matter 참조의 현재 권한·Wall negative test 통과 |
+| `SF-B368-016`     | 구현 완료  | Work의 `mine`·`notifications` 단일 Inbox shell 제공                                             | 기존 route와 URL 상태 호환 완료                                                                                  |
+| `SF-B368-017`     | 구현 완료  | 소규모 기본값을 `mine`으로 유지하고 서버 영속 assignment/due 계약 사용                          | G08/G19/G23의 mutation·동시성·새 세션 회귀 완료                                                                  |
+| `SF-B368-018`     | 구현 완료  | 기존 7개 backend role을 바꾸지 않고 일반/관리 UI 행렬 고정                                      | persona·role 회귀 완료                                                                                           |
+| `SF-B368-019`     | 구현 완료  | 숨긴 고급 route의 직접 접근 guard와 기존 deep link 보존                                         | 관리자 허용·일반 사용자 차단·조회 오류 fail-closed 동작 테스트와 실화면 통과                                     |
+| `SF-B368-020`     | 구현 완료  | 자동·보안·렌더·접근성·AI slop closeout 수행                                                     | exact 코드 SHA 검증 기록 연결                                                                                    |
+| `SF-B368-C01~C03` | 최종 종결  | C01은 canonical membership 유지, C02는 기존 read 계약, C03은 G08/G12/G19/G23 추가 구현으로 폐쇄 | 최종 gap-closure 영수증에서 3/3 PASS                                                                             |
 
 ## 4. 불변 보안·데이터 규칙
 
@@ -610,7 +611,7 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 3. 일반 화면의 관리/보안 장식은 줄었지만 실제 거부·Wall·hold·admin guard는 그대로 강하다.
 4. fake recent/deadline/count 없이 서버 권위 데이터만 사용한다.
 5. raw UUID와 민감 제목/본문이 화면·URL·log에 새로 노출되지 않는다.
-6. 네 viewport, keyboard, denied/empty/error, 전체 회귀와 독립 Codex 품질 검토가 green이다.
+6. 다섯 viewport와 200% 등가 reflow, keyboard, denied/empty/error, 전체 회귀와 독립 Codex 품질 검토가 green이다.
 7. exact 구현 코드 SHA와 추적 가능한 검증 문서가 이 계획에 연결된다. ledger/PR 연결은 push·PR을 요청받는 시점의 별도 머지 단계다.
 
 그 뒤에도 external authenticated smoke, 배포 artifact, 로그인된 실제 앱, 운영자 승인, 릴리스/GA는 별도 gate다.
@@ -621,10 +622,13 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 - 유일한 기준선: `origin/main@b3681493970714fa2d1f583a2a16f7c5d4a26582`
 - 구현 브랜치: `codex/small-firm-oss-saas-b3681493`
-- 구현 코드 SHA: `1d0333c9ba957dfced1d4d893ef30e0261b9e39d`
-- 검증 기록: `docs/ui/2026-07-31-small-firm-oss-saas-verification-b3681493.md`
-- 세부 증거: `docs/ui/evidence/sf-b368-final/`
-- `SF-B368-001~020`은 이 문서와 브랜치의 코드·테스트로 종결했다. 구현은 기존 helper와 route를 재사용했고 신규 dependency·상태 저장소·외부 연결·마이그레이션을 추가하지 않았다.
+- 구현 코드 SHA: `269877204c75a43c47f193fdb96fa52e1ad6a0b0`
+- 최종 검증 기록: `docs/ui/2026-07-31-small-firm-oss-saas-gap-closure-verification-b3681493.md`
+- 세부 증거: `docs/ui/evidence/sf-b368-gap-closure/`
+- `SF-B368-001~020`, `C01~C03`, 추가 `G01~G35`는 이 문서와 브랜치의
+  코드·테스트로 종결했다. 기존 helper와 route를 우선 재사용했고 신규 dependency,
+  상태 저장소, 외부 연결은 추가하지 않았다. C03의 감사 action 제약을 위한 migration
+  `0212_add_work_notification_audit_actions`는 G08 범위에서 추가하고 왕복 검증했다.
 - shell/Home: `apps/web/src/lib/features.ts`, `apps/web/src/lib/navigation.ts`, `apps/web/src/app/(app)/app-shell.tsx`, `apps/web/src/app/(app)/dashboard/vault-activity-client.tsx`
 - 공통 상태/표현: `apps/web/src/lib/i18n.tsx`, `apps/web/src/components/ui/empty-state.tsx`, `apps/web/src/components/ui/page-header.tsx`, Matter/Client 목록 컴포넌트와 seed fixture
 - Matter: shared query schema, permission-scoped API query/service, Matter 목록·5-tab 상세·workspace action과 관련 unit/integration tests
@@ -635,24 +639,29 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 
 아래는 외부 계정·배포 없이 이 브랜치에서 실행한 로컬 기술 증빙이다.
 
-| Gate                                | 결과                                                                                        |
-| ----------------------------------- | ------------------------------------------------------------------------------------------- |
-| `pnpm install --frozen-lockfile`    | 통과; dependency 변경 없음                                                                  |
-| `pnpm lint`                         | 6/6 workspace 통과                                                                          |
-| `pnpm typecheck`                    | 9/9 task 통과                                                                               |
-| `pnpm test`                         | domain 18, desktop 18, shared 213, AI 13, API 1,012, Web 429 — 합계 1,703 통과              |
-| `pnpm build`                        | 6/6 workspace 통과; Next 31개 static page 생성 포함                                         |
-| `pnpm docs:frozen`                  | frozen package 51개 불변 통과                                                               |
-| `pnpm backlog:validate`             | 174·266 TUW registry 통과                                                                   |
-| `pnpm check:production-ui-literals` | 통과                                                                                        |
-| `pnpm check:ui-pr-checklist`        | 통과                                                                                        |
-| `pnpm ui:production-smoke`          | 5-item navigation·단일 소유권 inventory로 갱신 후 통과                                      |
-| `git diff --check`                  | 통과                                                                                        |
-| migration                           | 격리 PostgreSQL에서 `migrate → rollback → migrate` 왕복 후 `0000`부터 `0211`까지 205개 통과 |
-| seed                                | `tenants=2`, `users=11` 통과                                                                |
-| `pnpm test:integration`             | versioning이 활성화된 새 MinIO bucket과 새 DB에서 131 files / 417 tests 통과                |
+| Gate                                | 결과                                                                             |
+| ----------------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm install --frozen-lockfile`    | 통과; dependency 변경 없음                                                       |
+| `pnpm lint`                         | 6/6 workspace 통과                                                               |
+| `pnpm typecheck`                    | 9/9 task 통과                                                                    |
+| `pnpm test`                         | domain 18, desktop 18, shared 216, AI 13, API 1,028, Web 511 — 합계 1,804 통과   |
+| `pnpm build`                        | 6/6 workspace 통과; Next 31개 static page 생성 포함                              |
+| `pnpm docs:frozen`                  | frozen package 51개 불변 통과                                                    |
+| `pnpm backlog:validate`             | 174·266 TUW registry 통과                                                        |
+| `pnpm check:production-ui-literals` | 통과                                                                             |
+| `pnpm check:ui-pr-checklist`        | 통과                                                                             |
+| `pnpm ui:production-smoke`          | 5-item navigation·단일 소유권 inventory로 갱신 후 통과                           |
+| `git diff --check`                  | 통과                                                                             |
+| migration                           | 격리 PostgreSQL에서 `migrate → rollback → migrate` 왕복 후 `0212`까지 206개 통과 |
+| seed                                | `tenants=2`, `users=11` 통과                                                     |
+| `pnpm test:integration`             | versioning이 활성화된 새 MinIO bucket과 새 DB에서 141 files / 458 tests 통과     |
 
-첫 격리 실행의 임시 bucket은 versioning이 꺼져 있어 document-revision fixture가 worker의 object-version fingerprint를 만들지 못했다. bucket versioning을 켠 뒤 해당 테스트가 통과했고, 생성 시점부터 versioning을 켠 두 번째 새 DB·bucket의 전체 suite로 환경 설정 원인임을 재확인했다. 진단용 임시 assertion은 전부 되돌렸고 테스트 skip·quarantine·timeout 완화는 사용하지 않았다.
+과거 격리 실행의 임시 bucket은 versioning이 꺼져 있어 document-revision fixture가
+worker의 object-version fingerprint를 만들지 못했다. 이 환경 진단과 복구 이력을
+보존하되, 최종 `26987720`은 생성 시점부터 private/versioned인 별도 bucket과 새 DB에서
+왕복·전체 suite를 다시 통과했다. 진단용 임시 assertion은 전부 되돌렸고 테스트
+skip·quarantine은 사용하지 않았다. G31의 35초 test process 예산은 제품의 30초
+성능 assertion을 관찰하기 위한 명시적 timeout이며 skip이나 acceptance 완화가 아니다.
 
 ### 10.3 조건부 계약 판정
 
@@ -660,16 +669,25 @@ API·스키마를 바꾸는 승인된 단위는 AGENTS §5의 install, compose, 
 | ------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SF-B368-C01` | 코드 불필요    | Master Brief의 `matter_members` 필요조건과 `NONIDENTITY-AGGREGATE-RECOVERY` 결정을 유지한다. `firm_open` non-member ALLOW나 자동 권한 확대를 만들지 않는다. |
 | `SF-B368-C02` | 코드 불필요    | 기존 권한 범위 read API로 확인 가능한 최소 정보만 표시하고 출처 없는 recent·aggregate·KPI를 생략했다.                                                       |
-| `SF-B368-C03` | 기존 계약 충족 | 서버의 `work_items.assigned_to_user_id`, `due_at`, audited reassignment를 재사용한다. 신규 schema/API/browser 영속 상태가 필요하지 않다.                    |
+| `SF-B368-C03` | 추가 구현 완료 | G08/G12/G19/G23에서 row lock, affected-row 확인, audited due mutation, 후보 권한 재검증, 새 세션 영속과 concurrency/rollback negative를 추가했다.           |
 
 ### 10.4 실제 화면·접근성 검증
 
-- `/dashboard`, `/matters`, Matter 상세, `/clients`, `/files`, `/search`, `/work`, `/admin`, `/integrations/matter-app` 9개 surface를 `1440x900`, `1024x768`, `768x1024`, `390x844`의 36개 route/viewport 조합에서 확인했다. document/body 폭은 모두 viewport 폭과 같고 페이지 수준 unsafe horizontal overflow는 0이었다. 원시 값은 `docs/ui/evidence/sf-b368-final/browser-matrix.json`에 보존했다.
-- 200% 확대는 in-app browser가 브라우저 zoom API를 제공하지 않아 `1440px` 물리 폭의 200% 등가 CSS viewport인 `720x450` reflow로 Home·Matter·Work를 검증했다. 세 화면 모두 overflow가 없었다.
+- `/dashboard`, `/matters`, Matter 상세 2개, `/clients`, Client 상세, `/files`,
+  `/work` 기본·알림, `/search`의 10개 surface를 `1440x900`, `1024x768`,
+  `768x1024`, `390x844`, `720x450`의 50개 route/viewport 조합에서 확인했다.
+  document/body 폭은 모두 viewport 폭과 같고 페이지 수준 unsafe horizontal
+  overflow와 viewport 밖 interactive control은 0이었다. 원시 값은
+  `docs/ui/evidence/sf-b368-gap-closure/browser-matrix.json`에 보존했다.
+- `720x450`은 browser zoom API가 아닌 `1440x900`의 **200% 등가 CSS viewport
+  reflow**다. native zoom을 실행했다고 주장하지 않으며 같은 production build의
+  responsive layout 계약을 검증했다.
 - 모바일 메뉴의 focus trap·Escape·trigger focus return, Matter 탭 ArrowRight·뒤로/앞으로·reload URL 보존, 긴 한국어와 모든 visible form control의 accessible name을 확인했다.
 - 브라우저 console error/warning은 0이었다. `권한으로 보호됨`, 중복 연동 설명, raw UUID, normal-state 보안 배너는 검사한 일반 화면에서 나타나지 않았다.
 - 최종 `sloplint.py --changed`는 finding 0으로 통과했다. 전체 기준선 코드 diff 검사에서만 통합 테스트의 표준 바이너리 업로드 생성자 이름을 배경 장식으로 오인한 비제품 weak false positive 1건이 있었다. App Shell의 반투명 white/glass signal은 불투명 brand token 표면으로 제거했고 `768x1024`와 `390x844` 실제 화면에서 대비·계층을 재확인했다.
-- 키보드·역할·직접 경로·API 장애/복구 기록과 대표 캡처는 `docs/ui/evidence/sf-b368-final/browser-interactions.md` 및 같은 디렉터리의 JPEG 두 개에 보존했다.
+- 키보드·역할·직접 경로·API 장애/복구 기록과 대표 캡처는
+  `docs/ui/evidence/sf-b368-gap-closure/browser-interactions.md`와 같은 디렉터리에
+  보존했다.
 
 ### 10.5 완료와 비완료의 경계
 

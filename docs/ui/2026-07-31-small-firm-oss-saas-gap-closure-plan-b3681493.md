@@ -1,6 +1,6 @@
 # 소규모 로펌용 OSS SaaS UI Gap Closure 계획 — `b3681493`
 
-> 상태: **G35 IMPLEMENTATION IN PROGRESS**
+> 상태: **VERIFIED — LOCAL IMPLEMENTATION COMPLETE**
 >
 > 원 계획: `docs/ui/2026-07-30-small-firm-oss-saas-plan-b3681493.md`
 >
@@ -43,7 +43,9 @@ acceptance는 구현 또는 재현 가능한 증거가 부족했다.
 2026-07-31 소스 SHA `3762ac4bf5b980bc1e73811a95a2e638a6447a97` 검토에서
 G01~G34와 원 계획 001~020/C01~C03를 다시 검증했으나, Client 생성과 진행 중 목록
 요청 사이의 경쟁 조건이 G35로 추가 확인됐다. 따라서 해당 SHA의 완료 판정은 잠정
-철회하며 G35 구현과 최종 SHA 재검증 뒤 새 영수증으로 종결한다.
+철회했다. G35를 구현한 최종 소스 SHA
+`269877204c75a43c47f193fdb96fa52e1ad6a0b0`에서 자동·DB·브라우저 회귀와 독립
+소스 검토를 다시 수행해 001~020, C01~C03, G01~G35를 모두 PASS로 종결했다.
 
 ## 2. 공통 불변식과 제외 범위
 
@@ -719,7 +721,7 @@ G01~G34와 원 계획 001~020/C01~C03를 다시 검증했으나, Client 생성�
 - 소유 파일:
   - `apps/web/src/app/(app)/clients/client-load-state.ts`
   - `apps/web/src/app/(app)/clients/page.tsx`
-  - `apps/web/src/app/(app)/clients/page.test.tsx`
+  - `apps/web/src/app/(app)/clients/page.effects.test.tsx`
 - 발견 근거: G34 이후 최종 독립 소스 검토에서 검색어가 없는 Client 목록 요청이 진행
   중일 때 생성이 성공하면 새 행을 먼저 prepend하지만, 늦게 완료된 기존 `listClients`
   응답이 그 행을 다시 덮어쓸 수 있음이 확인됐다. 기존 generation 취소 계약은 검색과
@@ -787,16 +789,18 @@ G01~G35 전체 ───────────────────┴─ G
 
 ## 6. 완료 영수증
 
-- 최종 검증 소스 SHA: G35 구현 후 확정
-- G01~G35: 최종 재검증 대기
+- 최종 검증 소스 SHA: `269877204c75a43c47f193fdb96fa52e1ad6a0b0`
+- G01~G35: 35/35 PASS
 - 원 계획 001~020: 20/20 PASS
 - 조건부 C01~C03: 3/3 PASS
-- unit: 410 files / 1,803 tests
+- unit: 411 files / 1,804 tests
 - fresh DB integration: 141 files / 458 tests
 - migrations: 206, 왕복 재적용 PASS
 - production browser: 10 routes × 5 viewports = 50 combinations PASS
-- browser interaction/history/focus/race/role: PASS
-- independent read-only review: blocker 0
+- browser interaction/history/focus/role: 7/7 PASS, console 0
+- G35 delayed-list generation: exact-SHA component behavior test PASS
+- independent read-only source review: `WATCH / APPROVE`, blocker 0
+- final evidence gate independent reproduction: `APPROVE`, blocker 0
 - AI slop review: pass
 
 상세 원시 로그와 화면 증거는

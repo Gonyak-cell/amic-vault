@@ -1,0 +1,973 @@
+{
+  "sourceSha": "269877204c75a43c47f193fdb96fa52e1ad6a0b0",
+  "generatedAt": "2026-07-30T23:58:35.808Z",
+  "surface": "production Next.js standalone at localhost:3100 backed by local API at localhost:3101",
+  "routes": 10,
+  "viewports": 5,
+  "combinations": 50,
+  "assertions": {
+    "horizontalOverflow": 0,
+    "outsideInteractive": 0,
+    "forbiddenCopy": 0,
+    "rawErrorCodes": 0,
+    "errorText": 0,
+    "loadingText": 0,
+    "unexpectedRedirects": 0
+  },
+  "rows": [
+    {
+      "route": "home",
+      "path": "/dashboard",
+      "actualUrl": "http://localhost:3100/dashboard",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matters",
+      "path": "/matters",
+      "actualUrl": "http://localhost:3100/matters",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-a",
+      "path": "/matters/92000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-b",
+      "path": "/matters/92000000-0000-4000-8000-000000000002",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000002",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "clients",
+      "path": "/clients",
+      "actualUrl": "http://localhost:3100/clients",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "client-detail",
+      "path": "/clients/91000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/clients/91000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "files",
+      "path": "/files",
+      "actualUrl": "http://localhost:3100/files",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "work",
+      "path": "/work",
+      "actualUrl": "http://localhost:3100/work",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "notifications",
+      "path": "/work?view=notifications",
+      "actualUrl": "http://localhost:3100/work?view=notifications",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "search",
+      "path": "/search",
+      "actualUrl": "http://localhost:3100/search",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "innerWidth": 1440,
+      "innerHeight": 900,
+      "clientWidth": 1440,
+      "documentWidth": 1440,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "home",
+      "path": "/dashboard",
+      "actualUrl": "http://localhost:3100/dashboard",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matters",
+      "path": "/matters",
+      "actualUrl": "http://localhost:3100/matters",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-a",
+      "path": "/matters/92000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-b",
+      "path": "/matters/92000000-0000-4000-8000-000000000002",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000002",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "clients",
+      "path": "/clients",
+      "actualUrl": "http://localhost:3100/clients",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "client-detail",
+      "path": "/clients/91000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/clients/91000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "files",
+      "path": "/files",
+      "actualUrl": "http://localhost:3100/files",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "work",
+      "path": "/work",
+      "actualUrl": "http://localhost:3100/work",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "notifications",
+      "path": "/work?view=notifications",
+      "actualUrl": "http://localhost:3100/work?view=notifications",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "search",
+      "path": "/search",
+      "actualUrl": "http://localhost:3100/search",
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "innerWidth": 1024,
+      "innerHeight": 768,
+      "clientWidth": 1024,
+      "documentWidth": 1024,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "home",
+      "path": "/dashboard",
+      "actualUrl": "http://localhost:3100/dashboard",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matters",
+      "path": "/matters",
+      "actualUrl": "http://localhost:3100/matters",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-a",
+      "path": "/matters/92000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-b",
+      "path": "/matters/92000000-0000-4000-8000-000000000002",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000002",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "clients",
+      "path": "/clients",
+      "actualUrl": "http://localhost:3100/clients",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "client-detail",
+      "path": "/clients/91000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/clients/91000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "files",
+      "path": "/files",
+      "actualUrl": "http://localhost:3100/files",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "work",
+      "path": "/work",
+      "actualUrl": "http://localhost:3100/work",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "notifications",
+      "path": "/work?view=notifications",
+      "actualUrl": "http://localhost:3100/work?view=notifications",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "search",
+      "path": "/search",
+      "actualUrl": "http://localhost:3100/search",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "innerWidth": 768,
+      "innerHeight": 1024,
+      "clientWidth": 768,
+      "documentWidth": 768,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "home",
+      "path": "/dashboard",
+      "actualUrl": "http://localhost:3100/dashboard",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matters",
+      "path": "/matters",
+      "actualUrl": "http://localhost:3100/matters",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-a",
+      "path": "/matters/92000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-b",
+      "path": "/matters/92000000-0000-4000-8000-000000000002",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000002",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "clients",
+      "path": "/clients",
+      "actualUrl": "http://localhost:3100/clients",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "client-detail",
+      "path": "/clients/91000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/clients/91000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "files",
+      "path": "/files",
+      "actualUrl": "http://localhost:3100/files",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "work",
+      "path": "/work",
+      "actualUrl": "http://localhost:3100/work",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "notifications",
+      "path": "/work?view=notifications",
+      "actualUrl": "http://localhost:3100/work?view=notifications",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "search",
+      "path": "/search",
+      "actualUrl": "http://localhost:3100/search",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "innerWidth": 390,
+      "innerHeight": 844,
+      "clientWidth": 390,
+      "documentWidth": 390,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "home",
+      "path": "/dashboard",
+      "actualUrl": "http://localhost:3100/dashboard",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matters",
+      "path": "/matters",
+      "actualUrl": "http://localhost:3100/matters",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-a",
+      "path": "/matters/92000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "matter-b",
+      "path": "/matters/92000000-0000-4000-8000-000000000002",
+      "actualUrl": "http://localhost:3100/matters/92000000-0000-4000-8000-000000000002",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "clients",
+      "path": "/clients",
+      "actualUrl": "http://localhost:3100/clients",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "client-detail",
+      "path": "/clients/91000000-0000-4000-8000-000000000001",
+      "actualUrl": "http://localhost:3100/clients/91000000-0000-4000-8000-000000000001",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "files",
+      "path": "/files",
+      "actualUrl": "http://localhost:3100/files",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "work",
+      "path": "/work",
+      "actualUrl": "http://localhost:3100/work",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "notifications",
+      "path": "/work?view=notifications",
+      "actualUrl": "http://localhost:3100/work?view=notifications",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    },
+    {
+      "route": "search",
+      "path": "/search",
+      "actualUrl": "http://localhost:3100/search",
+      "viewport": {
+        "width": 720,
+        "height": 450
+      },
+      "innerWidth": 720,
+      "innerHeight": 450,
+      "clientWidth": 720,
+      "documentWidth": 720,
+      "outsideInteractive": [],
+      "forbidden": 0,
+      "rawCodes": 0,
+      "errorCount": 0,
+      "loadingCount": 0,
+      "unexpectedRedirect": 0
+    }
+  ],
+  "notes": [
+    "outsideInteractive checks horizontal viewport escape; vertical page scroll is expected.",
+    "720x450 is a 200%-equivalent CSS reflow viewport for the 1440x900 reference; native browser zoom was not used."
+  ]
+}

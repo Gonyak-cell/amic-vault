@@ -1,0 +1,44 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 test:integration /Users/jws/Projects/amic-vault
+> node tools/integration/run.mjs upload-permission
+
+
+> @amic-vault/domain@0.0.0 build /Users/jws/Projects/amic-vault/packages/domain
+> tsc -p tsconfig.build.json
+
+
+> @amic-vault/shared@0.0.0 build /Users/jws/Projects/amic-vault/packages/shared
+> tsc -p tsconfig.build.json
+
+
+> @amic-vault/ai@0.0.0 build /Users/jws/Projects/amic-vault/packages/ai
+> tsc -p tsconfig.build.json
+
+
+> @amic-vault/api@0.0.0 build /Users/jws/Projects/amic-vault/apps/api
+> tsc -p tsconfig.build.json
+
+{
+  "code": "AI_PREP_QUEUE_PREPARED",
+  "schema": "pgboss",
+  "queues": [
+    "ai.prep.dead",
+    "ai.prep"
+  ],
+  "runtimeRoleGrant": "applied"
+}
+
+> amic-vault@0.0.0 db:seed /Users/jws/Projects/amic-vault
+> node tools/db/seed.mjs
+
+seed completed: tenants=2 users=11
+
+ RUN  v2.1.9 /Users/jws/Projects/amic-vault
+
+ ✓ tests/integration/document-access/upload-permission.spec.ts (5 tests) 694ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  08:07:27
+   Duration  2.26s (transform 801ms, setup 0ms, collect 1.35s, tests 694ms, environment 0ms, prepare 22ms)

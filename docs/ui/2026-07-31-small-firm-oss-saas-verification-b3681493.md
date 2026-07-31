@@ -1,11 +1,10 @@
 # 소규모 로펌용 OSS SaaS UI 검증 기록 — `b3681493`
 
-> **재검증 주의:** 이 기록은 2026-07-31 gap audit에서 100% 완료 증거로 사용할 수
-> 없는 것으로 판정되었다. integration inventory 수치, Home dead target, Work 동시성,
-> deep-link 복원 등 확인된 차이는
-> `docs/ui/2026-07-31-small-firm-oss-saas-gap-closure-plan-b3681493.md`에서 폐쇄 중이다.
-> 최종 gap-closure receipt가 작성되기 전에는 아래 완료 문구를 현재 판정으로 인용하지
-> 않는다.
+> **과거 영수증:** 이 문서는 구현 SHA `1d0333c9` 시점의 기록이며 현재 최종 판정으로
+> 사용하지 않는다. 이후 확인한 integration inventory, Home dead action, Work 동시성,
+> deep-link/history와 반응형 공백은 모두 추가 구현했다. 현재 판정은
+> `docs/ui/2026-07-31-small-firm-oss-saas-gap-closure-verification-b3681493.md`의
+> 최종 소스 SHA `26987720` 영수증만 따른다.
 
 > 구현 코드 SHA: `1d0333c9ba957dfced1d4d893ef30e0261b9e39d`
 >
@@ -163,7 +162,10 @@ AI slop review: pass.
 
 대표 desktop/mobile 화면에서 gradient mesh, glass surface, 과도한 pill, 영웅형 capability 문구, 정상 상태 보안 배너를 사용하지 않았음을 확인했다.
 
-## 7. 증거 인덱스
+## 7. 과거 SHA 증거 인덱스
+
+아래 파일은 구현 SHA `1d0333c9` 시점의 역사적 artifact다. 현재 최종 증거는
+`docs/ui/evidence/sf-b368-gap-closure/`만 사용한다.
 
 - 자동 게이트·migration·통합 회귀: [`automated-gates.md`](./evidence/sf-b368-final/automated-gates.md)
 - 36개 route/viewport 원시 행렬: [`browser-matrix.json`](./evidence/sf-b368-final/browser-matrix.json)

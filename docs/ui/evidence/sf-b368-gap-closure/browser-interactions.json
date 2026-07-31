@@ -1,0 +1,172 @@
+{
+  "sourceSha": "269877204c75a43c47f193fdb96fa52e1ad6a0b0",
+  "surface": "Chrome standalone localhost:3100 + API localhost:3101",
+  "generatedAt": "2026-07-31T00:48:52.045Z",
+  "scenarios": [
+    {
+      "id": "matter-history",
+      "criterion": "Matter A/B history",
+      "surface": "/matters/:matterId",
+      "invocation": "goto Matter A, goto Matter B, Back, Forward",
+      "verdict": "PASS",
+      "observed": {
+        "a": "공급계약 검토",
+        "b": "상표권 분쟁 대응",
+        "back": "공급계약 검토",
+        "forward": "상표권 분쟁 대응"
+      }
+    },
+    {
+      "id": "files-drawer",
+      "criterion": "Files drawer focus/Escape",
+      "surface": "/files at 390x844",
+      "invocation": "click 탐색; Tab; Escape",
+      "verdict": "PASS",
+      "observed": {
+        "openFocus": "문서 탐색 닫기",
+        "tabFocusInsideDialog": true,
+        "escapeDialogRemoved": true,
+        "escapeFocus": "탐색"
+      }
+    },
+    {
+      "id": "clients-rapid-search",
+      "criterion": "Client request generation",
+      "surface": "/clients",
+      "invocation": "submit 서림 then immediately submit 한빛",
+      "verdict": "PASS",
+      "observed": {
+        "finalContainsHanbit": true,
+        "finalContainsSeorim": false
+      }
+    },
+    {
+      "id": "work-persistence-restore",
+      "criterion": "Work assignment persistence and restore",
+      "surface": "/work",
+      "invocation": "owner assigns first work to member; member reload confirms; member restores owner; owner reload confirms",
+      "verdict": "PASS",
+      "observed": {
+        "memberSessionShowsAssigned": true,
+        "ownerSessionRestored": true,
+        "memberTextAbsentAfterRestore": true
+      }
+    },
+    {
+      "id": "login-history",
+      "criterion": "logout protected deep-link history",
+      "surface": "/matters/:matterId and /login",
+      "invocation": "logout; goto protected matter; login; Back",
+      "verdict": "PASS",
+      "observed": {
+        "protectedNextLogin": true,
+        "postLoginMatter": true,
+        "backDashboard": true,
+        "loginNotReplayed": true
+      }
+    },
+    {
+      "id": "admin-guard-member",
+      "criterion": "ordinary user admin guard",
+      "surface": "/admin",
+      "invocation": "member login then goto /admin",
+      "verdict": "PASS",
+      "observed": {
+        "safeDenied": true,
+        "rawRoleOrError": false
+      }
+    },
+    {
+      "id": "admin-guard-firm-admin",
+      "criterion": "firm admin access",
+      "surface": "/admin",
+      "invocation": "firm-admin login then goto /admin",
+      "verdict": "PASS",
+      "observed": {
+        "settingsVisible": true,
+        "safeDenied": false,
+        "rawRoleOrError": false
+      }
+    },
+    {
+      "id": "g35-delayed-list",
+      "criterion": "G35 delayed older ClientsPage response",
+      "surface": "/clients",
+      "invocation": "not run: browser API exposes no request interception capability",
+      "verdict": "NOT_APPLICABLE",
+      "reason": "The available browser control surface has viewport and pageAssets only; no request interception or response delay control. Exact-SHA component race test is the authoritative G35 behavior evidence."
+    }
+  ],
+  "adversarialCases": [
+    {
+      "id": "forbidden-copy",
+      "criterion": "UI cleanup",
+      "adversarialClass": "forbidden/internal copy",
+      "expected": "no target helper copy or raw role/error codes",
+      "verdict": "PASS",
+      "artifactRefs": ["browser-matrix-26987720"]
+    },
+    {
+      "id": "responsive-horizontal",
+      "criterion": "responsive UI",
+      "adversarialClass": "horizontal clipping",
+      "expected": "no horizontal overflow or visible interactive control outside width",
+      "verdict": "PASS",
+      "artifactRefs": ["browser-matrix-26987720"]
+    },
+    {
+      "id": "unexpected-redirect",
+      "criterion": "routing",
+      "adversarialClass": "unexpected auth redirect",
+      "expected": "route remains on requested path when session is authorized",
+      "verdict": "PASS",
+      "artifactRefs": ["browser-matrix-26987720", "login-history-26987720"]
+    },
+    {
+      "id": "console-errors",
+      "criterion": "runtime",
+      "adversarialClass": "browser console error",
+      "expected": "zero console entries after scenarios",
+      "verdict": "PASS",
+      "artifactRefs": ["console-26987720"]
+    }
+  ],
+  "artifactRefs": [
+    {
+      "id": "browser-matrix-26987720",
+      "kind": "json",
+      "description": "50 route×viewport rows, horizontal assertions",
+      "path": "browser-matrix.json"
+    },
+    {
+      "id": "console-26987720",
+      "kind": "json",
+      "description": "final tab console entries",
+      "path": "browser-console.json"
+    },
+    {
+      "id": "dashboard-shot-26987720",
+      "kind": "png",
+      "description": "dashboard 1440x900",
+      "path": "dashboard-1440x900.png"
+    },
+    {
+      "id": "clients-shot-26987720",
+      "kind": "png",
+      "description": "clients 390x844",
+      "path": "clients-390x844.png"
+    },
+    {
+      "id": "matter-shot-26987720",
+      "kind": "png",
+      "description": "matter A 390x844",
+      "path": "matter-390x844.png"
+    },
+    {
+      "id": "work-shot-26987720",
+      "kind": "png",
+      "description": "work 1440x900",
+      "path": "work-1440x900.png"
+    }
+  ]
+}
