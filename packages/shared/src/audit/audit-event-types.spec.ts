@@ -14,6 +14,9 @@ describe('shared audit declaration bridge', () => {
     expect(auditAnchorActions).toEqual(['AUDIT_ANCHOR_RECORDED']);
     expect(dmsWorkAuditActions).toEqual([
       'WORK_ITEM_REASSIGNED',
+      'WORK_ITEM_DUE_AT_CHANGED',
+      'NOTIFICATION_READ',
+      'NOTIFICATION_DISMISSED',
       'DOCUMENT_BULK_ACTION_CREATED',
       'DOCUMENT_BULK_ACTION_COMPLETED',
       'DOCUMENT_BULK_ACTION_RETRIED',
@@ -38,12 +41,14 @@ describe('shared audit declaration bridge', () => {
       'DLP_REVIEW_RECORDED',
       'DLP_REVIEW_APPLIED',
     ]);
-    expect(auditActions).toEqual(expect.arrayContaining([
-      ...auditAnchorActions,
-      ...dmsWorkAuditActions,
-      ...knowledgeBankAuditActions,
-      ...fileSecurityAuditActions,
-    ]));
+    expect(auditActions).toEqual(
+      expect.arrayContaining([
+        ...auditAnchorActions,
+        ...dmsWorkAuditActions,
+        ...knowledgeBankAuditActions,
+        ...fileSecurityAuditActions,
+      ]),
+    );
     expect(isAuditAction('OIDC_LOGIN_SUCCEEDED')).toBe(false);
   });
 });

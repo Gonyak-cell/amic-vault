@@ -108,16 +108,16 @@ const newMatterCopy: Record<Language, NewMatterCopy> = {
     nextStepTitle: '생성 후 상태',
     nextStepDescription: '생성된 Matter는 검토 제안 상태로 열리고 상세 화면에서 검토를 이어갑니다.',
     accessScopeLabels: {
-      firm_open: '펌 전체 열람',
+      firm_open: '일반 Matter',
       restricted: '제한 Matter',
     },
     templateLabels: {
-      default_open: '기본개방 Matter',
+      default_open: '일반 Matter',
       restricted: '제한 Matter',
     },
     templateDescriptions: {
-      default_open: '담당 변호사를 책임자로 지정하고 펌 전체 열람 범위로 시작합니다.',
-      restricted: '담당 변호사를 책임자로 지정하고 구성원 기반 열람 범위로 시작합니다.',
+      default_open: '담당 변호사를 책임자로 지정하고 기본 접근 범위로 시작합니다.',
+      restricted: '담당 변호사를 책임자로 지정하고 지정된 구성원만 접근하는 범위로 시작합니다.',
     },
     typeLabels: {
       advisory: '자문',
@@ -165,16 +165,16 @@ const newMatterCopy: Record<Language, NewMatterCopy> = {
     nextStepTitle: 'After creation',
     nextStepDescription: 'The matter opens as proposed and continues in the detail screen.',
     accessScopeLabels: {
-      firm_open: 'Firm open',
-      restricted: 'Restricted matter',
+      firm_open: 'Standard access',
+      restricted: 'Restricted access',
     },
     templateLabels: {
-      default_open: 'Default open matter',
+      default_open: 'Standard matter',
       restricted: 'Restricted matter',
     },
     templateDescriptions: {
-      default_open: 'Starts with the lead lawyer as owner and firm-wide read access.',
-      restricted: 'Starts with the lead lawyer as owner and member-based read access.',
+      default_open: 'Starts with the lead lawyer as owner and standard access.',
+      restricted: 'Starts with the lead lawyer as owner and access for selected members.',
     },
     typeLabels: {
       advisory: 'Advisory',

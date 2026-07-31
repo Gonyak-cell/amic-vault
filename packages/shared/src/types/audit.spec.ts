@@ -103,6 +103,7 @@ describe('audit shared types', () => {
         'CLOSING_BINDER_FINALIZED',
         'CLOSING_BINDER_MANIFEST_DOWNLOADED',
         'WORK_ITEM_REASSIGNED',
+        'WORK_ITEM_DUE_AT_CHANGED',
       ]),
     );
     expect(r8ContractAuditActions).toContain('PLAYBOOK_RULE_CHANGED');

@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { MatterDto } from '@amic-vault/shared';
+import { ApiClientError, listMatters } from '@/lib/api-client';
 import { LanguageProvider } from '@/lib/i18n';
 import {
   MatterListTable,
@@ -9,12 +10,14 @@ import {
   matterSearchUrl,
   type MatterListTableCopy,
 } from '@/components/matter/matter-list-table';
-import { listMatterQueryFromSearchParams } from './matter-list-query';
+import { loadMatterList } from './matter-list-load';
+import { listMatterQueryFromSearchParams, type MatterSearchParams } from './matter-list-query';
 import MattersPage from './page';
 
-vi.mock('@/lib/api-client', () => ({
-  listMatters: vi.fn(),
-}));
+vi.mock('@/lib/api-client', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api-client')>();
+  return { ...actual, listMatters: vi.fn() };
+});
 
 describe('MattersPage', () => {
   it('keeps Matter headers title-only without turning the list into upload flow', () => {
@@ -25,13 +28,14 @@ describe('MattersPage', () => {
     );
 
     expect(html).toContain('Matter 목록');
-    expect(html).toContain('Matter 관리 시스템 연동 기준');
+    expect(html).not.toContain('Matter 관리 시스템 연동 기준');
     expect(html).toContain('새 Matter');
     expect(html.match(/새 Matter/g)).toHaveLength(1);
     expect(html).toContain('href="/matters/new"');
     expect(html.match(/href="\/matters\/new"/g)).toHaveLength(1);
     expect(html).not.toContain('Matter 관리 시스템에서 동기화된');
     expect(html).not.toContain('Matter 관리 시스템에서 확정된 Matter 코드');
+    expect(html).not.toContain('Matter 코드 동기화');
     expect(html).not.toContain('파일 업로드');
     expect(html).not.toContain('href="/files"');
     expect(html).not.toMatch(/>18</);
@@ -39,18 +43,80 @@ describe('MattersPage', () => {
     expect(html).not.toMatch(/>9</);
   });
 
-  it('passes a selected client filter from the route into the matter list query', () => {
+  it('uses direct empty copy without presenting loading as a failure', () => {
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <MattersPage />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('불러오는 중입니다.');
+    expect(html).not.toContain('데이터를 불러올 수 없습니다.');
+    expect(html).not.toContain('Matter 관리 시스템');
+  });
+
+  it('allowlists compatible q and client filters from the route', () => {
     expect(
       listMatterQueryFromSearchParams({
         clientId: '11111111-1111-4111-8111-111111111111',
+        q: '  AMIC-2026  ',
       }),
     ).toEqual({
       clientId: '11111111-1111-4111-8111-111111111111',
       pageSize: 20,
+      q: 'AMIC-2026',
     });
     expect(listMatterQueryFromSearchParams({ clientId: 'not-a-uuid' })).toEqual({
       pageSize: 20,
     });
+    expect(listMatterQueryFromSearchParams({ q: '   ' })).toEqual({
+      pageSize: 20,
+    });
+    expect(
+      listMatterQueryFromSearchParams({
+        clientId: '11111111-1111-4111-8111-111111111111',
+        owner: 'ignored',
+        q: ['고객명', 'ignored'],
+      } as MatterSearchParams & { owner: string }),
+    ).toEqual({
+      clientId: '11111111-1111-4111-8111-111111111111',
+      pageSize: 20,
+      q: '고객명',
+    });
+  });
+
+  it('renders an accessible GET search form with only q and the active client filter', () => {
+    const html = renderToStaticMarkup(
+      <LanguageProvider>
+        <MattersPage
+          searchParams={{
+            clientId: '11111111-1111-4111-8111-111111111111',
+            q: '계약 검토',
+          }}
+        />
+      </LanguageProvider>,
+    );
+
+    expect(html).toContain('action="/matters"');
+    expect(html).toContain('method="get"');
+    expect(html).toContain('role="search"');
+    expect(html).toContain('aria-label="Matter 목록 검색"');
+    expect(html).toContain('flex-col');
+    expect(html).toContain('sm:flex-row');
+    expect(html).toContain('w-full sm:w-auto');
+    expect(html).toContain('for="matter-list-search"');
+    expect(html).toContain('id="matter-list-search"');
+    expect(html).toContain('name="q"');
+    expect(html).toContain('type="search"');
+    expect(html).toContain('maxLength="200"');
+    expect(html).toContain('value="계약 검토"');
+    expect(html).toContain(
+      'name="clientId" type="hidden" value="11111111-1111-4111-8111-111111111111"',
+    );
+    expect(html).not.toContain('name="owner"');
+    expect(html).not.toContain('name="due"');
+    expect(html).not.toContain('name="cursor"');
+    expect(html).toContain('href="/matters?q=%EA%B3%84%EC%95%BD%20%EA%B2%80%ED%86%A0"');
   });
 
   it('renders client-filtered matter context with a clear path back to all matters', () => {
@@ -65,6 +131,53 @@ describe('MattersPage', () => {
     expect(html).toContain('href="/matters"');
   });
 
+  it('settles resolved Matter list requests as ready or empty', async () => {
+    vi.mocked(listMatters)
+      .mockResolvedValueOnce({
+        items: [matterFixture()],
+        totalCount: 1,
+        page: 1,
+        pageSize: 20,
+      })
+      .mockResolvedValueOnce({
+        items: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: 20,
+      });
+
+    await expect(loadMatterList({ pageSize: 20, q: '계약' })).resolves.toEqual({
+      matters: [matterFixture()],
+      loadState: 'ready',
+    });
+    await expect(loadMatterList({ pageSize: 20, q: '없는 Matter' })).resolves.toEqual({
+      matters: [],
+      loadState: 'empty',
+    });
+    expect(listMatters).toHaveBeenNthCalledWith(1, { pageSize: 20, q: '계약' });
+    expect(listMatters).toHaveBeenNthCalledWith(2, { pageSize: 20, q: '없는 Matter' });
+  });
+
+  it('settles rejected Matter list requests as unavailable, denied, or Wall-blocked', async () => {
+    vi.mocked(listMatters)
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockRejectedValueOnce(new ApiClientError(403, { code: 'PERMISSION_DENIED' }))
+      .mockRejectedValueOnce(new ApiClientError(403, { code: 'ETHICAL_WALL_BLOCKED' }));
+
+    await expect(loadMatterList({ pageSize: 20 })).resolves.toEqual({
+      matters: [],
+      loadState: 'unavailable',
+    });
+    await expect(loadMatterList({ pageSize: 20 })).resolves.toEqual({
+      matters: [],
+      loadState: 'forbidden',
+    });
+    await expect(loadMatterList({ pageSize: 20 })).resolves.toEqual({
+      matters: [],
+      loadState: 'blocked',
+    });
+  });
+
   it('renders Matter-first DMS actions for real matter rows without fake counts', () => {
     const matter = matterFixture({ confidentialityLevel: 'high', ethicalWallActive: true });
     const html = renderToStaticMarkup(<MatterListTable copy={matterListCopy} matters={[matter]} />);
@@ -72,20 +185,21 @@ describe('MattersPage', () => {
     expect(html).toContain('계약 검토');
     expect(html).toContain('AMIC-2026-0007');
     expect(html).toContain('한빛전자');
-    expect(html).toContain('높음');
-    expect(html).toContain('정보 차단');
+    expect(html).toContain('담당자');
+    expect(html).toContain('미지정');
+    expect(html).toContain('최근 변경');
+    expect(html).toContain('2026.06.18');
+    expect(html).not.toContain('정보 차단');
+    expect(html).not.toContain('높음');
     expect(html).toContain('파일함');
     expect(html).toContain('검색');
-    expect(html).toContain('min-w-[1140px]');
-    expect(html).toContain('whitespace-nowrap');
+    expect(html).toContain('추가 작업');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0007) 파일함"');
+    expect(html).toContain('aria-label="계약 검토 (AMIC-2026-0007) 검색"');
     expect(html).toContain('href="/matters/11111111-1111-4111-8111-111111111122"');
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007"');
     expect(html).toContain(
       'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter"',
-    );
-    expect(html).toContain('href="/files?matterCode=AMIC-2026-0007">파일함</a>');
-    expect(html).toContain(
-      'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter">검색</a>',
     );
     expect(html).not.toMatch(/>18</);
     expect(html).not.toMatch(/>642</);
@@ -109,12 +223,12 @@ const matterListCopy = {
   client: '고객',
   fileCabinet: '파일함',
   matter: 'Matter',
-  openMatter: '열기',
-  protected: '보호됨',
+  moreActions: '추가 작업',
+  owner: '담당자',
+  ownerUnassigned: '미지정',
+  recentUpdate: '최근 변경',
   searchMatter: '검색',
-  security: '보안',
   status: '상태',
-  type: '유형',
 } satisfies MatterListTableCopy;
 
 function matterFixture(overrides: Partial<MatterDto> = {}): MatterDto {

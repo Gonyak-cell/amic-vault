@@ -28,7 +28,13 @@ import { SearchQueryBuilder } from './query/search-query.builder';
 import { SnippetBuilder } from './query/snippet-builder';
 
 @Module({
-  imports: [AuditModule, BreakGlassModule, LawDataModule, MetricsModule, TenantModule],
+  imports: [
+    AuditModule,
+    BreakGlassModule,
+    LawDataModule,
+    MetricsModule,
+    TenantModule,
+  ],
   controllers: [ReindexController, SearchController],
   providers: [
     DenyAllSearchPermissionScopeProvider,

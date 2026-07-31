@@ -63,6 +63,8 @@ describe('SearchWorkbenchRail', () => {
     expect(html).toContain('최근 문서');
     expect(html).toContain('NDA 검토본');
     expect(html).toContain('href="/files"');
+    expect(html).not.toContain('검색 폴더 관리');
+    expect(html).not.toContain('href="/search/folders"');
     expect(html).not.toContain(savedSearch.savedSearchId);
     expect(html).not.toContain('/documents/');
   });

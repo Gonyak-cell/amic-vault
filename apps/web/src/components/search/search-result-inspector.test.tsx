@@ -5,13 +5,23 @@ import type { SearchResultDto } from '@amic-vault/shared';
 import { SearchResultInspector } from './search-result-inspector';
 
 vi.mock('next/link', () => ({
-  default: ({ children, href, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
-    <a href={href} {...props}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }));
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({ asChild, children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => {
+  Button: ({
+    asChild,
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => {
     void asChild;
     return <button {...props}>{children}</button>;
   },
@@ -59,6 +69,8 @@ describe('SearchResultInspector', () => {
     expect(html).toContain('NDA 검토본');
     expect(html).toContain('AMIC-2026-0007 · Vault Upgrade');
     expect(html).toContain('한빛전자');
+    expect(html).toContain('계약');
+    expect(html).not.toContain('>contract<');
     expect(html).toContain('미리보기');
     expect(html).toContain('문서 열기');
     expect(html).toContain('from=search');

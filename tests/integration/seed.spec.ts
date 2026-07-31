@@ -35,17 +35,33 @@ describe('seed loader', () => {
 
       for (const tenantId of [tenantAlphaId, tenantBetaId]) {
         await setTenant(client, tenantId);
-        const matterIntakeTemplates = await client.query<{ count: string }>(
+        const matterIntakeTemplates = await client.query<{
+          template_code: string;
+          display_name: string;
+          description: string;
+        }>(
           `
-            SELECT count(*)::text AS count
+            SELECT template_code, display_name, description
             FROM matter_intake_templates
             WHERE tenant_id = $1
               AND template_code IN ('default_open', 'restricted')
               AND status = 'active'
+            ORDER BY template_code
           `,
           [tenantId],
         );
-        expect(matterIntakeTemplates.rows[0]?.count).toBe('2');
+        expect(matterIntakeTemplates.rows).toEqual([
+          {
+            template_code: 'default_open',
+            display_name: '일반 Matter',
+            description: '담당 변호사를 책임자로 지정하고 기본 접근 범위로 시작합니다.',
+          },
+          {
+            template_code: 'restricted',
+            display_name: '제한 Matter',
+            description: '지정된 Matter 구성원만 열람할 수 있습니다.',
+          },
+        ]);
       }
     });
   });

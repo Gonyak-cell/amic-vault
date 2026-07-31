@@ -538,16 +538,6 @@ const enterpriseSearchFiles = [
     ],
   },
   {
-    path: 'apps/web/src/app/(app)/search/folders/search-folders-client.tsx',
-    patterns: [
-      { name: 'search folders route saved-search API list', pattern: /listSavedSearches/ },
-      { name: 'search folders route saved-search API delete', pattern: /deleteSavedSearch/ },
-      { name: 'search folders route title', pattern: /내 검색 폴더/ },
-      { name: 'search folders safe URL helper', pattern: /searchUrlForSavedQuery/ },
-      { name: 'search folders no id display by design', pattern: /savedSearchId/ },
-    ],
-  },
-  {
     path: 'apps/web/src/components/search/search-save-panel.tsx',
     patterns: [
       { name: 'current search reusable link', pattern: /링크 복사/ },
@@ -700,18 +690,13 @@ const governanceWorkflowOpsFiles = [
     path: 'apps/web/src/app/(app)/dashboard/vault-activity-client.tsx',
     patterns: [
       { name: 'dashboard DMS action launcher', pattern: /문서 업무 바로가기/ },
-      { name: 'dashboard upload shortcut', pattern: /\/files#matter-upload/ },
-      { name: 'dashboard file cabinet shortcut', pattern: /전체 문서함/ },
       { name: 'dashboard search shortcut', pattern: /\/search/ },
-      { name: 'dashboard search folders shortcut', pattern: /\/search\/folders/ },
       { name: 'dashboard work queue shortcut', pattern: /\/work/ },
-      { name: 'dashboard notifications shortcut', pattern: /\/notifications/ },
-      {
-        name: 'dashboard AI prep file filter shortcut',
-        pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/,
-      },
-      { name: 'dashboard ops health shortcut', pattern: /\/admin/ },
       { name: 'dashboard action queue', pattern: /DashboardWorkQueueSection/ },
+      {
+        name: 'dashboard work before shortcuts',
+        pattern: /DashboardWorkQueueSection[\s\S]*DashboardActionLauncher/,
+      },
       { name: 'no fake dashboard queue counts', pattern: /DashboardWorkQueueSection/ },
     ],
   },
@@ -719,34 +704,32 @@ const governanceWorkflowOpsFiles = [
     path: 'apps/web/src/app/(app)/work/work-queue-client.tsx',
     patterns: [
       { name: 'work queue page heading', pattern: /작업함/ },
-      { name: 'work queue dashboard source', pattern: /getDashboardOverview/ },
       { name: 'work queue dedicated API source', pattern: /getWorkQueue/ },
       { name: 'work queue API state mapping', pattern: /workQueueToState/ },
       { name: 'work queue action console filters', pattern: /작업함 조치 콘솔/ },
-      { name: 'work queue source filter', pattern: /work-source-filter/ },
-      { name: 'work queue status filter', pattern: /work-status-filter/ },
-      { name: 'work queue attention sort', pattern: /주의 항목 우선/ },
-      { name: 'work queue file cabinet filters', pattern: /문서함 조치 필터/ },
-      { name: 'work queue extraction failed link', pattern: /\/files\?extractionStatus=failed/ },
-      { name: 'work queue metadata completion link', pattern: /\/files\?status=draft/ },
+      { name: 'work queue kind filter', pattern: /work-kind-filter/ },
+      { name: 'work queue assignee filter', pattern: /work-assignee-filter/ },
+      { name: 'work queue URL-owned tabs', pattern: /WorkInboxTabs/ },
       {
-        name: 'work queue AI prep file link',
-        pattern: /\/files\?aiAllowed=true&sortBy=matter_asc/,
+        name: 'work queue scoped reassignment candidates',
+        pattern: /listWorkReassignmentCandidates/,
       },
-      { name: 'work queue records action link', pattern: /\/records/ },
+      { name: 'work queue reassignment capability', pattern: /item\.canReassign === true/ },
+      { name: 'work queue due capability', pattern: /item\.canUpdateDueAt === true/ },
+      { name: 'work queue server-owned action link', pattern: /href=\{item\.href\}/ },
     ],
   },
   {
     path: 'apps/web/src/app/(app)/notifications/notifications-client.tsx',
     patterns: [
       { name: 'notifications page heading', pattern: /알림/ },
-      { name: 'notifications dashboard source', pattern: /getDashboardOverview/ },
       { name: 'notifications dedicated API source', pattern: /getNotificationCenter/ },
       { name: 'notifications API state mapping', pattern: /notificationCenterToState/ },
       { name: 'notifications action console filters', pattern: /알림 조치 콘솔/ },
       { name: 'notifications source filter', pattern: /notification-source-filter/ },
       { name: 'notifications status filter', pattern: /notification-status-filter/ },
       { name: 'notifications attention sort', pattern: /주의 알림 우선/ },
+      { name: 'notifications partial state', pattern: /notificationPartial/ },
       { name: 'real notification copy', pattern: /실제 운영 이벤트에서 발생한 알림만/ },
     ],
   },
@@ -1582,7 +1565,6 @@ const responsiveAccessibilityFiles = [
   {
     path: 'apps/web/src/components/ui/page-header.tsx',
     patterns: [
-      { name: 'responsive header actions', pattern: /flex-col[\s\S]*md:flex-row/ },
       { name: 'breadcrumb navigation label', pattern: /aria-label="이동 경로"/ },
       {
         name: 'active breadcrumb current page',
@@ -1597,7 +1579,8 @@ const responsiveAccessibilityFiles = [
       { name: 'bounded card overflow', pattern: /overflow-hidden/ },
       {
         name: 'wrapped card actions',
-        pattern: /flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2/,
+        pattern:
+          /<div(?=[^>]*data-slot="section-card-actions")(?=[^>]*className="[^"]*\bw-full\b)(?=[^>]*className="[^"]*\bflex-wrap\b)(?=[^>]*className="[^"]*\bsm:w-auto\b)/,
       },
     ],
   },
@@ -1924,6 +1907,12 @@ function checkEnterpriseSearchGuard() {
       if (!pattern.test(source)) {
         fail(`Enterprise search production smoke guard missing ${name} in ${file.path}`);
       }
+    }
+    if (
+      file.path.includes('/search/folders/') &&
+      /\b(?:listSavedSearches|saveSavedSearch|deleteSavedSearch)\b/.test(source)
+    ) {
+      fail(`Enterprise search compatibility route duplicates saved-search APIs in ${file.path}`);
     }
   }
 }

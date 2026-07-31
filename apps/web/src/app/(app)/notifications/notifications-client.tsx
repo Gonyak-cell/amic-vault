@@ -1,12 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, Bell, Bot, PlugZap } from 'lucide-react';
-import {
-  dashboardNotificationItems,
-  DashboardNotificationsSection,
-  notificationSourceMeta,
-} from '@/components/dashboard/dashboard-notifications';
+import { Bell } from 'lucide-react';
+import { DashboardNotificationList } from '@/components/dashboard/dashboard-notifications';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FilterBar, FilterField } from '@/components/ui/filter-bar';
@@ -15,38 +11,35 @@ import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import {
-  createDashboardUnavailableState,
-  dashboardErrorState,
-  dashboardOverviewToState,
-  getDashboardOverview,
-  type DashboardOverviewState,
-} from '@/lib/api/dashboard';
-import {
   createNotificationsUnavailableState,
   dismissNotification,
   getNotificationCenter,
   markNotificationRead,
   notificationCenterToState,
   operationalApiErrorState,
+  workQueueUrlStateFromParams,
   type DmsNotificationItem,
+  type WorkQueueUrlState,
 } from '@/lib/api/work-ops';
 import type { DataState } from '@/lib/data-state';
+import { WorkInboxTabs } from '@/components/work/work-inbox-tabs';
 
-type NotificationSourceFilter = 'all' | DmsNotificationItem['source'];
+type PersistedNotificationSource = Extract<
+  DmsNotificationItem['source'],
+  'operational_data' | 'records'
+>;
+type NotificationSourceFilter = 'all' | PersistedNotificationSource;
 type NotificationToneFilter = 'all' | DmsNotificationItem['tone'];
 type NotificationSortMode = 'attention' | 'occurred_desc' | 'source';
+type NotificationMutation = 'dismiss' | 'read';
 
 const selectClassName =
   'flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
 
 const notificationSourceLabels = {
   all: '전체 구분',
-  permission_policy: '권한/정책',
-  ai_prep: '파일 정리 준비',
-  integration: '연동',
   operational_data: '문서 처리',
   records: '기록 보존',
-  recent_activity: '최근 활동',
 } as const satisfies Record<NotificationSourceFilter, string>;
 
 const notificationToneLabels = {
@@ -69,36 +62,31 @@ const notificationSourceOptions = Object.keys(
 const notificationToneOptions = Object.keys(notificationToneLabels) as NotificationToneFilter[];
 const notificationSortOptions = Object.keys(notificationSortLabels) as NotificationSortMode[];
 
-export function NotificationsClient() {
-  const [dashboardState, setDashboardState] = useState<DashboardOverviewState>(() =>
-    createDashboardUnavailableState(),
-  );
+export function NotificationsClient({
+  urlState = workQueueUrlStateFromParams(),
+}: {
+  urlState?: WorkQueueUrlState;
+}) {
   const [notificationState, setNotificationState] = useState<DataState<DmsNotificationItem[]>>(() =>
     createNotificationsUnavailableState(),
   );
-
-  useEffect(() => {
-    let active = true;
-    getDashboardOverview()
-      .then((overview) => {
-        if (active) setDashboardState(dashboardOverviewToState(overview));
-      })
-      .catch((error: unknown) => {
-        if (active) setDashboardState(dashboardErrorState(error));
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const [notificationPartial, setNotificationPartial] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     getNotificationCenter()
       .then((response) => {
-        if (active) setNotificationState(notificationCenterToState(response));
+        if (active) {
+          setNotificationState(notificationCenterToState(response));
+          setNotificationPartial(response.partial === true || response.hasMore === true);
+        }
       })
       .catch((error: unknown) => {
-        if (active) setNotificationState(operationalApiErrorState(error));
+        if (active) {
+          setNotificationState(operationalApiErrorState(error));
+          setNotificationPartial(false);
+        }
       });
     return () => {
       active = false;
@@ -116,53 +104,66 @@ export function NotificationsClient() {
   }
 
   function handleMarkRead(item: DmsNotificationItem) {
-    markNotificationRead(item.itemKey).then(() => {
-      updateNotificationState((items) =>
-        items.map((current) =>
-          current.itemKey === item.itemKey
-            ? { ...current, status: 'read', statusLabel: '읽음' }
-            : current,
-        ),
-      );
-    });
+    setMutationError(null);
+    markNotificationRead(item.itemKey)
+      .then(() => {
+        updateNotificationState((items) =>
+          items.map((current) =>
+            current.itemKey === item.itemKey
+              ? { ...current, status: 'read', statusLabel: '읽음' }
+              : current,
+          ),
+        );
+      })
+      .catch(() => {
+        setMutationError(notificationMutationErrorMessage('read'));
+      });
   }
 
   function handleDismiss(item: DmsNotificationItem) {
-    dismissNotification(item.itemKey).then(() => {
-      updateNotificationState((items) =>
-        items.filter((current) => current.itemKey !== item.itemKey),
-      );
-    });
+    setMutationError(null);
+    dismissNotification(item.itemKey)
+      .then(() => {
+        updateNotificationState((items) =>
+          items.filter((current) => current.itemKey !== item.itemKey),
+        );
+      })
+      .catch(() => {
+        setMutationError(notificationMutationErrorMessage('dismiss'));
+      });
   }
 
   return (
     <NotificationsContent
-      dashboardState={dashboardState}
+      mutationError={mutationError}
+      notificationPartial={notificationPartial}
       notificationState={notificationState}
       onDismiss={handleDismiss}
       onMarkRead={handleMarkRead}
+      urlState={urlState}
     />
   );
 }
 
 export function NotificationsContent({
-  dashboardState,
+  mutationError = null,
+  notificationPartial = false,
   notificationState,
   onDismiss,
   onMarkRead,
+  urlState = workQueueUrlStateFromParams(),
 }: {
-  dashboardState: DashboardOverviewState;
-  notificationState?: DataState<DmsNotificationItem[]>;
+  mutationError?: string | null;
+  notificationPartial?: boolean;
+  notificationState: DataState<DmsNotificationItem[]>;
   onDismiss?: (item: DmsNotificationItem) => void;
   onMarkRead?: (item: DmsNotificationItem) => void;
+  urlState?: WorkQueueUrlState;
 }) {
   const [sourceFilter, setSourceFilter] = useState<NotificationSourceFilter>('all');
   const [toneFilter, setToneFilter] = useState<NotificationToneFilter>('all');
   const [sortMode, setSortMode] = useState<NotificationSortMode>('attention');
-  const items =
-    notificationState?.status === 'ready'
-      ? notificationState.data
-      : dashboardNotificationItems(dashboardState);
+  const items = notificationState.status === 'ready' ? notificationState.data : [];
   const visibleItems = useMemo(
     () => filterNotifications(items, sourceFilter, toneFilter, sortMode),
     [items, sortMode, sourceFilter, toneFilter],
@@ -184,201 +185,164 @@ export function NotificationsContent({
           <StatusBadge tone={items.length > 0 ? 'warning' : 'success'}>실제 상태 기반</StatusBadge>
         }
       />
+      <WorkInboxTabs activeView="notifications" urlState={urlState} />
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="grid min-w-0 gap-4">
-          <FilterBar
-            label="알림 조치 콘솔"
-            title="알림 조치 콘솔"
-            description="실제 운영 이벤트에서 발생한 알림만 업무 구분과 상태 기준으로 좁히고 원본 업무 화면으로 이동합니다."
-            resultsSummary={notificationFilterSummary(notificationState, visibleItems, items)}
-            controls={
-              <>
-                <FilterField htmlFor="notification-source-filter" label="업무 구분">
-                  <select
-                    id="notification-source-filter"
-                    className={selectClassName}
-                    value={sourceFilter}
-                    onChange={(event) =>
-                      setSourceFilter(event.target.value as NotificationSourceFilter)
-                    }
-                  >
-                    {notificationSourceOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {notificationSourceLabels[option]}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-                <FilterField htmlFor="notification-status-filter" label="상태">
-                  <select
-                    id="notification-status-filter"
-                    className={selectClassName}
-                    value={toneFilter}
-                    onChange={(event) =>
-                      setToneFilter(event.target.value as NotificationToneFilter)
-                    }
-                  >
-                    {notificationToneOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {notificationToneLabels[option]}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-                <FilterField htmlFor="notification-sort" label="정렬">
-                  <select
-                    id="notification-sort"
-                    className={selectClassName}
-                    value={sortMode}
-                    onChange={(event) => setSortMode(event.target.value as NotificationSortMode)}
-                  >
-                    {notificationSortOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {notificationSortLabels[option]}
-                      </option>
-                    ))}
-                  </select>
-                </FilterField>
-              </>
-            }
-            actions={
-              sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'attention' ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSourceFilter('all');
-                    setToneFilter('all');
-                    setSortMode('attention');
-                  }}
+      <div className="grid min-w-0 gap-4">
+        <FilterBar
+          label="알림 조치 콘솔"
+          title="알림 조치 콘솔"
+          description="실제 운영 이벤트에서 발생한 알림만 업무 구분과 상태 기준으로 좁히고 원본 업무 화면으로 이동합니다."
+          resultsSummary={notificationFilterSummary(
+            notificationState,
+            visibleItems,
+            items,
+            notificationPartial,
+          )}
+          controls={
+            <>
+              <FilterField htmlFor="notification-source-filter" label="업무 구분">
+                <select
+                  id="notification-source-filter"
+                  className={selectClassName}
+                  value={sourceFilter}
+                  onChange={(event) =>
+                    setSourceFilter(event.target.value as NotificationSourceFilter)
+                  }
                 >
-                  초기화
-                </Button>
-              ) : null
-            }
-          />
-          <DashboardNotificationsSection
-            itemsState={visibleNotificationState}
-            state={dashboardState}
-            title="알림 센터"
-            {...notificationActionProps}
-          />
-          <SectionCard
-            icon={<Activity className="h-4 w-4" />}
-            title="알림 구분"
-            meta="확인된 데이터 기준"
+                  {notificationSourceOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {notificationSourceLabels[option]}
+                    </option>
+                  ))}
+                </select>
+              </FilterField>
+              <FilterField htmlFor="notification-status-filter" label="상태">
+                <select
+                  id="notification-status-filter"
+                  className={selectClassName}
+                  value={toneFilter}
+                  onChange={(event) => setToneFilter(event.target.value as NotificationToneFilter)}
+                >
+                  {notificationToneOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {notificationToneLabels[option]}
+                    </option>
+                  ))}
+                </select>
+              </FilterField>
+              <FilterField htmlFor="notification-sort" label="정렬">
+                <select
+                  id="notification-sort"
+                  className={selectClassName}
+                  value={sortMode}
+                  onChange={(event) => setSortMode(event.target.value as NotificationSortMode)}
+                >
+                  {notificationSortOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {notificationSortLabels[option]}
+                    </option>
+                  ))}
+                </select>
+              </FilterField>
+            </>
+          }
+          actions={
+            sourceFilter !== 'all' || toneFilter !== 'all' || sortMode !== 'attention' ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSourceFilter('all');
+                  setToneFilter('all');
+                  setSortMode('attention');
+                }}
+              >
+                초기화
+              </Button>
+            ) : null
+          }
+        />
+        {mutationError ? (
+          <div
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
           >
-            <ul className="grid gap-2 sm:grid-cols-2">
-              <NotificationSourceItem
-                label="권한/정책"
-                state={dashboardState.permissionPolicyAlerts}
-              />
-              <NotificationSourceItem label="파일 정리 준비" state={dashboardState.aiPrepStatus} />
-              <NotificationSourceItem label="연동 상태" state={dashboardState.integrationStatus} />
-              <NotificationSourceItem label="최근 활동" state={dashboardState.recentActivity} />
-            </ul>
-          </SectionCard>
-        </div>
-
-        <aside className="grid gap-4 xl:sticky xl:top-20 xl:self-start">
-          <NotificationSourcePanel
-            icon={<Bell className="h-4 w-4" />}
-            title="권한/정책"
-            emptyTitle="표시할 권한 또는 정책 알림이 없습니다."
-            state={dashboardState.permissionPolicyAlerts}
-          />
-          <NotificationSourcePanel
-            icon={<Bot className="h-4 w-4" />}
-            title="파일 정리 준비"
-            emptyTitle="파일 정리 준비 상태 알림이 없습니다."
-            state={dashboardState.aiPrepStatus}
-          />
-          <NotificationSourcePanel
-            icon={<PlugZap className="h-4 w-4" />}
-            title="연동"
-            emptyTitle="연결된 연동 상태 알림이 없습니다."
-            state={dashboardState.integrationStatus}
-          />
-        </aside>
+            {mutationError}
+          </div>
+        ) : null}
+        {notificationPartial ? (
+          <div
+            role="status"
+            className="rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground"
+          >
+            최근 알림 일부만 표시됩니다. 더 많은 알림이 있어 이 목록이 전체가 아닙니다.
+          </div>
+        ) : null}
+        <SectionCard
+          icon={<Bell className="h-4 w-4" />}
+          title="알림 센터"
+          meta={notificationStateMeta(visibleNotificationState)}
+        >
+          <NotificationStateBody state={visibleNotificationState} {...notificationActionProps} />
+        </SectionCard>
       </div>
     </PageShell>
   );
 }
 
-function NotificationSourcePanel<T>({
-  emptyTitle,
-  icon,
-  state,
-  title,
-}: {
-  emptyTitle: string;
-  icon: React.ReactNode;
-  state: DataState<T[]>;
-  title: string;
-}) {
-  return (
-    <SectionCard icon={icon} title={title} meta={notificationSourceMeta(state)}>
-      <NotificationSourceBody state={state} emptyTitle={emptyTitle} />
-    </SectionCard>
-  );
-}
-
-function NotificationSourceItem<T>({ label, state }: { label: string; state: DataState<T[]> }) {
-  return (
-    <li className="flex min-h-12 items-center justify-between gap-3 rounded-md border bg-background px-3 py-2">
-      <span className="text-[13px] font-medium text-foreground">{label}</span>
-      <StatusBadge tone={notificationTone(state)}>{notificationSourceMeta(state)}</StatusBadge>
-    </li>
-  );
-}
-
-function NotificationSourceBody<T>({
-  emptyTitle,
+function NotificationStateBody({
+  onDismiss,
+  onMarkRead,
   state,
 }: {
-  emptyTitle: string;
-  state: DataState<T[]>;
+  onDismiss?: (item: DmsNotificationItem) => void;
+  onMarkRead?: (item: DmsNotificationItem) => void;
+  state: DataState<DmsNotificationItem[]>;
 }) {
   if (state.status === 'ready') {
-    return state.data.length > 0 ? (
-      <p className="text-sm text-muted-foreground">
-        {state.data.length}건이 알림 센터에 반영되었습니다.
-      </p>
-    ) : (
-      <EmptyState title={emptyTitle} />
-    );
-  }
-  if (state.status === 'empty') return <EmptyState title={emptyTitle} />;
-  if (state.status === 'error')
-    return <EmptyState variant="api-error" title="알림을 표시할 수 없습니다." />;
-  if (state.status === 'forbidden')
-    return <EmptyState variant="no-access" title="이 항목을 볼 권한이 없습니다." />;
-  if (state.status === 'blocked') {
     return (
-      <EmptyState
-        variant="policy-blocked"
-        title="정보 차단 또는 권한 정책으로 표시할 수 없습니다."
+      <DashboardNotificationList
+        items={state.data}
+        {...(onDismiss ? { onDismiss } : {})}
+        {...(onMarkRead ? { onMarkRead } : {})}
       />
     );
   }
-  return <EmptyState variant="api-unavailable" title="데이터를 불러오는 중입니다." />;
+  if (state.status === 'empty') {
+    return (
+      <EmptyState
+        title="표시할 알림이 없습니다."
+        description="실제 운영 이벤트와 상태에서 발생한 알림만 표시됩니다."
+      />
+    );
+  }
+  if (state.status === 'error')
+    return <EmptyState variant="api-error" title="알림 데이터를 표시할 수 없습니다." />;
+  if (state.status === 'forbidden')
+    return <EmptyState variant="no-access" title="알림 데이터에 접근할 권한이 없습니다." />;
+  if (state.status === 'blocked') {
+    return (
+      <EmptyState variant="policy-blocked" title="정보 차단 정책에 따라 표시할 수 없습니다." />
+    );
+  }
+  return <EmptyState variant="api-unavailable" title="알림 연결 대기 중입니다." />;
 }
 
-function notificationTone<T>(state: DataState<T[]>): 'success' | 'warning' | 'blocked' | 'neutral' {
-  if (state.status === 'ready') return state.data.length > 0 ? 'warning' : 'success';
-  if (state.status === 'empty') return 'success';
-  if (state.status === 'error' || state.status === 'blocked') return 'blocked';
-  if (state.status === 'forbidden') return 'warning';
-  return 'neutral';
+function notificationStateMeta(state: DataState<DmsNotificationItem[]>): string {
+  if (state.status === 'ready') {
+    return state.data.length > 0 ? `${state.data.length}건` : '표시할 항목 없음';
+  }
+  if (state.status === 'empty') return '표시할 항목 없음';
+  if (state.status === 'error') return '연결 확인 필요';
+  if (state.status === 'forbidden' || state.status === 'blocked') return '권한 정책 적용';
+  return '연결 대기';
 }
 
 function filteredNotificationState(
-  state: DataState<DmsNotificationItem[]> | undefined,
+  state: DataState<DmsNotificationItem[]>,
   items: DmsNotificationItem[],
-): DataState<DmsNotificationItem[]> | undefined {
-  if (!state) return undefined;
+): DataState<DmsNotificationItem[]> {
   if (state.status !== 'ready') return state;
   return { status: 'ready', data: items };
 }
@@ -422,10 +386,7 @@ function notificationToneRank(tone: DmsNotificationItem['tone']): number {
 }
 
 function notificationSourceRank(source: DmsNotificationItem['source']): number {
-  if (source === 'permission_policy') return 0;
-  if (source === 'ai_prep') return 1;
-  if (source === 'integration') return 2;
-  return 3;
+  return source === 'records' ? 0 : 1;
 }
 
 function notificationTimeRank(occurredAt: string | undefined): number {
@@ -435,12 +396,21 @@ function notificationTimeRank(occurredAt: string | undefined): number {
 }
 
 function notificationFilterSummary(
-  state: DataState<DmsNotificationItem[]> | undefined,
+  state: DataState<DmsNotificationItem[]>,
   visibleItems: DmsNotificationItem[],
   allItems: DmsNotificationItem[],
+  partial: boolean,
 ): string {
-  if (state?.status === 'error') return '운영 데이터 연결 확인 필요';
-  if (state?.status === 'forbidden' || state?.status === 'blocked') return '권한 정책 적용';
-  if (state && state.status !== 'ready') return '알림 데이터 연결 대기';
+  if (state.status === 'error') return '운영 데이터 연결 확인 필요';
+  if (state.status === 'forbidden' || state.status === 'blocked') return '권한 정책 적용';
+  if (state.status === 'empty') return '표시할 알림 없음';
+  if (state.status !== 'ready') return '알림 데이터 연결 대기';
+  if (partial) return `${visibleItems.length}건 표시 · 최근 ${allItems.length}건 중 일부`;
   return `${visibleItems.length}건 표시 · 전체 ${allItems.length}건`;
+}
+
+export function notificationMutationErrorMessage(mutation: NotificationMutation): string {
+  return mutation === 'read'
+    ? '읽음 처리를 완료하지 못했습니다. 다시 시도해 주세요.'
+    : '알림을 숨기지 못했습니다. 다시 시도해 주세요.';
 }

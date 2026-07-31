@@ -58,6 +58,21 @@ describe('OrgSubjectPickerContent', () => {
     expect(html).not.toContain(userSubject.subjectId);
   });
 
+  it('describes a directory connection failure without implying a permission denial', () => {
+    const html = renderToStaticMarkup(
+      <OrgSubjectPickerContent
+        hasLoadError
+        items={[]}
+        onSubjectSelected={() => undefined}
+        query="Alpha"
+      />,
+    );
+
+    expect(html).toContain('조직 디렉터리 연결을 확인할 수 없습니다.');
+    expect(html).not.toContain('권한 또는 연결');
+    expect(html).not.toContain('볼 권한이 없습니다.');
+  });
+
   it('uses Korean labels for organization group types', () => {
     const html = renderToStaticMarkup(
       <OrgSubjectPickerContent

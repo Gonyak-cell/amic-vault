@@ -8,10 +8,19 @@ import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { RouteVisibilityGuard } from '@/components/security/route-visibility-guard';
 import { useI18n } from '@/lib/i18n';
 import { OutlookIntegrationStatusClient } from './outlook-integration-status-client';
 
 export default function OutlookIntegrationPage() {
+  return (
+    <RouteVisibilityGuard area="Outlook 연동" route="/integrations/outlook">
+      <OutlookIntegrationContent />
+    </RouteVisibilityGuard>
+  );
+}
+
+function OutlookIntegrationContent() {
   const { t } = useI18n();
 
   return (

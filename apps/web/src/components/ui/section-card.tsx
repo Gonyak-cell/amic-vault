@@ -21,7 +21,7 @@ export function SectionCard({
 }: SectionCardProps) {
   return (
     <Card className={cn('overflow-hidden shadow-none', className)} {...props}>
-      <CardHeader className="min-h-16 flex-row items-center justify-between gap-3 space-y-0 border-b px-4 py-3.5 sm:px-[18px]">
+      <CardHeader className="min-h-16 flex-col items-stretch justify-between gap-3 space-y-0 border-b px-4 py-3.5 sm:flex-row sm:items-center sm:px-[18px]">
         <div className="flex min-w-0 items-center gap-2.5">
           {icon ? <span className="text-primary">{icon}</span> : null}
           <div className="flex min-w-0 items-baseline gap-2 overflow-hidden">
@@ -34,7 +34,10 @@ export function SectionCard({
           </div>
         </div>
         {actions ? (
-          <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
+          <div
+            data-slot="section-card-actions"
+            className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:shrink-0"
+          >
             {actions}
           </div>
         ) : null}

@@ -131,6 +131,17 @@ import {
   approvedDocumentTypeOptions,
   approvedSubtypeOptions,
 } from '@/lib/dms-taxonomy';
+import {
+  documentComparisonStatusLabels as documentComparisonStatusLabelsByLanguage,
+  documentConfidentialityLabels as documentConfidentialityLabelsByLanguage,
+  documentEditSessionStatusLabels as documentEditSessionStatusLabelsByLanguage,
+  documentExtractionMethodLabels as documentExtractionMethodLabelsByLanguage,
+  documentExtractionStatusLabels as documentExtractionStatusLabelsByLanguage,
+  documentPrivilegeLabels as documentPrivilegeLabelsByLanguage,
+  documentStatusLabels as documentStatusLabelsByLanguage,
+  documentTypeLabels as documentTypeLabelsByLanguage,
+  documentVersionStatusLabels as documentVersionStatusLabelsByLanguage,
+} from '@/lib/i18n';
 
 interface DocumentActionCenterProps {
   documentId: string;
@@ -220,24 +231,14 @@ interface RecordsActionRow {
   tone: StatusBadgeTone;
 }
 
-const typeLabels = {
-  contract: '계약서',
-  memo: '메모',
-  opinion: '의견서',
-  court_filing: '법원 제출 문서',
-  evidence: '증거',
-  email: '이메일',
-  correspondence: '서신',
-  corporate_record: '회사 기록',
-  financial: '재무',
-  other: '기타',
-} as const satisfies Record<DocumentType, string>;
-
-const confidentialityLabels = {
-  standard: '일반',
-  high: '높음',
-  restricted: '제한됨',
-} as const satisfies Record<DocumentConfidentialityLevel, string>;
+const typeLabels = documentTypeLabelsByLanguage.ko;
+const confidentialityLabels = documentConfidentialityLabelsByLanguage.ko;
+const privilegeLabels = documentPrivilegeLabelsByLanguage.ko;
+const extractionStatusLabels = documentExtractionStatusLabelsByLanguage.ko;
+const extractionMethodLabels = documentExtractionMethodLabelsByLanguage.ko;
+const versionStatusLabels = documentVersionStatusLabelsByLanguage.ko;
+const editSessionStatusLabels = documentEditSessionStatusLabelsByLanguage.ko;
+const comparisonStatusLabels = documentComparisonStatusLabelsByLanguage.ko;
 
 const sourceLabels = {
   client_provided: '고객 제공',
@@ -256,8 +257,8 @@ const versionSignificanceLabels = {
 } as const satisfies Record<DocumentVersionSignificance, string>;
 
 const renditionTypeLabels = {
-  clean: 'Clean',
-  markup: 'Markup',
+  clean: '일반본',
+  markup: '변경 표시본',
 } as const satisfies Record<DocumentVersionRenditionType, string>;
 
 const comparisonChangeLabels = {
@@ -285,19 +286,7 @@ const downloadReasonLabels = {
   other: '기타',
 } as const satisfies Record<DocumentDownloadReasonCode, string>;
 
-const documentStatusLabels = {
-  draft: '초안',
-  internal_review: '내부 검토',
-  client_sent: '고객 발송',
-  counterparty_sent: '상대방 발송',
-  markup_received: '마크업 수령',
-  negotiation: '협상',
-  final: '최종',
-  executed: '체결',
-  archived: '보관',
-  disposal_locked: '처분 잠금',
-  deleted: '삭제',
-} as const satisfies Record<DocumentStatus, string>;
+const documentStatusLabels = documentStatusLabelsByLanguage.ko;
 
 const subversionStatusLabels = {
   saved: '검토 저장',
@@ -863,7 +852,9 @@ function VersionRows({ versions }: { versions: DocumentVersionDto[] }) {
         </div>
       </DataTableCell>
       <DataTableCell>
-        <StatusBadge tone={statusTone(version.versionStatus)}>{version.versionStatus}</StatusBadge>
+        <StatusBadge tone={statusTone(version.versionStatus)}>
+          {versionStatusLabels[version.versionStatus]}
+        </StatusBadge>
       </DataTableCell>
       <DataTableCell>
         <div className="flex flex-wrap gap-2">
@@ -1058,7 +1049,11 @@ function DocumentEditingLifecyclePanel({
       meta={activeSession ? `v${activeSession.baseVersionNo} 편집 중` : '세션 없음'}
       actions={
         <StatusBadge tone={isLoading ? 'warning' : activeSession ? 'success' : 'neutral'}>
-          {isLoading ? '확인 중' : activeSession ? activeSession.status : '대기'}
+          {isLoading
+            ? '확인 중'
+            : activeSession
+              ? editSessionStatusLabels[activeSession.status]
+              : '대기'}
         </StatusBadge>
       }
     >
@@ -1619,7 +1614,7 @@ function RelatedDocumentsPanel({
                   {relatedDocument.title}
                 </Link>
                 <StatusBadge tone={statusTone(relatedDocument.status)}>
-                  {relatedDocument.status}
+                  {documentStatusLabels[relatedDocument.status]}
                 </StatusBadge>
               </div>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -2787,7 +2782,9 @@ export function DocumentActionCenter({
                       </option>
                     ))}
                   </select>
-                  {statusSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {statusSaving ? (
+                    <Loader2 className="h-4 w-4 motion-safe:[animation:spin_1s_linear_infinite] motion-reduce:[animation:none]" />
+                  ) : null}
                 </div>
               }
             >
@@ -2807,10 +2804,24 @@ export function DocumentActionCenter({
                   value={confidentialityLabels[document.confidentialityLevel]}
                 />
                 <ProfileField label="출처" value={sourceLabels[document.source]} />
-                <ProfileField label="특권 상태" value={document.privilegeStatus} />
+                <ProfileField label="특권 상태" value={privilegeLabels[document.privilegeStatus]} />
                 <ProfileField label="업데이트" value={formatDateTime(document.updatedAt)} />
-                <ProfileField label="추출 상태" value={document.extractionStatus ?? '확인 불가'} />
-                <ProfileField label="추출 방식" value={document.extractionMethod ?? '확인 불가'} />
+                <ProfileField
+                  label="추출 상태"
+                  value={
+                    document.extractionStatus
+                      ? extractionStatusLabels[document.extractionStatus]
+                      : '확인 전'
+                  }
+                />
+                <ProfileField
+                  label="추출 방식"
+                  value={
+                    document.extractionMethod
+                      ? extractionMethodLabels[document.extractionMethod]
+                      : '확인 전'
+                  }
+                />
                 <ProfileField label="보존 조치" value={document.legalHold ? '적용' : '미적용'} />
               </dl>
 
@@ -2956,7 +2967,7 @@ export function DocumentActionCenter({
                 disabled={clauseAnalysisLoading || !document.aiAllowed}
               >
                 {clauseAnalysisLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 motion-safe:[animation:spin_1s_linear_infinite] motion-reduce:[animation:none]" />
                 ) : (
                   <FileSearch className="h-4 w-4" />
                 )}
@@ -2996,7 +3007,7 @@ export function DocumentActionCenter({
                   disabled={emailThreadSummaryLoading || !document.aiAllowed}
                 >
                   {emailThreadSummaryLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 motion-safe:[animation:spin_1s_linear_infinite] motion-reduce:[animation:none]" />
                   ) : (
                     <Mail className="h-4 w-4" />
                   )}
@@ -3025,7 +3036,7 @@ export function DocumentActionCenter({
               actions={
                 comparison ? (
                   <StatusBadge tone={comparison.status === 'completed' ? 'success' : 'warning'}>
-                    {comparison.status === 'completed' ? '완료' : comparison.status}
+                    {comparisonStatusLabels[comparison.status]}
                   </StatusBadge>
                 ) : null
               }

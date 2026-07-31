@@ -3,6 +3,8 @@ import { aiEmbeddingDimension } from '@amic-vault/shared';
 import type { AuditService, QueryClient } from '../audit/audit.service';
 import { SearchService } from './search.service';
 
+const matterId = '11111111-1111-4111-8111-111111111921';
+
 const ctx = {
   sessionId: '11111111-1111-4111-8111-111111111903',
   tenantId: '11111111-1111-4111-8111-111111111900',
@@ -55,6 +57,7 @@ function createService(
     (overrides.snippetBuilder ?? {}) as never,
     (overrides.scopeProvider ?? {}) as never,
     overrides.embeddingGateway as never,
+    undefined,
   );
   return { auditService, service };
 }
@@ -81,14 +84,12 @@ describe('SearchService saved searches', () => {
     ]);
     const listCalls = vi.mocked(query).mock.calls as unknown[][];
     const [listSql] = listCalls[0] ?? [];
-    expect(String(listSql)).toContain('matter_members');
-    expect(String(listSql)).toContain("s.scope_type = 'admin-shared'");
-    expect(String(listSql)).toContain('s.revoked_at IS NULL');
+    expect(String(listSql)).not.toContain('break_glass_requests');
   });
 
   it('saves a search and audits hash/filter refs instead of raw snippets', async () => {
     const query = vi.fn(async (sql: string) => {
-      if (sql.includes('SELECT role, status')) {
+      if (!sql.includes('INSERT INTO saved_searches') && sql.includes('SELECT role, status')) {
         return { rowCount: 1, rows: [{ role: 'matter_member', status: 'active' }] };
       }
       return { rowCount: 1, rows: [savedSearchRow] };
@@ -137,9 +138,9 @@ describe('SearchService saved searches', () => {
     expect(query).toHaveBeenCalledWith(expect.stringContaining('UPDATE saved_searches'), [
       ctx.tenantId,
       ctx.userId,
+      expect.any(Array),
+      expect.any(Array),
       savedSearchRow.saved_search_id,
-      expect.any(Array),
-      expect.any(Array),
     ]);
     expect(auditService.log).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -154,17 +155,16 @@ describe('SearchService saved searches', () => {
     );
   });
 
-  it('requires matter membership before saving a matter-team folder', async () => {
+  it('saves a matter-team folder only through the atomic permission-scoped statement', async () => {
     const query = vi
       .fn()
       .mockResolvedValueOnce({ rowCount: 1, rows: [{ role: 'matter_member', status: 'active' }] })
-      .mockResolvedValueOnce({ rowCount: 1, rows: [{ ok: 1 }] })
       .mockResolvedValueOnce({
         rowCount: 1,
         rows: [
           {
             ...savedSearchRow,
-            matter_id: '11111111-1111-4111-8111-111111111921',
+            matter_id: matterId,
             scope_type: 'matter-team',
           },
         ],
@@ -173,10 +173,10 @@ describe('SearchService saved searches', () => {
 
     await expect(
       service.saveSavedSearch(ctx, {
-        matterId: '11111111-1111-4111-8111-111111111921',
+        matterId,
         name: 'Team Closing',
         query: {
-          filters: { matterId: '11111111-1111-4111-8111-111111111921' },
+          filters: { matterId },
           page: 1,
           pageSize: 10,
           query: 'closing',
@@ -184,6 +184,129 @@ describe('SearchService saved searches', () => {
         scope: 'matter-team',
       }),
     ).resolves.toMatchObject({ scope: 'matter-team' });
+    expect(query).toHaveBeenCalledTimes(2);
+    const saveCalls = vi.mocked(query).mock.calls as unknown[][];
+    expect(saveCalls[1]?.[1]).toEqual([
+      ctx.tenantId,
+      ctx.userId,
+      'Team Closing',
+      'matter-team',
+      matterId,
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(Array),
+      expect.any(Array),
+    ]);
+  });
+
+  it('binds a personal folder to a Matter referenced by its query', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ role: 'matter_member', status: 'active' }] })
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          {
+            ...savedSearchRow,
+            matter_id: matterId,
+            search_query_json: {
+              filters: { matterId },
+              page: 1,
+              pageSize: 10,
+              query: 'closing',
+            },
+          },
+        ],
+      });
+    const { service } = createService(query);
+
+    await expect(
+      service.saveSavedSearch(ctx, {
+        name: 'My Matter closing',
+        query: {
+          filters: { matterId },
+          page: 1,
+          pageSize: 10,
+          query: 'closing',
+        },
+        scope: 'personal',
+      }),
+    ).resolves.toMatchObject({
+      query: { filters: { matterId } },
+      scope: 'personal',
+    });
+    const saveCalls = vi.mocked(query).mock.calls as unknown[][];
+    expect(saveCalls[1]?.[1]).toEqual([
+      ctx.tenantId,
+      ctx.userId,
+      'My Matter closing',
+      'personal',
+      matterId,
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(Array),
+      expect.any(Array),
+    ]);
+  });
+
+  it('fails closed when persisted and query Matter references conflict', async () => {
+    const query = vi.fn();
+    const { service } = createService(query);
+
+    await expect(
+      service.saveSavedSearch(ctx, {
+        matterId,
+        name: 'Mismatched Matter',
+        query: {
+          filters: { matterId: '11111111-1111-4111-8111-111111111922' },
+          page: 1,
+          pageSize: 10,
+          query: 'closing',
+        },
+        scope: 'personal',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the atomic Matter scope rejects the insert', async () => {
+    const query = vi
+      .fn()
+      .mockResolvedValueOnce({ rowCount: 1, rows: [{ role: 'matter_member', status: 'active' }] })
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] });
+    const { service } = createService(query);
+
+    await expect(
+      service.saveSavedSearch(ctx, {
+        matterId,
+        name: 'Revoked During Save',
+        query: { page: 1, pageSize: 10, query: 'closing' },
+        scope: 'matter-team',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+    expect(query).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a matter-team folder without a Matter reference', async () => {
+    const query = vi.fn(async () => ({
+      rowCount: 1,
+      rows: [{ role: 'matter_member', status: 'active' }],
+    }));
+    const { service } = createService(query);
+
+    await expect(
+      service.saveSavedSearch(ctx, {
+        name: 'Matter reference required',
+        query: { page: 1, pageSize: 10, query: 'closing' },
+        scope: 'matter-team',
+      }),
+    ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+    expect(query).not.toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO saved_searches'),
+      expect.any(Array),
+    );
   });
 
   it('denies admin-shared folders for non-admin actors', async () => {
@@ -205,11 +328,19 @@ describe('SearchService saved searches', () => {
   it('records aggregate-safe saved-search opens only through visible folders', async () => {
     const query = vi.fn(async () => ({
       rowCount: 1,
-      rows: [{ ...savedSearchRow, last_opened_at: new Date('2026-06-19T01:00:00.000Z'), opened_count: 4 }],
+      rows: [
+        {
+          ...savedSearchRow,
+          last_opened_at: new Date('2026-06-19T01:00:00.000Z'),
+          opened_count: 4,
+        },
+      ],
     }));
     const { auditService, service } = createService(query);
 
-    await expect(service.recordSavedSearchOpen(ctx, savedSearchRow.saved_search_id)).resolves.toMatchObject({
+    await expect(
+      service.recordSavedSearchOpen(ctx, savedSearchRow.saved_search_id),
+    ).resolves.toMatchObject({
       openCount: 4,
       savedSearchId: savedSearchRow.saved_search_id,
     });

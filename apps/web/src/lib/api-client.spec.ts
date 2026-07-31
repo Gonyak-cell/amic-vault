@@ -100,6 +100,27 @@ describe('api client', () => {
     });
   });
 
+  it('replaces the current history entry when authentication expires', async () => {
+    const replace = vi.fn();
+    vi.stubGlobal('window', { location: { replace } });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ code: 'AUTH_REQUIRED' }), {
+            status: 401,
+          }),
+      ),
+    );
+
+    await expect(apiFetch('/tenant/settings')).rejects.toMatchObject({
+      code: 'AUTH_REQUIRED',
+      status: 401,
+    });
+    expect(replace).toHaveBeenCalledOnce();
+    expect(replace).toHaveBeenCalledWith('/login');
+  });
+
   it('drops unsafe API error reasons before exposing ApiClientError', async () => {
     vi.stubGlobal(
       'fetch',

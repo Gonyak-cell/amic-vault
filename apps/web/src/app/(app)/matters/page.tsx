@@ -3,20 +3,17 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { MatterDto } from '@amic-vault/shared';
-import { FolderKanban, FolderPlus, ShieldCheck } from 'lucide-react';
-import { listMatters } from '@/lib/api-client';
+import { FolderKanban, FolderPlus, Search } from 'lucide-react';
 import { MatterListTable } from '@/components/matter/matter-list-table';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
-import { dataStateStatusForApiError } from '@/lib/api/error-messages';
-import type { DataState } from '@/lib/data-state';
 import { useI18n, type Language } from '@/lib/i18n';
+import { loadMatterList, type MatterLoadState } from './matter-list-load';
 import { listMatterQueryFromSearchParams, type MatterSearchParams } from './matter-list-query';
-
-type MatterLoadState = DataState<MatterDto[]>['status'];
 
 const mattersCopy: Record<
   Language,
@@ -24,105 +21,94 @@ const mattersCopy: Record<
     title: string;
     matter: string;
     client: string;
-    type: string;
     status: string;
-    security: string;
     actions: string;
-    protected: string;
     empty: string;
     emptyDescription: string;
-    openMatter: string;
     fileCabinet: string;
     searchMatter: string;
-    prepTitle: string;
+    moreActions: string;
+    owner: string;
+    ownerUnassigned: string;
+    recentUpdate: string;
     newMatter: string;
     clientFilterActive: string;
     clearFilter: string;
-    loading: string;
-    apiError: string;
-    noAccess: string;
-    policyBlocked: string;
+    listSearch: string;
+    listSearchPlaceholder: string;
+    searchAction: string;
   }
 > = {
   ko: {
     title: 'Matter 목록',
     matter: 'Matter',
     client: '고객',
-    type: '유형',
     status: '상태',
-    security: '보안',
     actions: '작업',
-    protected: '보호됨',
     empty: '표시할 Matter가 없습니다.',
-    emptyDescription:
-      'Matter 관리 시스템에서 신규 Matter를 만들거나 Matter 코드 동기화가 완료되면 문서 보관함에 표시됩니다.',
-    openMatter: '열기',
+    emptyDescription: '새 Matter를 등록하거나 검색 조건을 바꿔 보세요.',
     fileCabinet: '파일함',
     searchMatter: '검색',
-    prepTitle: 'Matter 관리 시스템 연동 기준',
+    moreActions: '추가 작업',
+    owner: '담당자',
+    ownerUnassigned: '미지정',
+    recentUpdate: '최근 변경',
     newMatter: '새 Matter',
     clientFilterActive: '선택한 고객의 Matter만 표시합니다.',
     clearFilter: '전체 Matter 보기',
-    loading: 'Matter 목록을 불러오는 중입니다.',
-    apiError: '데이터를 표시할 수 없습니다.',
-    noAccess: '이 항목을 볼 권한이 없습니다.',
-    policyBlocked: '정보 차단 또는 권한 정책으로 표시할 수 없습니다.',
+    listSearch: 'Matter 목록 검색',
+    listSearchPlaceholder: 'Matter 코드, 이름 또는 고객',
+    searchAction: '검색',
   },
   en: {
     title: 'Matter list',
     matter: 'Matter',
     client: 'Client',
-    type: 'Type',
     status: 'Status',
-    security: 'Security',
     actions: 'Actions',
-    protected: 'Protected',
     empty: 'No matters to show.',
-    emptyDescription:
-      'Create a matter in the Matter app or sync Matter codes, then Vault will show the authorized Matter here.',
-    openMatter: 'Open',
+    emptyDescription: 'Create a matter or change the current filters.',
     fileCabinet: 'Files',
     searchMatter: 'Search',
-    prepTitle: 'Matter app source of truth',
+    moreActions: 'More actions',
+    owner: 'Owner',
+    ownerUnassigned: 'Unassigned',
+    recentUpdate: 'Updated',
     newMatter: 'New Matter',
     clientFilterActive: 'Showing matters for the selected client.',
     clearFilter: 'View all matters',
-    loading: 'Loading matters.',
-    apiError: 'Unable to display data.',
-    noAccess: 'You do not have permission to view this item.',
-    policyBlocked: 'Information barrier or permission policy prevents display.',
+    listSearch: 'Search Matter list',
+    listSearchPlaceholder: 'Matter code, name, or client',
+    searchAction: 'Search',
   },
 };
 
 export default function MattersPage({ searchParams = {} }: { searchParams?: MatterSearchParams }) {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const copy = mattersCopy[language];
   const [matters, setMatters] = useState<MatterDto[]>([]);
   const [loadState, setLoadState] = useState<MatterLoadState>('loading');
-  const clientIdFilter = listMatterQueryFromSearchParams(searchParams).clientId;
+  const listQuery = listMatterQueryFromSearchParams(searchParams);
+  const clientIdFilter = listQuery.clientId;
+  const searchQuery = listQuery.q;
   const clientFilterActive = Boolean(clientIdFilter);
 
   useEffect(() => {
     let active = true;
     setLoadState('loading');
-    listMatters({
+    loadMatterList({
       pageSize: 20,
       ...(clientIdFilter ? { clientId: clientIdFilter } : {}),
-    })
-      .then((result) => {
-        if (!active) return;
-        setMatters(result.items);
-        setLoadState(result.items.length === 0 ? 'empty' : 'ready');
-      })
-      .catch((error: unknown) => {
-        if (!active) return;
-        setMatters([]);
-        setLoadState(matterLoadStateForError(error));
-      });
+      ...(searchQuery ? { q: searchQuery } : {}),
+    }).then((result) => {
+      if (!active) return;
+      setMatters(result.matters);
+      setLoadState(result.loadState);
+    });
     return () => {
       active = false;
     };
-  }, [clientIdFilter]);
+  }, [clientIdFilter, searchQuery]);
 
   return (
     <PageShell>
@@ -139,15 +125,6 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
         }
       />
 
-      <div className="rounded-md border bg-card px-4 py-3">
-        <div className="flex items-center gap-3">
-          <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-          </span>
-          <p className="min-w-0 truncate text-sm font-semibold text-foreground">{copy.prepTitle}</p>
-        </div>
-      </div>
-
       {clientFilterActive ? (
         <div className="rounded-md border bg-card px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -160,34 +137,65 @@ export default function MattersPage({ searchParams = {} }: { searchParams?: Matt
               </p>
             </div>
             <Button asChild variant="outline" size="sm">
-              <Link href="/matters">{copy.clearFilter}</Link>
+              <Link
+                href={searchQuery ? `/matters?q=${encodeURIComponent(searchQuery)}` : '/matters'}
+              >
+                {copy.clearFilter}
+              </Link>
             </Button>
           </div>
         </div>
       ) : null}
 
       <SectionCard icon={<FolderKanban className="h-4 w-4" />} title={copy.title}>
+        <form
+          action="/matters"
+          className="mb-4 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"
+          method="get"
+          role="search"
+          aria-label={copy.listSearch}
+        >
+          <label className="sr-only" htmlFor="matter-list-search">
+            {copy.listSearch}
+          </label>
+          <Input
+            id="matter-list-search"
+            name="q"
+            type="search"
+            maxLength={200}
+            defaultValue={searchQuery}
+            placeholder={copy.listSearchPlaceholder}
+          />
+          {clientIdFilter ? <input name="clientId" type="hidden" value={clientIdFilter} /> : null}
+          <Button className="w-full sm:w-auto" type="submit" variant="outline" size="sm">
+            <Search className="h-4 w-4" aria-hidden="true" />
+            {copy.searchAction}
+          </Button>
+        </form>
         <MatterListTable copy={copy} matters={matters} />
         {loadState === 'loading' ? (
-          <EmptyState variant="api-unavailable" title={copy.loading} className="m-5" />
+          <EmptyState variant="loading" title={t('dataState.loading')} className="m-5" />
         ) : null}
         {loadState === 'empty' ? (
           <EmptyState title={copy.empty} description={copy.emptyDescription} className="m-5" />
         ) : null}
         {loadState === 'error' ? (
-          <EmptyState variant="api-error" title={copy.apiError} className="m-5" />
+          <EmptyState variant="api-error" title={t('dataState.error')} className="m-5" />
+        ) : null}
+        {loadState === 'unavailable' ? (
+          <EmptyState
+            variant="api-unavailable"
+            title="Matter 목록 연결에 실패했습니다."
+            className="m-5"
+          />
         ) : null}
         {loadState === 'forbidden' ? (
-          <EmptyState variant="no-access" title={copy.noAccess} className="m-5" />
+          <EmptyState variant="no-access" title={t('dataState.forbidden')} className="m-5" />
         ) : null}
         {loadState === 'blocked' ? (
-          <EmptyState variant="policy-blocked" title={copy.policyBlocked} className="m-5" />
+          <EmptyState variant="policy-blocked" title={t('dataState.blocked')} className="m-5" />
         ) : null}
       </SectionCard>
     </PageShell>
   );
-}
-
-function matterLoadStateForError(error: unknown): MatterLoadState {
-  return dataStateStatusForApiError(error);
 }

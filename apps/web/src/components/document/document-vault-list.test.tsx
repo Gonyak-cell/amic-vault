@@ -42,6 +42,7 @@ describe('DocumentVaultList', () => {
     expect(html).toContain('상세 조건 · 선택 없음');
     expect(html).toContain('min-w-[220px]');
     expect(html).toContain('전체 문서를 확인하는 중입니다.');
+    expect(html).not.toContain('접근 가능한 문서를 문서명과 Matter 코드 기준으로 찾습니다.');
     expect(html).not.toContain('파일 정리');
     expect(html).not.toContain('보안 등급');
     expect(html).not.toContain('추출/OCR');

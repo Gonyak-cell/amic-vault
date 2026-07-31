@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createMatterSchema } from './matter.dto';
+import { createMatterSchema, listMattersQuerySchema } from './matter.dto';
 import { containsSensitiveMatterMetadataKey, isMatterDateRangeValid } from './matter-validation';
 
 const validInput = {
@@ -14,21 +14,29 @@ describe('matter validation', () => {
     ['valid input', validInput, true],
     ['trimmed matter name', { ...validInput, matterName: '  Matter Name  ' }, true],
     ['future openedAt', { ...validInput, openedAt: '2030-01-01T00:00:00.000Z' }, true],
-    ['closed after opened', {
-      ...validInput,
-      openedAt: '2026-01-01T00:00:00.000Z',
-      closedAt: '2026-01-02T00:00:00.000Z',
-    }, true],
+    [
+      'closed after opened',
+      {
+        ...validInput,
+        openedAt: '2026-01-01T00:00:00.000Z',
+        closedAt: '2026-01-02T00:00:00.000Z',
+      },
+      true,
+    ],
     ['empty matterCode', { ...validInput, matterCode: '' }, false],
     ['empty matterName after trim', { ...validInput, matterName: '   ' }, false],
     ['invalid client uuid', { ...validInput, clientId: 'not-a-uuid' }, false],
     ['invalid matter type', { ...validInput, matterType: 'MA' }, false],
     ['unknown key', { ...validInput, unknown: 'nope' }, false],
-    ['closed before opened', {
-      ...validInput,
-      openedAt: '2026-01-02T00:00:00.000Z',
-      closedAt: '2026-01-01T00:00:00.000Z',
-    }, false],
+    [
+      'closed before opened',
+      {
+        ...validInput,
+        openedAt: '2026-01-02T00:00:00.000Z',
+        closedAt: '2026-01-01T00:00:00.000Z',
+      },
+      false,
+    ],
   ])('%s', (_name, input, expected) => {
     expect(createMatterSchema.safeParse(input).success).toBe(expected);
   });
@@ -43,4 +51,27 @@ describe('matter validation', () => {
     expect(containsSensitiveMatterMetadataKey({ token: 'x' })).toBe(true);
     expect(containsSensitiveMatterMetadataKey({ external_ref: 'x' })).toBe(false);
   });
+
+  it('accepts only a bounded, trimmed Matter list query', () => {
+    expect(
+      listMattersQuerySchema.parse({
+        clientId: validInput.clientId,
+        q: '  M-2026  ',
+      }),
+    ).toEqual({
+      clientId: validInput.clientId,
+      page: 1,
+      pageSize: 20,
+      q: 'M-2026',
+    });
+    expect(listMattersQuerySchema.safeParse({ q: '   ' }).success).toBe(false);
+    expect(listMattersQuerySchema.safeParse({ q: 'x'.repeat(201) }).success).toBe(false);
+  });
+
+  it.each(['owner', 'due', 'cursor', 'documentTitle'])(
+    'rejects unsupported Matter list filter %s',
+    (field) => {
+      expect(listMattersQuerySchema.safeParse({ [field]: 'unsupported' }).success).toBe(false);
+    },
+  );
 });

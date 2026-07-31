@@ -241,8 +241,8 @@ export class DashboardService {
         recentFiles: await this.listRecentFiles(client, actor),
         recentActivity: await this.listRecentActivity(client, actor),
         permissionPolicyAlerts: await this.listPolicyAlerts(client, actor),
-        aiPrepStatus: await this.listAiPrepStatus(client, actor),
-        integrationStatus: await this.listIntegrationStatus(client, actor),
+        aiPrepStatus: [],
+        integrationStatus: [],
       });
     });
   }

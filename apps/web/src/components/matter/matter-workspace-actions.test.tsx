@@ -2,41 +2,31 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { MatterDto } from '@amic-vault/shared';
-import { matterRecordsUrl } from '@/components/matter/matter-dms-links';
 import { MatterWorkspaceActions } from './matter-workspace-actions';
 
 describe('MatterWorkspaceActions', () => {
-  it('links a matter workspace to document routes through matter code', () => {
+  it('keeps only daily Matter document and work actions in the header', () => {
     const matter = matterFixture();
     const html = renderToStaticMarkup(<MatterWorkspaceActions matter={matter} />);
 
     expect(html).toContain('Matter 코드 기준 작업');
+    expect(html.match(/<a /g)).toHaveLength(3);
     expect(html).toContain('파일함');
     expect(html).toContain('검색');
     expect(html).toContain('작업함');
-    expect(html).toContain('외부 공유');
-    expect(html).toContain('기록 보존');
-    expect(html).toContain('감사 기록');
     expect(html).toContain('href="/files?matterCode=AMIC-2026-0007"');
     expect(html).toContain(
       'href="/search?matterCode=AMIC-2026-0007&amp;target=all&amp;groupBy=matter"',
     );
     expect(html).toContain('href="/work"');
-    expect(html).toContain(`href="/matters/${matter.matterId}/sharing"`);
-    expect(html).toContain('href="/records?tab=holds&amp;matterCode=AMIC-2026-0007"');
-    expect(html).toContain('href="/audit"');
+    expect(html).not.toContain('외부 공유');
+    expect(html).not.toContain('기록 보존');
+    expect(html).not.toContain('감사 기록');
+    expect(html).not.toContain('/sharing');
+    expect(html).not.toContain('/records');
+    expect(html).not.toContain('/audit');
     expect(html).not.toContain('Matter ID');
-    expect(html.replace(`/matters/${matter.matterId}/sharing`, '')).not.toContain(matter.matterId);
-    expect(html).not.toMatch(/>18</);
-    expect(html).not.toMatch(/>642</);
-    expect(html).not.toMatch(/>9</);
-  });
-
-  it('builds records context links from display-safe matter code only', () => {
-    const matter = matterFixture();
-
-    expect(matterRecordsUrl(matter)).toBe('/records?tab=holds&matterCode=AMIC-2026-0007');
-    expect(matterRecordsUrl(matter)).not.toContain(matter.matterId);
+    expect(html).not.toContain(matter.matterId);
   });
 });
 

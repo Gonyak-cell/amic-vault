@@ -110,8 +110,12 @@ async function uploadedRow(documentId: string) {
       `
         SELECT d.tenant_id, f.storage_uri, f.sha256
         FROM documents d
+        JOIN document_versions dv
+          ON dv.tenant_id = d.tenant_id
+         AND dv.document_id = d.document_id
         JOIN file_objects f
-          ON f.storage_uri LIKE ('s3://amic-vault-dev/tenants/' || d.tenant_id || '/matters/' || d.matter_id || '/documents/' || d.document_id || '/%')
+          ON f.tenant_id = dv.tenant_id
+         AND f.file_object_id = dv.file_object_id
         WHERE d.document_id = $1
         LIMIT 1
       `,

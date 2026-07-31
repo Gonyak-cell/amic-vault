@@ -8,10 +8,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { SectionCard } from '@/components/ui/section-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import type { DmsNotificationItemDto } from '@amic-vault/shared';
-import type {
-  DashboardOverviewState,
-  DashboardRecentActivity,
-} from '@/lib/api/dashboard';
+import type { DashboardOverviewState, DashboardRecentActivity } from '@/lib/api/dashboard';
 import type { DataState } from '@/lib/data-state';
 
 export function dashboardNotificationItems(
@@ -98,7 +95,8 @@ export function DashboardNotificationsSection({
   state: DashboardOverviewState;
   title?: string;
 }) {
-  const items = itemsState?.status === 'ready' ? itemsState.data : dashboardNotificationItems(state);
+  const items =
+    itemsState?.status === 'ready' ? itemsState.data : dashboardNotificationItems(state);
   const actionProps = {
     ...(onDismiss ? { onDismiss } : {}),
     ...(onMarkRead ? { onMarkRead } : {}),
@@ -139,10 +137,7 @@ export function DashboardNotificationList({
   return (
     <ul className="divide-y rounded-lg border">
       {items.map((item) => (
-        <li
-          key={item.itemKey}
-          className="px-3.5 py-3 text-[13px] leading-5"
-        >
+        <li key={item.itemKey} className="px-3.5 py-3 text-[13px] leading-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -154,9 +149,7 @@ export function DashboardNotificationList({
                   </StatusBadge>
                 ) : null}
               </div>
-              <div className="mt-1 text-[12px] text-muted-foreground">
-                {item.description}
-              </div>
+              <div className="mt-1 text-[12px] text-muted-foreground">{item.description}</div>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2">
               {item.status === 'unread' && onMarkRead ? (
@@ -229,10 +222,7 @@ function NotificationStateEmpty({ state }: { state: DataState<DmsNotificationIte
   }
   if (state.status === 'blocked') {
     return (
-      <EmptyState
-        variant="policy-blocked"
-        title="정보 차단 또는 권한 정책으로 표시할 수 없습니다."
-      />
+      <EmptyState variant="policy-blocked" title="정보 차단 정책에 따라 표시할 수 없습니다." />
     );
   }
   return <EmptyState variant="api-unavailable" title="알림 연결 대기 중입니다." />;

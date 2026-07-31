@@ -28,7 +28,11 @@ describe('uiErrorStateForApiError', () => {
   });
 
   it('maps policy and tenant isolation errors to blocked UI state', () => {
-    for (const code of ['ETHICAL_WALL_BLOCKED', 'AI_POLICY_BLOCKED', 'TENANT_ISOLATION_VIOLATION'] as const) {
+    for (const code of [
+      'ETHICAL_WALL_BLOCKED',
+      'AI_POLICY_BLOCKED',
+      'TENANT_ISOLATION_VIOLATION',
+    ] as const) {
       expect(uiErrorStateForApiError(apiError(code))).toEqual({
         kind: 'policy',
         dataStatus: 'blocked',
@@ -37,7 +41,7 @@ describe('uiErrorStateForApiError', () => {
     }
   });
 
-  it('maps unknown or validation errors to safe API error state', () => {
+  it('keeps server errors separate from transport failures', () => {
     expect(uiErrorStateForApiError(apiError('VALIDATION_FAILED', 400))).toEqual({
       kind: 'api',
       dataStatus: 'error',
@@ -46,7 +50,7 @@ describe('uiErrorStateForApiError', () => {
     expect(uiErrorStateForApiError(new Error('network'))).toEqual({
       kind: 'api',
       dataStatus: 'error',
-      emptyStateVariant: 'api-error',
+      emptyStateVariant: 'api-unavailable',
     });
   });
 
@@ -57,6 +61,10 @@ describe('uiErrorStateForApiError', () => {
     expect(dataStateStatusForApiError(error)).toBe('blocked');
     expect(emptyStateVariantForUiErrorKind('policy')).toBe('policy-blocked');
     expect(safeApiErrorMessage(apiError('AUTH_REQUIRED', 401))).toBe('로그인이 필요합니다.');
-    expect(safeApiErrorMessage(error)).toBe('접근 상태를 확인할 수 없습니다.');
+    expect(safeApiErrorMessage(error)).toBe('정보 차단 정책에 따라 표시할 수 없습니다.');
+    expect(safeApiErrorMessage(new Error('network'))).toContain('데이터 연결');
+    expect(safeApiErrorMessage(apiError('PERMISSION_DENIED'))).toBe(
+      '접근 상태를 확인할 수 없습니다.',
+    );
   });
 });

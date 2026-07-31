@@ -1,0 +1,1112 @@
+Automated verification
+worktree=/private/tmp/amic-vault-sf-b368-26987720
+head=269877204c75a43c47f193fdb96fa52e1ad6a0b0
+origin_main=b3681493970714fa2d1f583a2a16f7c5d4a26582
+node=v22.22.3
+pnpm=9.15.9
+
+===== pnpm install --frozen-lockfile =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+Scope: all 7 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +420
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 420, reused 420, downloaded 0, added 415
+Progress: resolved 420, reused 420, downloaded 0, added 420, done
+
+dependencies:
++ @nestjs/common 10.4.22
++ @nestjs/core 10.4.22
++ @nestjs/platform-express 10.4.22
++ argon2 0.44.0
++ pg 8.21.0
++ reflect-metadata 0.2.2
++ rxjs 7.8.2
+
+devDependencies:
++ @eslint/js 9.39.4
++ @types/node 22.19.21
++ @types/pg 8.20.0
++ @types/react 18.3.31
++ @types/react-dom 18.3.7
++ eslint 9.39.4
++ node-pg-migrate 8.0.4
++ prettier 3.8.4
++ turbo 2.9.18
++ typescript 5.9.3
++ typescript-eslint 8.61.0
++ vitest 2.1.9
+
+Done in 2.2s using pnpm v9.15.9
+===== pnpm install --frozen-lockfile EXIT 0 =====
+
+===== TURBO_FORCE=true pnpm lint =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 lint /private/tmp/amic-vault-sf-b368-26987720
+> turbo run lint --filter='./apps/*' --filter='./packages/*'
+
+
+   • Packages in scope: @amic-vault/ai, @amic-vault/api, @amic-vault/desktop, @amic-vault/domain, @amic-vault/shared, @amic-vault/web
+   • Running lint in 6 packages
+   • Remote caching disabled, using shared worktree cache
+
+@amic-vault/ai:lint: cache bypass, force executing 9cbe25ce90db9316
+@amic-vault/shared:lint: cache bypass, force executing 3f3384a34f8f9b44
+@amic-vault/domain:lint: cache bypass, force executing aed0aa006ead809b
+@amic-vault/desktop:lint: cache bypass, force executing f8226d0483ce1434
+@amic-vault/api:lint: cache bypass, force executing 0ff4fcfdcabb904e
+@amic-vault/web:lint: cache bypass, force executing 60af1b220911ffec
+@amic-vault/ai:lint:
+@amic-vault/ai:lint: > @amic-vault/ai@0.0.0 lint /private/tmp/amic-vault-sf-b368-26987720/packages/ai
+@amic-vault/ai:lint: > eslint "src/**/*.ts"
+@amic-vault/ai:lint:
+@amic-vault/desktop:lint:
+@amic-vault/desktop:lint: > @amic-vault/desktop@0.1.0 lint /private/tmp/amic-vault-sf-b368-26987720/apps/desktop
+@amic-vault/desktop:lint: > eslint "src/**/*.ts" "tests/**/*.ts"
+@amic-vault/desktop:lint:
+@amic-vault/web:lint:
+@amic-vault/web:lint: > @amic-vault/web@0.0.0 lint /private/tmp/amic-vault-sf-b368-26987720/apps/web
+@amic-vault/web:lint: > eslint "src/**/*.{ts,tsx}"
+@amic-vault/web:lint:
+@amic-vault/shared:lint:
+@amic-vault/shared:lint: > @amic-vault/shared@0.0.0 lint /private/tmp/amic-vault-sf-b368-26987720/packages/shared
+@amic-vault/shared:lint: > eslint "src/**/*.ts"
+@amic-vault/shared:lint:
+@amic-vault/api:lint:
+@amic-vault/api:lint: > @amic-vault/api@0.0.0 lint /private/tmp/amic-vault-sf-b368-26987720/apps/api
+@amic-vault/api:lint: > eslint "src/**/*.ts"
+@amic-vault/api:lint:
+@amic-vault/domain:lint:
+@amic-vault/domain:lint: > @amic-vault/domain@0.0.0 lint /private/tmp/amic-vault-sf-b368-26987720/packages/domain
+@amic-vault/domain:lint: > eslint "src/**/*.ts"
+@amic-vault/domain:lint:
+
+ Tasks:    6 successful, 6 total
+Cached:    0 cached, 6 total
+  Time:    4.453s
+
+===== TURBO_FORCE=true pnpm lint EXIT 0 =====
+
+===== TURBO_FORCE=true pnpm test =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 test /private/tmp/amic-vault-sf-b368-26987720
+> turbo run test --filter='./apps/*' --filter='./packages/*'
+
+
+   • Packages in scope: @amic-vault/ai, @amic-vault/api, @amic-vault/desktop, @amic-vault/domain, @amic-vault/shared, @amic-vault/web
+   • Running test in 6 packages
+   • Remote caching disabled, using shared worktree cache
+
+@amic-vault/desktop:test: cache bypass, force executing 1ee297f5e105dccf
+@amic-vault/shared:test: cache bypass, force executing 3d0c76b7359146b5
+@amic-vault/domain:build: cache bypass, force executing b036f00452a74e1d
+@amic-vault/shared:build: cache bypass, force executing b8831b5d7368377f
+@amic-vault/domain:test: cache bypass, force executing c30408f31c96ae8a
+@amic-vault/shared:test:
+@amic-vault/shared:test: > @amic-vault/shared@0.0.0 test /private/tmp/amic-vault-sf-b368-26987720/packages/shared
+@amic-vault/shared:test: > vitest run
+@amic-vault/shared:test:
+@amic-vault/domain:test:
+@amic-vault/domain:test: > @amic-vault/domain@0.0.0 test /private/tmp/amic-vault-sf-b368-26987720/packages/domain
+@amic-vault/domain:test: > vitest run
+@amic-vault/domain:test:
+@amic-vault/shared:build:
+@amic-vault/shared:build: > @amic-vault/shared@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/shared
+@amic-vault/shared:build: > tsc -p tsconfig.build.json
+@amic-vault/shared:build:
+@amic-vault/domain:build:
+@amic-vault/domain:build: > @amic-vault/domain@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/domain
+@amic-vault/domain:build: > tsc -p tsconfig.build.json
+@amic-vault/domain:build:
+@amic-vault/desktop:test:
+@amic-vault/desktop:test: > @amic-vault/desktop@0.1.0 test /private/tmp/amic-vault-sf-b368-26987720/apps/desktop
+@amic-vault/desktop:test: > vitest run
+@amic-vault/desktop:test:
+@amic-vault/shared:test:
+@amic-vault/desktop:test:
+@amic-vault/domain:test:
+@amic-vault/shared:test:  RUN  v2.1.9 /private/tmp/amic-vault-sf-b368-26987720/packages/shared
+@amic-vault/shared:test:
+@amic-vault/desktop:test:  RUN  v2.1.9 /private/tmp/amic-vault-sf-b368-26987720/apps/desktop
+@amic-vault/desktop:test:
+@amic-vault/domain:test:  RUN  v2.1.9 /private/tmp/amic-vault-sf-b368-26987720/packages/domain
+@amic-vault/domain:test:
+@amic-vault/desktop:test:  ✓ tests/origin-guard.spec.ts (2 tests) 2ms
+@amic-vault/desktop:test:  ✓ tests/capability-deny.spec.ts (2 tests) 2ms
+@amic-vault/desktop:test:  ✓ tests/auth-session-smoke.spec.ts (3 tests) 2ms
+@amic-vault/desktop:test:  ✓ tests/audit-preserve.spec.ts (2 tests) 3ms
+@amic-vault/desktop:test:  ✓ tests/no-local-storage.spec.ts (2 tests) 3ms
+@amic-vault/domain:test:  ✓ src/matter/matter-state.spec.ts (2 tests) 1ms
+@amic-vault/domain:test:  ✓ src/document/document-family.spec.ts (2 tests) 2ms
+@amic-vault/domain:test:  ✓ src/records/legal-hold.spec.ts (2 tests) 2ms
+@amic-vault/domain:test:  ✓ src/document/document-status.spec.ts (3 tests) 2ms
+@amic-vault/domain:test:  ✓ src/document/document-type.spec.ts (2 tests) 2ms
+@amic-vault/desktop:test:  ✓ tests/desktop-tauri-policy.spec.ts (3 tests) 4ms
+@amic-vault/domain:test:  ✓ src/matter/matter-transitions.spec.ts (4 tests) 3ms
+@amic-vault/desktop:test:  ✓ tests/document-edit-bridge.spec.ts (2 tests) 7ms
+@amic-vault/domain:test:  ✓ src/index.spec.ts (3 tests) 2ms
+@amic-vault/domain:test:
+@amic-vault/domain:test:  Test Files  7 passed (7)
+@amic-vault/domain:test:       Tests  18 passed (18)
+@amic-vault/domain:test:    Start at  08:51:04
+@amic-vault/domain:test:    Duration  926ms (transform 1.60s, setup 0ms, collect 1.68s, tests 14ms, environment 1ms, prepare 508ms)
+@amic-vault/domain:test:
+@amic-vault/shared:test:  ✓ src/email/eml-parser.spec.ts (8 tests) 5ms
+@amic-vault/shared:test:  ✓ src/email/email-metadata.spec.ts (4 tests) 5ms
+@amic-vault/shared:test:  ✓ src/ai/session.spec.ts (4 tests) 4ms
+@amic-vault/shared:test:  ✓ src/graph/graph-types.spec.ts (5 tests) 4ms
+@amic-vault/shared:test:  ✓ src/external/external-types.spec.ts (2 tests) 4ms
+@amic-vault/shared:test:  ✓ src/dashboard/dashboard-types.spec.ts (9 tests) 7ms
+@amic-vault/shared:test:  ✓ src/contract/contract-types.spec.ts (10 tests) 6ms
+@amic-vault/shared:test:  ✓ src/litigation/litigation-types.spec.ts (8 tests) 8ms
+@amic-vault/shared:test:  ✓ src/dd/dd-types.spec.ts (8 tests) 7ms
+@amic-vault/desktop:test:  ✓ tests/origin-config-verify.spec.ts (2 tests) 122ms
+@amic-vault/shared:test:  ✓ src/types/audit.spec.ts (2 tests) 5ms
+@amic-vault/shared:test:  ✓ src/ai/evidence-pack.spec.ts (5 tests) 8ms
+@amic-vault/desktop:test:
+@amic-vault/desktop:test:  Test Files  8 passed (8)
+@amic-vault/desktop:test:       Tests  18 passed (18)
+@amic-vault/desktop:test:    Start at  08:51:04
+@amic-vault/desktop:test:    Duration  1.04s (transform 1.86s, setup 0ms, collect 1.96s, tests 145ms, environment 1ms, prepare 709ms)
+@amic-vault/desktop:test:
+@amic-vault/shared:test:  ✓ src/dto/document/document-editing.dto.spec.ts (7 tests) 10ms
+@amic-vault/shared:test:  ✓ src/search/search-query.dto.spec.ts (10 tests) 10ms
+@amic-vault/shared:test:  ✓ src/ai/summary.spec.ts (3 tests) 5ms
+@amic-vault/shared:test:  ✓ src/ai/prep.spec.ts (11 tests) 7ms
+@amic-vault/shared:test:  ✓ src/outlook/outlook-types.spec.ts (19 tests) 9ms
+@amic-vault/shared:test:  ✓ src/enterprise/enterprise-types.spec.ts (11 tests) 8ms
+@amic-vault/shared:test:  ✓ src/records/records-types.spec.ts (5 tests) 6ms
+@amic-vault/shared:test:  ✓ src/dto/matter-app/matter-app.dto.spec.ts (3 tests) 5ms
+@amic-vault/shared:test:  ✓ src/dto/document/bulk-action.dto.spec.ts (3 tests) 5ms
+@amic-vault/shared:test:  ✓ src/matter/matter-validation.spec.ts (16 tests) 5ms
+@amic-vault/shared:test:  ✓ src/dlp/sensitive-data-rules.spec.ts (4 tests) 5ms
+@amic-vault/shared:test:  ✓ src/ai/ops.spec.ts (3 tests) 3ms
+@amic-vault/shared:test:  ✓ src/ai/citation.spec.ts (3 tests) 6ms
+@amic-vault/shared:test:  ✓ src/ingestion/ingestion-job.spec.ts (3 tests) 6ms
+@amic-vault/shared:test:  ✓ src/ai/feedback.spec.ts (3 tests) 5ms
+@amic-vault/shared:test:  ✓ src/permission/attribute-policy.spec.ts (3 tests) 2ms
+@amic-vault/shared:test:  ✓ src/scale/scale-types.spec.ts (3 tests) 4ms
+@amic-vault/shared:test:  ✓ src/dlp/dlp-types.spec.ts (2 tests) 4ms
+@amic-vault/shared:test:  ✓ src/dto/org-directory/org-directory.dto.spec.ts (2 tests) 4ms
+@amic-vault/shared:test:  ✓ src/dto/document/upload-preflight.dto.spec.ts (2 tests) 4ms
+@amic-vault/shared:test:  ✓ src/dto/document/upload-document.dto.spec.ts (5 tests) 5ms
+@amic-vault/shared:test:  ✓ src/dto/saved-item/saved-item.dto.spec.ts (3 tests) 4ms
+@amic-vault/shared:test:  ✓ src/permission/role-permission-matrix.spec.ts (4 tests) 2ms
+@amic-vault/shared:test:  ✓ src/audit/audit-event-types.spec.ts (1 test) 2ms
+@amic-vault/shared:test:  ✓ src/file-security/file-security.types.spec.ts (3 tests) 3ms
+@amic-vault/shared:test:  ✓ src/ai/generation.spec.ts (3 tests) 3ms
+@amic-vault/shared:test:  ✓ src/ai/model-routing.spec.ts (2 tests) 3ms
+@amic-vault/shared:test:  ✓ src/dto/document/preview-session.dto.spec.ts (2 tests) 3ms
+@amic-vault/shared:test:  ✓ src/dto/audit/audit-query.dto.spec.ts (1 test) 2ms
+@amic-vault/shared:test:  ✓ src/types/tenant.spec.ts (2 tests) 1ms
+@amic-vault/shared:test:  ✓ src/dto/document/add-version.dto.spec.ts (2 tests) 3ms
+@amic-vault/shared:test:  ✓ src/permission/roles.spec.ts (2 tests) 2ms
+@amic-vault/shared:test:  ✓ src/dto/document/update-document-metadata.dto.spec.ts (1 test) 2ms
+@amic-vault/shared:test:  ✓ src/dto/document/bulk-upload.dto.spec.ts (2 tests) 36ms
+@amic-vault/shared:test:  ✓ src/index.spec.ts (2 tests) 1ms
+@amic-vault/shared:test:
+@amic-vault/shared:test:  Test Files  46 passed (46)
+@amic-vault/shared:test:       Tests  216 passed (216)
+@amic-vault/shared:test:    Start at  08:51:04
+@amic-vault/shared:test:    Duration  1.70s (transform 5.17s, setup 0ms, collect 7.05s, tests 249ms, environment 4ms, prepare 2.89s)
+@amic-vault/shared:test:
+@amic-vault/ai:test: cache bypass, force executing cc6d2b7264c52d43
+@amic-vault/ai:build: cache bypass, force executing c45d19b03742f860
+@amic-vault/web:test: cache bypass, force executing a44f8316027ec4ee
+@amic-vault/ai:test:
+@amic-vault/ai:test: > @amic-vault/ai@0.0.0 test /private/tmp/amic-vault-sf-b368-26987720/packages/ai
+@amic-vault/ai:test: > vitest run --passWithNoTests
+@amic-vault/ai:test:
+@amic-vault/ai:build:
+@amic-vault/ai:build: > @amic-vault/ai@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/ai
+@amic-vault/ai:build: > tsc -p tsconfig.build.json
+@amic-vault/ai:build:
+@amic-vault/web:test:
+@amic-vault/web:test: > @amic-vault/web@0.0.0 test /private/tmp/amic-vault-sf-b368-26987720/apps/web
+@amic-vault/web:test: > vitest run
+@amic-vault/web:test:
+@amic-vault/ai:test:
+@amic-vault/ai:test:  RUN  v2.1.9 /private/tmp/amic-vault-sf-b368-26987720/packages/ai
+@amic-vault/ai:test:
+@amic-vault/web:test:
+@amic-vault/web:test:  RUN  v2.1.9 /private/tmp/amic-vault-sf-b368-26987720/apps/web
+@amic-vault/web:test:
+@amic-vault/ai:test:  ✓ src/index.spec.ts (13 tests) 12ms
+@amic-vault/ai:test:
+@amic-vault/ai:test:  Test Files  1 passed (1)
+@amic-vault/ai:test:       Tests  13 passed (13)
+@amic-vault/ai:test:    Start at  08:51:07
+@amic-vault/ai:test:    Duration  543ms (transform 89ms, setup 0ms, collect 145ms, tests 12ms, environment 0ms, prepare 75ms)
+@amic-vault/ai:test:
+@amic-vault/web:test:  ✓ src/lib/features.test.ts (12 tests) 4ms
+@amic-vault/api:test: cache bypass, force executing 2619508d84ca5de4
+@amic-vault/web:test:  ✓ src/lib/api/outlook-addin.spec.ts (7 tests) 5ms
+@amic-vault/web:test:  ✓ src/lib/api/ai-assistant.spec.ts (5 tests) 8ms
+@amic-vault/web:test:  ✓ src/lib/api/work-ops.spec.ts (10 tests) 16ms
+@amic-vault/web:test:  ✓ src/lib/api-client.spec.ts (34 tests) 42ms
+@amic-vault/web:test:  ✓ src/components/search/result-card.test.tsx (8 tests) 16ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-conflicts-panel.test.tsx (8 tests) 14ms
+@amic-vault/web:test:  ✓ src/components/search/search-results.test.tsx (9 tests) 17ms
+@amic-vault/web:test:  ✓ src/app/(app)/clients/[clientId]/page.test.tsx (18 tests) 25ms
+@amic-vault/api:test:
+@amic-vault/api:test: > @amic-vault/api@0.0.0 test /private/tmp/amic-vault-sf-b368-26987720/apps/api
+@amic-vault/api:test: > vitest run
+@amic-vault/api:test:
+@amic-vault/web:test:  ✓ src/app/(app)/matters/page.test.tsx (9 tests) 17ms
+@amic-vault/web:test:  ✓ src/components/document/document-vault-list.test.tsx (9 tests) 21ms
+@amic-vault/web:test:  ✓ src/app/(app)/matters/[matterId]/sharing/page.test.tsx (4 tests) 16ms
+@amic-vault/web:test:  ✓ src/components/document/document-upload-panel.test.tsx (12 tests) 15ms
+@amic-vault/web:test:  ✓ src/app/(app)/clients/page.test.tsx (11 tests) 18ms
+@amic-vault/web:test:  ✓ src/app/(app)/dashboard/vault-activity-client.test.tsx (9 tests) 41ms
+@amic-vault/web:test:  ✓ src/app/(app)/work/work-queue-client.test.tsx (12 tests) 27ms
+@amic-vault/web:test:  ✓ src/app/(app)/notifications/notifications-client.test.tsx (8 tests) 24ms
+@amic-vault/web:test:  ✓ src/app/(app)/matters/[matterId]/matter-knowledge-tab.test.tsx (2 tests) 16ms
+@amic-vault/web:test:  ✓ src/components/document/document-action-center.test.tsx (16 tests) 73ms
+@amic-vault/web:test:  ✓ src/components/document/matter-document-list.test.tsx (7 tests) 35ms
+@amic-vault/web:test:  ✓ src/lib/matter-app.spec.ts (8 tests) 6ms
+@amic-vault/web:test:  ✓ src/lib/auth-guard.spec.ts (8 tests) 7ms
+@amic-vault/web:test:  ✓ src/lib/api/enterprise.spec.ts (3 tests) 3ms
+@amic-vault/web:test:  ✓ src/components/document/document-workbench.test.tsx (5 tests) 26ms
+@amic-vault/web:test:  ✓ src/lib/api/external-portal.spec.ts (2 tests) 5ms
+@amic-vault/api:test:
+@amic-vault/api:test:  RUN  v2.1.9 /private/tmp/amic-vault-sf-b368-26987720/apps/api
+@amic-vault/api:test:
+@amic-vault/web:test:  ✓ src/app/outlook-addin/smart-alerts-runtime.spec.ts (2 tests) 12ms
+@amic-vault/web:test:  ✓ src/lib/outlook-addin/outlook-item.spec.ts (4 tests) 6ms
+@amic-vault/web:test:  ✓ src/components/search/search-save-panel.test.tsx (4 tests) 13ms
+@amic-vault/web:test:  ✓ src/components/matter/email-upload-card.test.tsx (4 tests) 12ms
+@amic-vault/web:test:  ✓ src/app/(app)/matters/[matterId]/page.test.tsx (6 tests) 16ms
+@amic-vault/web:test:  ✓ src/app/(app)/matters/[matterId]/contracts/page.test.tsx (1 test) 10ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-party-panel.test.tsx (6 tests) 13ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-list-table.test.tsx (3 tests) 13ms
+@amic-vault/web:test:  ✓ src/components/ai/ai-assistant-panel.test.tsx (1 test) 12ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-closing-checklist-panel.test.tsx (3 tests) 14ms
+@amic-vault/web:test:  ✓ src/app/(app)/clients/page.effects.test.tsx (1 test) 3ms
+@amic-vault/web:test:  ✓ src/components/governance/governance-context-panel.test.tsx (2 tests) 21ms
+@amic-vault/web:test:  ✓ src/app/(app)/records/records-governance-client.test.tsx (4 tests) 14ms
+@amic-vault/web:test:  ✓ src/lib/api/graph.spec.ts (3 tests) 5ms
+@amic-vault/web:test:  ✓ src/app/(app)/app-shell.test.tsx (3 tests) 13ms
+@amic-vault/web:test:  ✓ src/lib/api/contract-intel.spec.ts (1 test) 2ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-detail-tabs.test.tsx (5 tests) 9ms
+@amic-vault/web:test:  ✓ src/app/(app)/clients/[clientId]/client-detail-load.test.ts (3 tests) 3ms
+@amic-vault/web:test:  ✓ src/app/(app)/matters/[matterId]/matter-work-items.test.tsx (5 tests) 16ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-code-picker.test.tsx (5 tests) 30ms
+@amic-vault/web:test: stderr | src/components/document/matter-file-section.test.tsx > MatterFileSection > renders matter filing context, browse, and upload without raw reference labels
+@amic-vault/web:test: Warning: React does not recognize the `asChild` prop on a DOM element. If you intentionally want it to appear in the DOM as a custom attribute, spell it as lowercase `aschild` instead. If you accidentally passed it from a parent component, remove it from the DOM element.
+@amic-vault/web:test:     at button
+@amic-vault/web:test:     at Button (/private/tmp/amic-vault-sf-b368-26987720/apps/web/src/components/document/matter-file-section.test.tsx:17:5)
+@amic-vault/web:test:     at div
+@amic-vault/web:test:     at form
+@amic-vault/web:test:     at div
+@amic-vault/web:test:     at MatterDocumentList (/private/tmp/amic-vault-sf-b368-26987720/apps/web/src/components/document/matter-document-list.tsx:237:31)
+@amic-vault/web:test:     at div
+@amic-vault/web:test:     at /private/tmp/amic-vault-sf-b368-26987720/apps/web/src/components/ui/card.tsx:22:6
+@amic-vault/web:test:     at div
+@amic-vault/web:test:     at /private/tmp/amic-vault-sf-b368-26987720/apps/web/src/components/ui/card.tsx:6:6
+@amic-vault/web:test:     at SectionCard (/private/tmp/amic-vault-sf-b368-26987720/apps/web/src/components/ui/section-card.tsx:8:3)
+@amic-vault/web:test:     at MatterFileSection (/private/tmp/amic-vault-sf-b368-26987720/apps/web/src/components/document/matter-file-section.tsx:44:3)
+@amic-vault/web:test:
+@amic-vault/web:test:  ✓ src/components/document/matter-file-section.test.tsx (2 tests) 18ms
+@amic-vault/web:test:  ✓ src/components/search/search-facets.test.tsx (1 test) 5ms
+@amic-vault/web:test:  ✓ src/components/search/ai-answer-panel.test.tsx (3 tests) 19ms
+@amic-vault/web:test:  ✓ src/components/litigation/fact-ledger-form.test.tsx (3 tests) 42ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-audit-timeline.test.tsx (3 tests) 55ms
+@amic-vault/web:test:  ✓ src/app/(app)/matters/new/page.test.tsx (4 tests) 29ms
+@amic-vault/web:test:  ✓ src/app/(app)/contracts/page.test.tsx (4 tests) 86ms
+@amic-vault/web:test:  ✓ src/app/outlook-addin/outlook-addin-client.test.tsx (1 test) 23ms
+@amic-vault/web:test:  ✓ src/app/(app)/integrations/outlook/page.test.tsx (2 tests) 39ms
+@amic-vault/web:test:  ✓ src/components/document/document-bulk-actions.test.tsx (3 tests) 9ms
+@amic-vault/web:test:  ✓ src/app/(app)/admin/security/page.test.tsx (3 tests) 31ms
+@amic-vault/web:test:  ✓ src/app/(app)/matters/[matterId]/litigation/page.test.tsx (1 test) 12ms
+@amic-vault/web:test:  ✓ src/app/(app)/files/page.test.tsx (4 tests) 16ms
+@amic-vault/web:test:  ✓ src/lib/outlook-addin/outlook-shortcut.spec.ts (3 tests) 4ms
+@amic-vault/web:test:  ✓ src/app/(auth)/login/login-form.effects.test.tsx (2 tests) 118ms
+@amic-vault/web:test:  ✓ src/components/ai/ai-prep-status-panel.test.tsx (3 tests) 10ms
+@amic-vault/web:test:  ✓ src/components/contract/contract-ai-review-panel.test.tsx (2 tests) 9ms
+@amic-vault/web:test:  ✓ src/components/ai/ai-prep-matter-dashboard.test.tsx (1 test) 9ms
+@amic-vault/web:test:  ✓ src/components/search/search-bar.test.tsx (4 tests) 7ms
+@amic-vault/web:test:  ✓ src/components/ui/empty-state.test.tsx (5 tests) 9ms
+@amic-vault/web:test:  ✓ src/components/document/preview-session-frame.test.tsx (3 tests) 5ms
+@amic-vault/web:test:  ✓ src/components/access/org-subject-picker.test.tsx (4 tests) 9ms
+@amic-vault/api:test:  ✓ src/modules/storage/storage.service.spec.ts (12 tests) 9ms
+@amic-vault/web:test:  ✓ src/app/(app)/clients/client-list-table.test.tsx (4 tests) 6ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-email-timeline.test.tsx (1 test) 28ms
+@amic-vault/web:test:  ✓ src/lib/api/audit.spec.ts (4 tests) 10ms
+@amic-vault/api:test:  ✓ src/modules/notifications/notifications.service.spec.ts (9 tests) 19ms
+@amic-vault/web:test:  ✓ src/app/(app)/matters/[matterId]/dd/page.test.tsx (1 test) 14ms
+@amic-vault/web:test:  ✓ src/lib/api/dashboard.spec.ts (4 tests) 5ms
+@amic-vault/web:test:  ✓ src/components/search/search-workbench-rail.test.tsx (2 tests) 10ms
+@amic-vault/web:test:  ✓ src/components/search/search-result-inspector.test.tsx (2 tests) 85ms
+@amic-vault/web:test:  ✓ src/components/document/document-audit-timeline.test.tsx (3 tests) 117ms
+@amic-vault/web:test:  ✓ src/app/(app)/enterprise/enterprise-hardening-client.test.tsx (1 test) 14ms
+@amic-vault/web:test:  ✓ src/lib/api/error-messages.spec.ts (4 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/dlp/dlp.service.spec.ts (11 tests) 12ms
+@amic-vault/web:test:  ✓ src/components/ui/filter-bar.test.tsx (3 tests) 7ms
+@amic-vault/web:test:  ✓ src/lib/i18n.test.tsx (3 tests) 15ms
+@amic-vault/web:test:  ✓ src/components/matter/add-member-dialog.test.tsx (3 tests) 22ms
+@amic-vault/web:test:  ✓ src/lib/navigation.test.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/outlook/outlook-folder-mapping.service.spec.ts (11 tests) 9ms
+@amic-vault/api:test:  ✓ src/modules/work/work.service.spec.ts (23 tests) 26ms
+@amic-vault/web:test:  ✓ src/components/litigation/evidence-form.test.tsx (3 tests) 73ms
+@amic-vault/web:test:  ✓ src/components/saved-item/saved-items-section.test.tsx (3 tests) 9ms
+@amic-vault/web:test:  ✓ src/components/contract/negotiation-issues-table.test.tsx (2 tests) 9ms
+@amic-vault/web:test:  ✓ src/lib/api/search.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/modules/records/records.service.spec.ts (9 tests) 16ms
+@amic-vault/api:test:  ✓ src/modules/storage/s3-storage.adapter.spec.ts (11 tests) 44ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-workspace-actions.test.tsx (1 test) 10ms
+@amic-vault/web:test:  ✓ src/components/litigation/hearing-list.test.tsx (3 tests) 7ms
+@amic-vault/web:test:  ✓ src/components/search/search-advanced-controls.test.tsx (1 test) 8ms
+@amic-vault/web:test:  ✓ src/components/matter/team-member-list.test.tsx (2 tests) 9ms
+@amic-vault/api:test:  ✓ src/modules/document/validators/mime-type.validator.spec.ts (6 tests) 52ms
+@amic-vault/web:test:  ✓ src/app/(app)/work/page.test.tsx (3 tests) 18ms
+@amic-vault/web:test:  ✓ src/lib/pwa/cache-policy.spec.ts (4 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/search/search.service.spec.ts (14 tests) 13ms
+@amic-vault/api:test:  ✓ src/modules/outlook/outlook-send-file.service.spec.ts (11 tests) 9ms
+@amic-vault/web:test:  ✓ src/components/ethical-wall/wall-policy-inspector.test.tsx (2 tests) 9ms
+@amic-vault/web:test:  ✓ src/components/ethical-wall/wall-list.test.tsx (1 test) 8ms
+@amic-vault/web:test:  ✓ src/app/(app)/admin/page.test.tsx (3 tests) 11ms
+@amic-vault/web:test:  ✓ src/components/document/duplicate-decision-dialog.test.tsx (2 tests) 18ms
+@amic-vault/web:test:  ✓ src/lib/api/ai-prep.spec.ts (3 tests) 3ms
+@amic-vault/web:test:  ✓ src/components/audit/audit-event-inspector.test.tsx (2 tests) 29ms
+@amic-vault/web:test:  ✓ src/app/(auth)/login/login-form.test.tsx (3 tests) 10ms
+@amic-vault/web:test:  ✓ src/components/audit/audit-event-table.test.tsx (2 tests) 9ms
+@amic-vault/web:test:  ✓ src/components/document/matter-document-picker.test.tsx (1 test) 9ms
+@amic-vault/web:test:  ✓ src/lib/api/break-glass.spec.ts (2 tests) 11ms
+@amic-vault/web:test:  ✓ src/app/(external)/external/[token]/external-portal-client.test.tsx (1 test) 4ms
+@amic-vault/web:test:  ✓ src/app/outlook-addin/outlook-manifest.spec.ts (2 tests) 4ms
+@amic-vault/web:test:  ✓ src/components/work/work-inbox-tabs.test.tsx (3 tests) 10ms
+@amic-vault/web:test:  ✓ src/components/ui/data-table.test.tsx (2 tests) 7ms
+@amic-vault/web:test:  ✓ src/components/ui/detail-inspector.test.tsx (2 tests) 7ms
+@amic-vault/web:test:  ✓ src/components/ui/layout-primitives.test.tsx (3 tests) 9ms
+@amic-vault/web:test:  ✓ src/app/(app)/search/search-client.flow.test.ts (3 tests) 2ms
+@amic-vault/web:test:  ✓ src/lib/api/saved-items.spec.ts (1 test) 3ms
+@amic-vault/web:test:  ✓ src/app/(app)/search/folders/search-folders-client.test.tsx (1 test) 2ms
+@amic-vault/api:test:  ✓ src/modules/ai/generation/local-gemma-generation.service.spec.ts (5 tests) 10ms
+@amic-vault/web:test:  ✓ src/app/(app)/search/search-url-policy.test.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/ai/features/ai-summary.service.spec.ts (9 tests) 12ms
+@amic-vault/web:test:  ✓ src/components/search/search-filter-summary.test.tsx (2 tests) 4ms
+@amic-vault/web:test:  ✓ src/lib/api/records.spec.ts (1 test) 2ms
+@amic-vault/web:test:  ✓ src/middleware.spec.ts (2 tests) 5ms
+@amic-vault/web:test:  ✓ src/components/security/secure-ref.test.tsx (3 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/ai/generation/evidence-prompt.compiler.spec.ts (7 tests) 11ms
+@amic-vault/web:test:  ✓ src/app/(app)/role-gated-routes.test.ts (2 tests) 15ms
+@amic-vault/web:test:  ✓ src/lib/api/org-directory.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/search/query/search-query.builder.spec.ts (11 tests) 12ms
+@amic-vault/web:test:  ✓ src/lib/api/matter-wiki.spec.ts (2 tests) 2ms
+@amic-vault/web:test:  ✓ src/lib/api/user-lifecycle.spec.ts (2 tests) 2ms
+@amic-vault/web:test:  ✓ src/lib/api/search-admin.spec.ts (2 tests) 2ms
+@amic-vault/web:test:  ✓ src/components/security/route-visibility-guard.test.ts (3 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/audit/audit-query.service.spec.ts (7 tests) 11ms
+@amic-vault/web:test:  ✓ src/app/(app)/hidden-routes.test.tsx (3 tests) 9ms
+@amic-vault/web:test:  ✓ src/app/(app)/search/folders/page.test.tsx (2 tests) 9ms
+@amic-vault/web:test:  ✓ src/lib/api/ai-ops.spec.ts (2 tests) 7ms
+@amic-vault/web:test:  ✓ src/lib/api/account-ledger.spec.ts (1 test) 3ms
+@amic-vault/web:test:  ✓ src/lib/qr-code.test.ts (1 test) 8ms
+@amic-vault/api:test:  ✓ src/modules/ai/prep/ai-prep-status.service.spec.ts (10 tests) 14ms
+@amic-vault/api:test:  ✓ src/modules/document/document.service.spec.ts (10 tests) 9ms
+@amic-vault/api:test:  ✓ src/modules/ai/prep/ai-prep.processor.spec.ts (15 tests) 38ms
+@amic-vault/api:test:  ✓ src/modules/outlook/outlook-document-insertion.service.spec.ts (8 tests) 14ms
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "ocr",
+@amic-vault/api:test:   "operation": "ocr",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:4df100593f42c536"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/web:test:  ✓ src/app/(app)/logout-button.test.tsx (2 tests) 52ms
+@amic-vault/api:test:  ✓ src/modules/document/document-editing.service.spec.ts (26 tests) 81ms
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:e94c5f436d0ae130"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract-revisions",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:a668eb205ef89689"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:bd58443b79978845"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract-annotations",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:022859284dd9b7cc"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:82bb5463283d4b1b"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:7c9b967aaf4ee9da"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract-annotations",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:6bffbb6699e3df0b"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:592df6d70bc37426"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/modules/ai/context/evidence-pack.builder.spec.ts (6 tests) 8ms
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract-annotations",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:8966b3356cac456c"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:6744008ff142165c"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:7ce1994520f8a3f7"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract-annotations",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:33e20ea416f0bb78"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM    WARN [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "EXTRACTION_TARGET_MISSING",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM    WARN [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "EXTRACTION_RESULT_TARGET_MISSING",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:5ab3874bf4e6d5b7"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:6fbe9d5f0f354381"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:9c276475e24697fd"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 49795  - 07/31/2026, 8:51:11 AM     LOG [ExtractionDispatcher] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "INGESTION_DISPATCH",
+@amic-vault/api:test:   "queue": "extraction",
+@amic-vault/api:test:   "operation": "extract",
+@amic-vault/api:test:   "versionRef": "ref:90b42aa4ec6c0ee5",
+@amic-vault/api:test:   "ingestionRequestRef": "ref:435b9b4d0dabeee9"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/web:test:  ✓ src/lib/audit-labels.spec.ts (2 tests) 1ms
+@amic-vault/api:test:  ✓ src/modules/document/extraction/extraction-dispatcher.spec.ts (14 tests) 121ms
+@amic-vault/web:test:  ✓ src/app/(app)/admin/account-ledger-admin-client.test.tsx (1 test) 9ms
+@amic-vault/web:test:  ✓ src/components/document/document-permission-panel.test.tsx (1 test) 7ms
+@amic-vault/web:test:  ✓ src/app/(app)/walls/wall-admin-client.test.tsx (1 test) 16ms
+@amic-vault/api:test:  ✓ src/modules/document/document-upload.service.spec.ts (18 tests) 177ms
+@amic-vault/web:test:  ✓ src/app/(app)/audit/audit-console-client.test.tsx (1 test) 18ms
+@amic-vault/api:test:  ✓ src/modules/auth/auth.service.spec.ts (16 tests) 1304ms
+@amic-vault/web:test:  ✓ src/app/page.spec.ts (2 tests) 2ms
+@amic-vault/web:test:  ✓ src/components/matter/matter-status-badge.test.tsx (2 tests) 7ms
+@amic-vault/api:test:  ✓ src/modules/audit/events/document-events.spec.ts (10 tests) 4ms
+@amic-vault/api:test: [Nest] 50133  - 07/31/2026, 8:51:11 AM    WARN [DatabaseService] DATABASE_POOL_ERROR
+@amic-vault/web:test:  ✓ src/app/(auth)/password-reset/confirm/password-reset-confirm-form.test.tsx (1 test) 20ms
+@amic-vault/api:test:  ✓ src/common/db/database.service.spec.ts (14 tests) 15ms
+@amic-vault/web:test:  ✓ src/app/(app)/enterprise/page.test.tsx (1 test) 8ms
+@amic-vault/web:test:  ✓ src/components/dashboard/dashboard-notifications.test.tsx (1 test) 8ms
+@amic-vault/api:test:  ✓ src/modules/user/user.service.spec.ts (9 tests) 633ms
+@amic-vault/web:test:
+@amic-vault/web:test:  Test Files  137 passed (137)
+@amic-vault/web:test:       Tests  511 passed (511)
+@amic-vault/web:test:    Start at  08:51:07
+@amic-vault/web:test:    Duration  4.78s (transform 4.48s, setup 0ms, collect 37.35s, tests 2.17s, environment 12ms, prepare 7.43s)
+@amic-vault/web:test:
+@amic-vault/api:test:  ✓ src/modules/email/email.service.spec.ts (19 tests) 24ms
+@amic-vault/api:test:  ✓ src/modules/search/query/search-filter.builder.spec.ts (11 tests) 7ms
+@amic-vault/api:test:  ✓ src/modules/dashboard/dashboard.service.spec.ts (5 tests) 8ms
+@amic-vault/api:test:  ✓ src/modules/permission/document-permission.service.spec.ts (9 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/records/records-disposal.worker.spec.ts (11 tests) 9ms
+@amic-vault/api:test:  ✓ src/modules/permission/permission.service.spec.ts (12 tests) 7ms
+@amic-vault/api:test:  ✓ src/modules/auth/session.guard.spec.ts (6 tests) 43ms
+@amic-vault/api:test:  ✓ src/modules/document/document-lifecycle.service.spec.ts (8 tests) 8ms
+@amic-vault/api:test:  ✓ src/modules/file-security/file-security.service.spec.ts (7 tests) 22ms
+@amic-vault/api:test:  ✓ src/modules/document/extraction/private-gateway.transport.spec.ts (9 tests) 911ms
+@amic-vault/api:test:  ✓ src/modules/auth/password-reset.service.spec.ts (6 tests) 319ms
+@amic-vault/api:test:  ✓ src/modules/outlook/outlook-operational-gate.spec.ts (13 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/outlook/outlook-graph-attachment.service.spec.ts (4 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/file-security/file-security-reconciler.service.spec.ts (4 tests) 8ms
+@amic-vault/api:test:  ✓ src/modules/records/retention-scheduler.service.spec.ts (7 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/saved-item/saved-item.service.spec.ts (5 tests) 6ms
+@amic-vault/api:test: [Nest] 50389  - 07/31/2026, 8:51:12 AM    WARN [AiPrepQueueService] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "AI_PREP_WORKER_EXCEPTION",
+@amic-vault/api:test:   "artifactKind": "document_profile",
+@amic-vault/api:test:   "versionId": "11111111-1111-4111-8111-111111111114",
+@amic-vault/api:test:   "message": "boom"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/common/queue/queue.registry.spec.ts (10 tests) 9ms
+@amic-vault/api:test:  ✓ src/modules/ai/prep/ai-prep-queue.service.spec.ts (13 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/search/index/reindex.service.spec.ts (5 tests) 6ms
+@amic-vault/api:test:  ✓ src/tools/office-production-open-save-sync-claim.spec.ts (5 tests) 14ms
+@amic-vault/api:test:  ✓ src/modules/integrations/matter-app/matter-app-runtime.service.spec.ts (8 tests) 10ms
+@amic-vault/api:test:  ✓ src/modules/document/document-version.service.spec.ts (3 tests) 4ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-production-connected-state-claim.spec.ts (5 tests) 15ms
+@amic-vault/api:test:  ✓ src/modules/email/matter-suggestion-scorer.spec.ts (9 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/preview/preview-precreate.spec.ts (7 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/integrations/law-data/dart-api.client.spec.ts (5 tests) 70ms
+@amic-vault/api:test:  ✓ src/modules/integrations/matter-app/matter-source-policy.spec.ts (7 tests) 6ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-closeout-gate-runner.spec.ts (6 tests) 30ms
+@amic-vault/api:test:  ✓ src/modules/email/email-attachment.parser.spec.ts (5 tests) 7ms
+@amic-vault/api:test:  ✓ src/tools/production-customer-wide-go-live-claim.spec.ts (6 tests) 11ms
+@amic-vault/api:test:  ✓ src/modules/auth/auth-throttle.service.spec.ts (6 tests) 8ms
+@amic-vault/api:test:  ✓ src/modules/document/bulk-upload.job.spec.ts (4 tests) 7ms
+@amic-vault/api:test:  ✓ src/common/config/runtime-secret.spec.ts (6 tests) 86ms
+@amic-vault/api:test:  ✓ src/modules/org-directory/org-directory.service.spec.ts (7 tests) 6ms
+@amic-vault/api:test: [Nest] 50496  - 07/31/2026, 8:51:13 AM    WARN [PreviewSessionService] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "PERM_EVAL_ERROR"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/modules/preview/preview-session.service.spec.ts (5 tests) 7ms
+@amic-vault/api:test:  ✓ src/modules/email/email-reparse.service.spec.ts (1 test) 6ms
+@amic-vault/api:test:  ✓ src/common/metrics/metrics.spec.ts (8 tests) 46ms
+@amic-vault/api:test:  ✓ src/modules/search/index/search-index.repository.spec.ts (4 tests) 643ms
+@amic-vault/api:test:    ✓ SearchIndexRepository > stores a truncation flag while chunking the full source text 637ms
+@amic-vault/api:test:  ✓ src/modules/outlook/outlook.service.spec.ts (5 tests) 6ms
+@amic-vault/api:test:  ✓ src/tools/gemma-ai-allowed-pilot-runner.spec.ts (6 tests) 47ms
+@amic-vault/api:test:  ✓ src/tools/gemma-production-indexing-execute.spec.ts (5 tests) 9ms
+@amic-vault/api:test:  ✓ src/modules/document/extraction/extraction-queue.service.spec.ts (7 tests) 6ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-production-preflight.spec.ts (4 tests) 18ms
+@amic-vault/api:test:  ✓ src/modules/dlp/bulk-download-monitor.service.spec.ts (3 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/outlook/outlook-auth.service.spec.ts (4 tests) 5ms
+@amic-vault/api:test:  ✓ src/modules/file-security/quarantine-intake.service.spec.ts (6 tests) 24ms
+@amic-vault/api:test:  ✓ src/modules/document/upload-preflight.controller.spec.ts (4 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/ai/prep/ai-prep.repository.spec.ts (4 tests) 8ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-production-pilot-closeout-runner.spec.ts (4 tests) 17ms
+@amic-vault/api:test: [Nest] 50553  - 07/31/2026, 8:51:13 AM    WARN [AuditAnchorJobService] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "AUDIT_ANCHOR_DAILY_JOB_PARTIAL_FAILURE",
+@amic-vault/api:test:   "anchorDate": "2026-01-02",
+@amic-vault/api:test:   "tenantCount": 2,
+@amic-vault/api:test:   "failedCount": 1
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/modules/audit/audit-anchor-job.service.spec.ts (5 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/user/user-lifecycle.service.spec.ts (2 tests) 5ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-source-cutover-execute.spec.ts (4 tests) 23ms
+@amic-vault/api:test:  ✓ src/modules/storage/storage-path.resolver.spec.ts (6 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/ai-policy/ai-policy.evaluator.spec.ts (7 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/storage/file-object.service.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-source-cutover-preflight.spec.ts (4 tests) 10ms
+@amic-vault/api:test:  ✓ src/modules/audit/permission-event.recorder.spec.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/document/extraction/ingestion-request.factory.spec.ts (3 tests) 8ms
+@amic-vault/api:test:  ✓ src/common/metrics/operational-metrics.service.spec.ts (4 tests) 7ms
+@amic-vault/api:test:  ✓ src/modules/matter/matter.service.spec.ts (4 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/document/bulk-upload-batch.service.spec.ts (2 tests) 5ms
+@amic-vault/api:test:  ✓ src/modules/audit/events/email-events.spec.ts (5 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/email/email-worker-parser.client.spec.ts (3 tests) 11ms
+@amic-vault/api:test:  ✓ src/modules/file-security/file-promotion.service.spec.ts (3 tests) 11ms
+@amic-vault/api:test:  ✓ src/modules/storage/versioned-storage-capability.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/tools/gemma-customer-wide-runner.spec.ts (4 tests) 13ms
+@amic-vault/api:test:  ✓ src/modules/audit/audit.service.spec.ts (4 tests) 5ms
+@amic-vault/api:test:  ✓ src/modules/ai/audit/ai-audit-recorder.service.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/common/logging/logger.spec.ts (7 tests) 8ms
+@amic-vault/api:test:  ✓ src/modules/contract-intel/contract-rule-engine.spec.ts (4 tests) 9ms
+@amic-vault/api:test:  ✓ src/modules/ai/prep/minutes-qc.builder.spec.ts (2 tests) 6ms
+@amic-vault/api:test: [Nest] 50580  - 07/31/2026, 8:51:14 AM    WARN [EditSessionSweeperService] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "DOCUMENT_EDIT_SESSION_SWEEP_PARTIAL_FAILURE",
+@amic-vault/api:test:   "tenantCount": 2,
+@amic-vault/api:test:   "failedCount": 1,
+@amic-vault/api:test:   "failureMessages": [
+@amic-vault/api:test:     "tenant failed"
+@amic-vault/api:test:   ]
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/modules/integrations/law-data/law-amendment-refresh-scheduler.service.spec.ts (3 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/document/edit-session-sweeper.service.spec.ts (4 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/ai/ops/ai-ops.service.spec.ts (3 tests) 7ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-pilot-write-runner.spec.ts (6 tests) 35ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-production-pilot-import-runner.spec.ts (8 tests) 38ms
+@amic-vault/api:test:  ✓ src/modules/audit/audit-anchor.service.spec.ts (5 tests) 5ms
+@amic-vault/api:test:  ✓ src/modules/document/extraction/worker-identity.adapters.spec.ts (4 tests) 7ms
+@amic-vault/api:test:  ✓ src/modules/work/work.controller.spec.ts (3 tests) 8ms
+@amic-vault/api:test:  ✓ src/modules/integrations/law-data/law-data.service.spec.ts (2 tests) 5ms
+@amic-vault/api:test:  ✓ src/common/db/tenant-aware-datasource.spec.ts (6 tests) 3ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-customer-wide-import-runner.spec.ts (10 tests) 166ms
+@amic-vault/api:test:  ✓ src/modules/integrations/law-data/law-api.client.spec.ts (3 tests) 52ms
+@amic-vault/api:test:  ✓ src/modules/ai/prep/ai-prep-retrieval-planner.spec.ts (3 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/ai/generation/grounded-output.guard.spec.ts (2 tests) 14ms
+@amic-vault/api:test:  ✓ src/modules/storage/storage-rollback.spec.ts (1 test) 8ms
+@amic-vault/api:test:  ✓ src/modules/ai/routing/model-routing.service.spec.ts (3 tests) 5ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-production-runtime-target-check.spec.ts (4 tests) 13ms
+@amic-vault/api:test:  ✓ src/modules/document/zip-child-document.service.spec.ts (1 test) 5ms
+@amic-vault/api:test:  ✓ src/modules/tenant/tenant.controller.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/tools/gemma-customer-wide-real-output-runner.spec.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/tools/prepare-ai-prep-queue.spec.ts (5 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/document/integrity/duplicate-detector.service.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/common/filters/global-exception.filter.spec.ts (4 tests) 5ms
+@amic-vault/api:test:  ✓ src/modules/ethical-wall/ethical-wall.service.spec.ts (2 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/org-directory/org-directory.controller.spec.ts (4 tests) 7ms
+@amic-vault/api:test:  ✓ src/modules/preview/preview-convert.job.spec.ts (3 tests) 6ms
+@amic-vault/api:test:  ✓ src/modules/email/email-thread.service.spec.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/ai/citation/citation-mapper.service.spec.ts (1 test) 4ms
+@amic-vault/api:test: [Nest] 50647  - 07/31/2026, 8:51:14 AM    WARN [IndexingProcessor] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "SEARCH_INDEX_TARGET_NOT_PROMOTED"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/modules/permission/permission-query.builder.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/search/index/indexing.processor.spec.ts (2 tests) 7ms
+@amic-vault/api:test: [Nest] 50717  - 07/31/2026, 8:51:14 AM    WARN [PgBossQueueMetricsService] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "PGBOSS_QUEUE_METRICS_UNAVAILABLE"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/common/metrics/queue-metrics.service.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/ai/prep/matter-timeline.builder.spec.ts (1 test) 6ms
+@amic-vault/api:test:  ✓ src/modules/ai/retrieval/retrieval-orchestrator.service.spec.ts (1 test) 4ms
+@amic-vault/api:test:  ✓ src/modules/dlp/sensitive-data.detector.spec.ts (3 tests) 5ms
+@amic-vault/api:test:  ✓ src/tools/onedrive-full-closeout-remediation-runner.spec.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/document/document-bulk-action-batch.service.spec.ts (2 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/auth/mfa.policy.spec.ts (5 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/document/document-bulk-action.job.spec.ts (2 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/document/extraction/ocr-backfill.service.spec.ts (1 test) 3ms
+@amic-vault/api:test:  ✓ src/modules/search/permission/document-scope.filter.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/permission/confidentiality-policy.spec.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/ai/retrieval/redaction-preprocessor.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/common/db/tenant-query.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/document/integrity/integrity-check.service.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/integrations/law-data/law-authority-search.repository.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/common/db/pg-boss-runtime-options.spec.ts (4 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/outlook/outlook-integration-status.service.spec.ts (1 test) 10ms
+@amic-vault/api:test:  ✓ src/modules/ai/context/context-ranker.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/modules/tenant/tenant.service.spec.ts (3 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/contract-intel/contract-ai-review-queue.service.spec.ts (2 tests) 2ms
+@amic-vault/api:test: [Nest] 50741  - 07/31/2026, 8:51:15 AM    WARN [FailClosedPermissionWrapper] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "PERM_EVAL_ERROR",
+@amic-vault/api:test:   "targetType": "matter"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test: [Nest] 50741  - 07/31/2026, 8:51:15 AM    WARN [FailClosedPermissionWrapper] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "PERM_EVAL_ERROR",
+@amic-vault/api:test:   "targetType": "matter"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/modules/permission/fail-closed.wrapper.spec.ts (3 tests) 5ms
+@amic-vault/api:test:  ✓ src/modules/ai/context/context-window.manager.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/email/participant-classifier.spec.ts (5 tests) 3ms
+@amic-vault/api:test:  ✓ src/common/guards/require-roles.guard.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/notifications/litigation-deadline-notification-scheduler.service.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/search/semantic/document-chunker.spec.ts (3 tests) 35ms
+@amic-vault/api:test:  ✓ src/modules/tenant/tenant-context.middleware.spec.ts (3 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/dlp/dlp.controller.spec.ts (2 tests) 4ms
+@amic-vault/api:test:  ✓ src/tools/gemma-customer-wide-fallback-closeout-runner.spec.ts (3 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/records/disposal-receipt.types.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/document/validators/file-size.validator.spec.ts (4 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/ai/session/ai-session-log.service.spec.ts (3 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/search/index/indexing.service.spec.ts (3 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/file-security/promoted-file.guard.spec.ts (9 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/file-security/file-scan-queue.service.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/common/telemetry/telemetry-policy.spec.ts (9 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/audit/audit-metadata.normalizer.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/document/guards/immutable-state.guard.spec.ts (3 tests) 2ms
+@amic-vault/api:test:  ✓ src/common/db/runtime-role.assertion.spec.ts (3 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/document/validators/file-extension.validator.spec.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/contract-intel/contract-parser.spec.ts (3 tests) 5ms
+@amic-vault/api:test:  ✓ src/modules/tenant/workspace.service.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/storage/noop-encryption.hook.spec.ts (3 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/document/document-bulk-action.executor.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/modules/ai/retrieval/reranker.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/modules/search/permission/matter-scope.filter.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/document/document-bulk-action-queue.service.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/common/security/no-store.middleware.spec.ts (3 tests) 1ms
+@amic-vault/api:test:  ✓ src/modules/ai/features/contract-ai-review-worker.service.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/main.spec.ts (5 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/ai/citation/citation-verifier.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/modules/permission/document-permission.stub.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/modules/ai/retrieval/metadata-filter.builder.spec.ts (3 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/health/health.controller.spec.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/ai/prep/ai-prep-metadata-normalizer.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/common/metrics/metrics.controller.spec.ts (1 test) 3ms
+@amic-vault/api:test:  ✓ src/modules/contract-intel/contract-classifier.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/document/multipart.config.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/document/integrity/sha256.util.spec.ts (2 tests) 19ms
+@amic-vault/api:test:  ✓ src/tools/gemma-customer-wide-prep-runner.spec.ts (4 tests) 3ms
+@amic-vault/api:test:  ✓ src/common/logging/correlation.middleware.spec.ts (2 tests) 26ms
+@amic-vault/api:test:  ✓ src/modules/search/permission/wall-scope.filter.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/modules/document/document-error.mapper.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/user/active-user-lifecycle-fence.spec.ts (2 tests) 3ms
+@amic-vault/api:test:  ✓ src/common/errors/error-tracker.spec.ts (1 test) 5ms
+@amic-vault/api:test:  ✓ src/modules/ai/routing/task-risk.classifier.spec.ts (2 tests) 8ms
+@amic-vault/api:test:  ✓ src/worker-main.spec.ts (2 tests) 1ms
+@amic-vault/api:test:  ✓ src/modules/document/filename-metadata.parser.spec.ts (3 tests) 5ms
+@amic-vault/api:test:  ✓ src/modules/document/document.controller.spec.ts (1 test) 6ms
+@amic-vault/api:test:  ✓ src/common/security/fail-closed.guard.spec.ts (2 tests) 4ms
+@amic-vault/api:test:  ✓ src/modules/matter/guards/matter-mutability.guard.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/ai/retrieval/question-classifier.spec.ts (3 tests) 8ms
+@amic-vault/api:test:  ✓ src/modules/search/query/snippet-builder.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/document/version-number.resolver.spec.ts (2 tests) 2ms
+@amic-vault/api:test: [Nest] 50899  - 07/31/2026, 8:51:16 AM    WARN [IndexFailureHandler] Object:
+@amic-vault/api:test: {
+@amic-vault/api:test:   "code": "SEARCH_INDEX_DEAD_LETTER",
+@amic-vault/api:test:   "reasonCode": "RETRY_EXHAUSTED",
+@amic-vault/api:test:   "tenantId": "11111111-1111-4111-8111-111111111111",
+@amic-vault/api:test:   "documentId": "11111111-1111-4111-8111-111111111122",
+@amic-vault/api:test:   "versionId": "11111111-1111-4111-8111-111111111133"
+@amic-vault/api:test: }
+@amic-vault/api:test:
+@amic-vault/api:test:  ✓ src/modules/search/semantic/local-embedding.spec.ts (1 test) 17ms
+@amic-vault/api:test:  ✓ src/modules/search/index/index-failure.handler.spec.ts (1 test) 2ms
+@amic-vault/api:test:  ✓ src/app.module.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/matter/matter-member.service.spec.ts (1 test) 4ms
+@amic-vault/api:test:  ✓ src/modules/matter/matter-conflict-check.service.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/tools/reprocess-ai-prep-fallbacks.spec.ts (5 tests) 3ms
+@amic-vault/api:test:  ✓ src/modules/search/index/reindex.controller.spec.ts (1 test) 3ms
+@amic-vault/api:test:  ✓ src/modules/document/document-editing.controller.spec.ts (2 tests) 2ms
+@amic-vault/api:test:  ✓ src/modules/party/party.service.spec.ts (1 test) 1ms
+@amic-vault/api:test:  ✓ src/common/db/database.module.spec.ts (2 tests) 2ms
+@amic-vault/api:test:
+@amic-vault/api:test:  Test Files  212 passed (212)
+@amic-vault/api:test:       Tests  1028 passed (1028)
+@amic-vault/api:test:    Start at  08:51:08
+@amic-vault/api:test:    Duration  8.24s (transform 10.66s, setup 0ms, collect 89.11s, tests 6.15s, environment 22ms, prepare 9.01s)
+@amic-vault/api:test:
+
+ Tasks:    9 successful, 9 total
+Cached:    0 cached, 9 total
+  Time:    13.834s
+
+===== TURBO_FORCE=true pnpm test EXIT 0 =====
+
+===== TURBO_FORCE=true pnpm build =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720
+> turbo run build --filter='./apps/*' --filter='./packages/*'
+
+
+   • Packages in scope: @amic-vault/ai, @amic-vault/api, @amic-vault/desktop, @amic-vault/domain, @amic-vault/shared, @amic-vault/web
+   • Running build in 6 packages
+   • Remote caching disabled, using shared worktree cache
+
+@amic-vault/domain:build: cache bypass, force executing b036f00452a74e1d
+@amic-vault/desktop:build: cache bypass, force executing 43a42e194cf6c438
+@amic-vault/shared:build: cache bypass, force executing b8831b5d7368377f
+@amic-vault/domain:build:
+@amic-vault/domain:build: > @amic-vault/domain@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/domain
+@amic-vault/domain:build: > tsc -p tsconfig.build.json
+@amic-vault/domain:build:
+@amic-vault/desktop:build:
+@amic-vault/desktop:build: > @amic-vault/desktop@0.1.0 build /private/tmp/amic-vault-sf-b368-26987720/apps/desktop
+@amic-vault/desktop:build: > pnpm run validate
+@amic-vault/desktop:build:
+@amic-vault/shared:build:
+@amic-vault/shared:build: > @amic-vault/shared@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/shared
+@amic-vault/shared:build: > tsc -p tsconfig.build.json
+@amic-vault/shared:build:
+@amic-vault/desktop:build:
+@amic-vault/desktop:build: > @amic-vault/desktop@0.1.0 validate /private/tmp/amic-vault-sf-b368-26987720/apps/desktop
+@amic-vault/desktop:build: > node tools/validate-tauri-policy.mjs
+@amic-vault/desktop:build:
+@amic-vault/desktop:build: Desktop Tauri policy verified.
+@amic-vault/ai:build: cache bypass, force executing c45d19b03742f860
+@amic-vault/web:build: cache bypass, force executing 1bcdcf9b40ca5703
+@amic-vault/ai:build:
+@amic-vault/ai:build: > @amic-vault/ai@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/ai
+@amic-vault/ai:build: > tsc -p tsconfig.build.json
+@amic-vault/ai:build:
+@amic-vault/web:build:
+@amic-vault/web:build: > @amic-vault/web@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/apps/web
+@amic-vault/web:build: > next build && node ../../tools/web/prepare-next-standalone-assets.mjs
+@amic-vault/web:build:
+@amic-vault/api:build: cache bypass, force executing 09952a29b5127fa2
+@amic-vault/web:build: ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+@amic-vault/web:build: Attention: Next.js now collects completely anonymous telemetry regarding usage.
+@amic-vault/web:build: This information is used to shape Next.js' roadmap and prioritize features.
+@amic-vault/web:build: You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+@amic-vault/web:build: https://nextjs.org/telemetry
+@amic-vault/web:build:
+@amic-vault/web:build:   ▲ Next.js 14.2.35
+@amic-vault/web:build:
+@amic-vault/api:build:
+@amic-vault/api:build: > @amic-vault/api@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/apps/api
+@amic-vault/api:build: > tsc -p tsconfig.build.json
+@amic-vault/api:build:
+@amic-vault/web:build:    Creating an optimized production build ...
+@amic-vault/web:build:  ✓ Compiled successfully
+@amic-vault/web:build:    Linting and checking validity of types ...
+@amic-vault/web:build:    Collecting page data ...
+@amic-vault/web:build:    Generating static pages (0/31) ...
+@amic-vault/web:build:    Generating static pages (7/31)
+@amic-vault/web:build:    Generating static pages (15/31)
+@amic-vault/web:build:    Generating static pages (23/31)
+@amic-vault/web:build:  ✓ Generating static pages (31/31)
+@amic-vault/web:build:    Finalizing page optimization ...
+@amic-vault/web:build:    Collecting build traces ...
+@amic-vault/web:build:
+@amic-vault/web:build: Route (app)                              Size     First Load JS
+@amic-vault/web:build: ┌ ○ /                                    162 B          87.7 kB
+@amic-vault/web:build: ├ ○ /_not-found                          880 B          88.4 kB
+@amic-vault/web:build: ├ ○ /admin                               3.07 kB         199 kB
+@amic-vault/web:build: ├ ○ /admin/security                      8.41 kB         185 kB
+@amic-vault/web:build: ├ ○ /audit                               8.7 kB          185 kB
+@amic-vault/web:build: ├ ○ /clients                             7.51 kB         189 kB
+@amic-vault/web:build: ├ ƒ /clients/[clientId]                  3.11 kB         189 kB
+@amic-vault/web:build: ├ ○ /contracts                           5.91 kB         171 kB
+@amic-vault/web:build: ├ ○ /dashboard                           5.08 kB         182 kB
+@amic-vault/web:build: ├ ○ /dd                                  162 B          87.7 kB
+@amic-vault/web:build: ├ ƒ /documents/[id]                      23 kB           219 kB
+@amic-vault/web:build: ├ ○ /enterprise                          201 B           188 kB
+@amic-vault/web:build: ├ ƒ /external/[token]                    3.78 kB         176 kB
+@amic-vault/web:build: ├ ○ /files                               7.48 kB         218 kB
+@amic-vault/web:build: ├ ○ /integrations                        1.73 kB         187 kB
+@amic-vault/web:build: ├ ○ /integrations/matter-app             3.91 kB         189 kB
+@amic-vault/web:build: ├ ○ /integrations/outlook                3.43 kB         189 kB
+@amic-vault/web:build: ├ ○ /launch                              3.22 kB         108 kB
+@amic-vault/web:build: ├ ○ /litigation                          162 B          87.7 kB
+@amic-vault/web:build: ├ ○ /login                               3.37 kB         176 kB
+@amic-vault/web:build: ├ ƒ /matters                             2.57 kB         189 kB
+@amic-vault/web:build: ├ ƒ /matters/[matterId]                  34.6 kB         247 kB
+@amic-vault/web:build: ├ ƒ /matters/[matterId]/contracts        1.55 kB         186 kB
+@amic-vault/web:build: ├ ƒ /matters/[matterId]/dd               1.01 kB         185 kB
+@amic-vault/web:build: ├ ƒ /matters/[matterId]/litigation       5.92 kB         190 kB
+@amic-vault/web:build: ├ ƒ /matters/[matterId]/sharing          8.47 kB         186 kB
+@amic-vault/web:build: ├ ƒ /matters/[matterId]/team             7.88 kB         180 kB
+@amic-vault/web:build: ├ ○ /matters/new                         8.18 kB         189 kB
+@amic-vault/web:build: ├ ○ /notifications                       194 B           182 kB
+@amic-vault/web:build: ├ ○ /outlook-addin                       11.8 kB         176 kB
+@amic-vault/web:build: ├ ○ /password-reset/confirm              1.84 kB         183 kB
+@amic-vault/web:build: ├ ○ /records                             8.4 kB          190 kB
+@amic-vault/web:build: ├ ○ /scale                               3.22 kB         108 kB
+@amic-vault/web:build: ├ ○ /search                              21.6 kB         213 kB
+@amic-vault/web:build: ├ ƒ /search/folders                      162 B          87.7 kB
+@amic-vault/web:build: ├ ○ /showcase                            162 B          87.7 kB
+@amic-vault/web:build: ├ ○ /walls                               6.23 kB         188 kB
+@amic-vault/web:build: └ ƒ /work                                5.73 kB         188 kB
+@amic-vault/web:build: + First Load JS shared by all            87.5 kB
+@amic-vault/web:build:   ├ chunks/2749-1ce5a4074e43c2b3.js      31.9 kB
+@amic-vault/web:build:   ├ chunks/5b8f0dd8-87d35fb585c4d085.js  53.6 kB
+@amic-vault/web:build:   └ other shared chunks (total)          1.96 kB
+@amic-vault/web:build:
+@amic-vault/web:build:
+@amic-vault/web:build: ƒ Middleware                             28.2 kB
+@amic-vault/web:build:
+@amic-vault/web:build: ○  (Static)   prerendered as static content
+@amic-vault/web:build: ƒ  (Dynamic)  server-rendered on demand
+@amic-vault/web:build:
+@amic-vault/web:build: prepared Next.js standalone assets for .
+
+ Tasks:    6 successful, 6 total
+Cached:    0 cached, 6 total
+  Time:    21.49s
+
+ WARNING  no output files found for task @amic-vault/desktop#build. Please check your `outputs` key in `turbo.json`
+===== TURBO_FORCE=true pnpm build EXIT 0 =====
+
+===== TURBO_FORCE=true pnpm typecheck =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 typecheck /private/tmp/amic-vault-sf-b368-26987720
+> turbo run typecheck --filter='./apps/*' --filter='./packages/*'
+
+
+   • Packages in scope: @amic-vault/ai, @amic-vault/api, @amic-vault/desktop, @amic-vault/domain, @amic-vault/shared, @amic-vault/web
+   • Running typecheck in 6 packages
+   • Remote caching disabled, using shared worktree cache
+
+@amic-vault/desktop:typecheck: cache bypass, force executing 65aae403b348fcbd
+@amic-vault/domain:typecheck: cache bypass, force executing ef36f0237cb53538
+@amic-vault/shared:build: cache bypass, force executing b8831b5d7368377f
+@amic-vault/shared:typecheck: cache bypass, force executing 153a19c0ac64d642
+@amic-vault/domain:build: cache bypass, force executing b036f00452a74e1d
+@amic-vault/domain:build:
+@amic-vault/domain:build: > @amic-vault/domain@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/domain
+@amic-vault/domain:build: > tsc -p tsconfig.build.json
+@amic-vault/domain:build:
+@amic-vault/shared:typecheck:
+@amic-vault/shared:typecheck: > @amic-vault/shared@0.0.0 typecheck /private/tmp/amic-vault-sf-b368-26987720/packages/shared
+@amic-vault/shared:typecheck: > tsc --noEmit -p tsconfig.json
+@amic-vault/shared:typecheck:
+@amic-vault/shared:build:
+@amic-vault/shared:build: > @amic-vault/shared@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/shared
+@amic-vault/shared:build: > tsc -p tsconfig.build.json
+@amic-vault/shared:build:
+@amic-vault/desktop:typecheck:
+@amic-vault/desktop:typecheck: > @amic-vault/desktop@0.1.0 typecheck /private/tmp/amic-vault-sf-b368-26987720/apps/desktop
+@amic-vault/desktop:typecheck: > tsc --noEmit -p tsconfig.json
+@amic-vault/desktop:typecheck:
+@amic-vault/domain:typecheck:
+@amic-vault/domain:typecheck: > @amic-vault/domain@0.0.0 typecheck /private/tmp/amic-vault-sf-b368-26987720/packages/domain
+@amic-vault/domain:typecheck: > tsc --noEmit -p tsconfig.json
+@amic-vault/domain:typecheck:
+@amic-vault/web:typecheck: cache bypass, force executing 7f57d3b7959bc221
+@amic-vault/ai:build: cache bypass, force executing c45d19b03742f860
+@amic-vault/ai:typecheck: cache bypass, force executing 5e3ad2dd9f486575
+@amic-vault/ai:build:
+@amic-vault/ai:build: > @amic-vault/ai@0.0.0 build /private/tmp/amic-vault-sf-b368-26987720/packages/ai
+@amic-vault/ai:build: > tsc -p tsconfig.build.json
+@amic-vault/ai:build:
+@amic-vault/web:typecheck:
+@amic-vault/web:typecheck: > @amic-vault/web@0.0.0 typecheck /private/tmp/amic-vault-sf-b368-26987720/apps/web
+@amic-vault/web:typecheck: > tsc --noEmit -p tsconfig.json
+@amic-vault/web:typecheck:
+@amic-vault/ai:typecheck:
+@amic-vault/ai:typecheck: > @amic-vault/ai@0.0.0 typecheck /private/tmp/amic-vault-sf-b368-26987720/packages/ai
+@amic-vault/ai:typecheck: > tsc --noEmit -p tsconfig.json
+@amic-vault/ai:typecheck:
+@amic-vault/api:typecheck: cache bypass, force executing 6e8848d299e19f79
+@amic-vault/api:typecheck:
+@amic-vault/api:typecheck: > @amic-vault/api@0.0.0 typecheck /private/tmp/amic-vault-sf-b368-26987720/apps/api
+@amic-vault/api:typecheck: > tsc --noEmit -p tsconfig.json
+@amic-vault/api:typecheck:
+
+ Tasks:    9 successful, 9 total
+Cached:    0 cached, 9 total
+  Time:    7.096s
+
+===== TURBO_FORCE=true pnpm typecheck EXIT 0 =====
+
+===== pnpm docs:frozen =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 docs:frozen /private/tmp/amic-vault-sf-b368-26987720
+> node infra/ci/scripts/check-docs-package-frozen.mjs
+
+docs package frozen check passed: 51 files
+===== pnpm docs:frozen EXIT 0 =====
+
+===== pnpm backlog:validate =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 backlog:validate /private/tmp/amic-vault-sf-b368-26987720
+> node tools/backlog/validate-all.mjs
+
+backlog validation passed: 174 TUWs
+backlog validation passed: 266 TUWs
+===== pnpm backlog:validate EXIT 0 =====
+
+===== pnpm check:production-ui-literals =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 check:production-ui-literals /private/tmp/amic-vault-sf-b368-26987720
+> node tools/quality/check-production-ui-literals.mjs
+
+Production UI literal check passed.
+===== pnpm check:production-ui-literals EXIT 0 =====
+
+===== pnpm ui:production-smoke =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 ui:production-smoke /private/tmp/amic-vault-sf-b368-26987720
+> node tools/release/check-production-ui-smoke.mjs
+
+Production UI literal check passed.
+Production UI smoke check passed.
+===== pnpm ui:production-smoke EXIT 0 =====
+
+===== pnpm check:ui-pr-checklist =====
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 check:ui-pr-checklist /private/tmp/amic-vault-sf-b368-26987720
+> node tools/quality/check-ui-pr-checklist.mjs
+
+UI PR checklist guard passed.
+===== pnpm check:ui-pr-checklist EXIT 0 =====
+
+===== sloplint changed =====
+sloplint: no auto-detectable AI slop signals found in /private/tmp/amic-vault-sf-b368-26987720
+===== sloplint changed EXIT 0 =====
+
+===== git diff --check origin/main...HEAD =====
+===== git diff --check origin/main...HEAD EXIT 0 =====
+
+===== git diff --check =====
+===== git diff --check EXIT 0 =====
+
+===== git diff --exit-code origin/main -- docs/package =====
+===== git diff --exit-code origin/main -- docs/package EXIT 0 =====
+
+===== VERIFICATION COMPLETE =====

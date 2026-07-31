@@ -31,7 +31,7 @@ import { AiAnswerPanel } from '@/components/search/ai-answer-panel';
 import { SearchAdvancedControls } from '@/components/search/search-advanced-controls';
 import { SearchBar } from '@/components/search/search-bar';
 import { SearchFacets, type SearchFacetSelection } from '@/components/search/search-facets';
-import { SearchResults, type SearchErrorKind } from '@/components/search/search-results';
+import { SearchResults, type SearchErrorState } from '@/components/search/search-results';
 import { searchResultKey } from '@/components/search/search-results';
 import { SearchSavePanel } from '@/components/search/search-save-panel';
 import { SearchFilterSummary } from '@/components/search/search-filter-summary';
@@ -45,7 +45,7 @@ import {
   DocumentWorkbenchShell,
 } from '@/components/document/document-workbench-shell';
 import { PreviewSessionFrame } from '@/components/document/preview-session-frame';
-import { safeApiErrorMessage, uiErrorKindForApiError } from '@/lib/api/error-messages';
+import { safeApiErrorMessage, uiErrorStateForApiError } from '@/lib/api/error-messages';
 import {
   deleteSavedSearch,
   listSavedSearches,
@@ -64,26 +64,23 @@ import {
   searchRefinerKeySet,
   type SearchRefinerKeySet,
 } from '@/lib/search-refiners';
+import { privateSearchUrl, urlForPolicy, urlForState } from './search-url-policy';
 import { Button } from '@/components/ui/button';
 import { getDashboardOverview } from '@/lib/api/dashboard';
 import { useSavedItems } from '@/hooks/use-saved-items';
+import { readSearchSelectionState, withSearchSelectionState } from './search-selection-state';
 
 const pageSize = 10;
 type SearchSurface = 'results' | 'ai';
-const searchSelectionStateKey = 'amicVaultSearchSelection';
 
 function readSearchSelection(): string | null {
   if (typeof window === 'undefined') return null;
-  const value = window.history.state?.[searchSelectionStateKey];
-  return typeof value === 'string' ? value : null;
+  return readSearchSelectionState(window.history.state);
 }
 
 function rememberSearchSelection(value: string | null): void {
   if (typeof window === 'undefined') return;
-  const nextState = { ...(window.history.state ?? {}) };
-  if (value) nextState[searchSelectionStateKey] = value;
-  else delete nextState[searchSelectionStateKey];
-  window.history.replaceState(nextState, '');
+  window.history.replaceState(withSearchSelectionState(window.history.state, value), '');
 }
 
 export function SearchClient() {
@@ -103,7 +100,7 @@ export function SearchClient() {
   const [page, setPage] = useState(initial.page);
   const [response, setResponse] = useState<SearchResponseDto | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<SearchErrorKind | null>(null);
+  const [error, setError] = useState<SearchErrorState | null>(null);
   const [savedSearches, setSavedSearches] = useState<SavedSearchDto[]>([]);
   const [taxonomyCatalog, setTaxonomyCatalog] = useState<EnterpriseApprovedDmsTaxonomyDto[]>([]);
   const [refinerCatalog, setRefinerCatalog] = useState<EnterpriseApprovedDmsSearchRefinerDto[]>([]);
@@ -142,7 +139,7 @@ export function SearchClient() {
     setSavedSearchError(null);
     try {
       const result = await listSavedSearches();
-      setSavedSearches(result.items);
+      setSavedSearches(sortSavedSearches(result.items));
     } catch (caught) {
       setSavedSearchError(safeApiErrorMessage(caught));
       setSavedSearches([]);
@@ -232,7 +229,7 @@ export function SearchClient() {
         }
       } catch (caught) {
         setResponse(null);
-        setError(searchErrorKind(caught));
+        setError(uiErrorStateForApiError(caught));
       } finally {
         setBusy(false);
       }
@@ -269,7 +266,7 @@ export function SearchClient() {
         setResponse(result);
       } catch (caught) {
         setResponse(null);
-        setError(searchErrorKind(caught));
+        setError(uiErrorStateForApiError(caught));
       } finally {
         setBusy(false);
       }
@@ -744,54 +741,8 @@ function stateFromParams(
       privilegeStatus: parsePrivilegeStatus(params.get('privilegeStatus')),
       sortBy: parseSort(params.get('sortBy')),
       target: parseTarget(params.get('target')),
-      title: params.get('title') ?? undefined,
     },
   };
-}
-
-function urlForPolicy(
-  privacySettings: SearchPrivacySettingsDto,
-  query: string,
-  selection: SearchFacetSelection,
-  page: number,
-): string {
-  if (!privacySettings.allowPlaintextReusableUrls) return privateSearchUrl();
-  return urlForState(query, selection, page);
-}
-
-function urlForState(query: string, selection: SearchFacetSelection, page: number): string {
-  const params = new URLSearchParams();
-  params.set('q', query);
-  if (page > 1) params.set('page', String(page));
-  if (selection.matterId) params.set('matterId', selection.matterId);
-  if (selection.clientId) params.set('clientId', selection.clientId);
-  if (selection.confidentialityLevel) {
-    params.set('confidentialityLevel', selection.confidentialityLevel);
-  }
-  if (selection.documentType) params.set('documentType', selection.documentType);
-  if (selection.extractionStatus) params.set('extractionStatus', selection.extractionStatus);
-  if (selection.ocrConfidence) params.set('ocrConfidence', selection.ocrConfidence);
-  if (selection.legalHold) params.set('legalHold', selection.legalHold);
-  if (selection.recordsStatus) params.set('recordsStatus', selection.recordsStatus);
-  if (selection.versionStatus) params.set('versionStatus', selection.versionStatus);
-  if (selection.dateRange) params.set('dateRange', selection.dateRange);
-  if (selection.clientName) params.set('clientName', selection.clientName);
-  if (selection.groupBy && selection.groupBy !== 'none') params.set('groupBy', selection.groupBy);
-  if (selection.matterCode) params.set('matterCode', selection.matterCode);
-  if (selection.matterName) params.set('matterName', selection.matterName);
-  if (selection.mode && selection.mode !== 'keyword') params.set('mode', selection.mode);
-  if (selection.privilegeStatus) params.set('privilegeStatus', selection.privilegeStatus);
-  if (selection.sortBy && selection.sortBy !== 'relevance') params.set('sortBy', selection.sortBy);
-  if (selection.target && selection.target !== 'all') params.set('target', selection.target);
-  if (selection.title) params.set('title', selection.title);
-  return `/search?${params.toString()}`;
-}
-
-function privateSearchUrl(savedSearchId?: string): string {
-  if (!savedSearchId) return '/search';
-  const params = new URLSearchParams();
-  params.set('searchRef', savedSearchId);
-  return `/search?${params.toString()}`;
 }
 
 function requestForState(
@@ -1150,10 +1101,6 @@ function datesForRange(value: string | undefined): { dateFrom?: string; dateTo?:
     return { dateTo: now.toISOString() };
   }
   return {};
-}
-
-function searchErrorKind(error: unknown): SearchErrorKind {
-  return uiErrorKindForApiError(error);
 }
 
 function upsertSavedSearch(current: SavedSearchDto[], next: SavedSearchDto): SavedSearchDto[] {

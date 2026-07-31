@@ -2,13 +2,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Activity, Archive, BriefcaseBusiness, FileSearch, Search, Share2 } from 'lucide-react';
+import { BriefcaseBusiness, FileSearch, Search } from 'lucide-react';
 import type { MatterDto } from '@amic-vault/shared';
-import {
-  matterFileCabinetUrl,
-  matterRecordsUrl,
-  matterSearchUrl,
-} from '@/components/matter/matter-dms-links';
+import { matterFileCabinetUrl, matterSearchUrl } from '@/components/matter/matter-dms-links';
 import { Button } from '@/components/ui/button';
 
 interface WorkspaceAction {
@@ -37,24 +33,6 @@ export function MatterWorkspaceActions({ matter }: { matter: MatterDto }) {
       href: '/work',
       icon: <BriefcaseBusiness className="h-4 w-4" />,
       label: '작업함',
-    },
-    {
-      description: '외부 워크스페이스, 링크, Q&A 인박스를 엽니다.',
-      href: `/matters/${encodeURIComponent(matter.matterId)}/sharing`,
-      icon: <Share2 className="h-4 w-4" />,
-      label: '외부 공유',
-    },
-    {
-      description: 'Matter 표시명을 기준으로 보존 작업 준비 화면을 엽니다.',
-      href: matterRecordsUrl(matter),
-      icon: <Archive className="h-4 w-4" />,
-      label: '기록 보존',
-    },
-    {
-      description: 'Matter 활동 기록과 전체 활동 기록 화면으로 이동합니다.',
-      href: '/audit',
-      icon: <Activity className="h-4 w-4" />,
-      label: '감사 기록',
     },
   ];
 

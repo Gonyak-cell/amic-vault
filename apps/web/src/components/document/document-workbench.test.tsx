@@ -1,10 +1,17 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { DocumentDto, DocumentFolderDto } from '@amic-vault/shared';
 import { DocumentQuickInspector } from './document-quick-inspector';
+import { DataTable, DataTableBody, DataTableCell, DataTableRow } from '@/components/ui/data-table';
 import { DocumentWorkbenchRail } from './document-workbench-rail';
-import { DocumentWorkbenchDrawer, DocumentWorkbenchShell } from './document-workbench-shell';
+import {
+  createDocumentWorkbenchDrawerController,
+  DocumentWorkbenchDrawer,
+  DocumentWorkbenchShell,
+  type DocumentWorkbenchFocusable,
+  type DocumentWorkbenchKeyboardEvent,
+} from './document-workbench-shell';
 
 const folder: DocumentFolderDto = {
   createdAt: '2026-07-28T00:00:00.000Z',
@@ -64,7 +71,78 @@ describe('Document workbench components', () => {
     expect(drawer).toContain('문서 탐색 닫기');
   });
 
-  it('shows authorized folder names, not raw folder identifiers, and preserves honest recent-item copy', () => {
+  it('keeps wide workbench content in an internal scroll region', () => {
+    const shell = renderToStaticMarkup(
+      <DocumentWorkbenchShell inspector={<p>세부 정보</p>} rail={<p>탐색</p>}>
+        <DataTable caption="권한 내 문서함" minWidthClassName="min-w-[920px]">
+          <DataTableBody>
+            <DataTableRow>
+              <DataTableCell>긴 문서명</DataTableCell>
+            </DataTableRow>
+          </DataTableBody>
+        </DataTable>
+      </DocumentWorkbenchShell>,
+    );
+    const drawer = renderToStaticMarkup(
+      <DocumentWorkbenchDrawer onClose={() => undefined} open title="문서 탐색">
+        <div className="min-w-[1200px]">긴 내용</div>
+      </DocumentWorkbenchDrawer>,
+    );
+
+    expect(shell).toContain('overflow-x-auto');
+    expect(shell).toContain('min-w-[920px]');
+    expect(drawer).toContain('min-w-0 flex-1 overflow-x-auto overflow-y-auto');
+  });
+
+  it('keeps initial focus, Tab containment, Escape close, and trigger focus return in the drawer contract', () => {
+    const preventDefault = vi.fn();
+    const onClose = vi.fn();
+    const closeButtonFocus = vi.fn();
+    const lastFocus = vi.fn();
+    const triggerFocus = vi.fn();
+    const focusCallbacks: Array<() => void> = [];
+    const closeButton: DocumentWorkbenchFocusable = { focus: closeButtonFocus };
+    const last: DocumentWorkbenchFocusable = { focus: lastFocus };
+    const focusable = [closeButton, last];
+    let activeElement: DocumentWorkbenchFocusable | null = closeButton;
+    const controller = createDocumentWorkbenchDrawerController({
+      getActiveElement: () => activeElement,
+      getFocusableElements: () => focusable,
+      focusInitial: closeButtonFocus,
+      onClose,
+      returnFocus: triggerFocus,
+      scheduleFocus: (callback) => {
+        focusCallbacks.push(callback);
+      },
+    });
+
+    controller.focusInitial();
+    expect(closeButtonFocus).toHaveBeenCalledTimes(1);
+
+    activeElement = last;
+    const tabForward: DocumentWorkbenchKeyboardEvent = {
+      key: 'Tab',
+      preventDefault,
+      shiftKey: false,
+    };
+    controller.onKeyDown(tabForward);
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(closeButtonFocus).toHaveBeenCalledTimes(2);
+
+    activeElement = closeButton;
+    controller.onKeyDown({ key: 'Tab', preventDefault, shiftKey: true });
+    expect(preventDefault).toHaveBeenCalledTimes(2);
+    expect(lastFocus).toHaveBeenCalledTimes(1);
+
+    controller.onKeyDown({ key: 'Escape', preventDefault, shiftKey: false });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(preventDefault).toHaveBeenCalledTimes(3);
+    expect(triggerFocus).not.toHaveBeenCalled();
+    focusCallbacks[0]?.();
+    expect(triggerFocus).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows authorized folder names without raw identifiers or unsupported recent-item placeholders', () => {
     const html = renderToStaticMarkup(
       <DocumentWorkbenchRail
         folders={[folder]}
@@ -86,7 +164,8 @@ describe('Document workbench components', () => {
     );
 
     expect(html).toContain('Signing');
-    expect(html).toContain('최근 문서는 권한 범위가 준비되면 표시합니다.');
+    expect(html).not.toContain('최근 문서는 권한 범위가 준비되면 표시합니다.');
+    expect(html).not.toContain('접근 가능한 Matter를 선택하면 해당 폴더만 표시합니다.');
     expect(html).not.toContain(folder.folderId);
   });
 

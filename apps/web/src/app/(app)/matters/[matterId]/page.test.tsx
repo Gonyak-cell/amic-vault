@@ -1,15 +1,32 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import type { MatterDto } from '@amic-vault/shared';
+import { MatterDetailTabs } from '@/components/matter/matter-detail-tabs';
 import {
   MatterIssuesKeyDatesPanel,
   isDueWithinDays,
 } from '@/components/matter/matter-issues-key-dates-panel';
+import {
+  MatterContextSummary,
+  matterStatusLabel,
+  matterTypeLabel,
+  resolveMatterEmailTimeline,
+  riskLabel,
+} from './matter-detail-state';
+import { MatterResourceNotice } from './matter-work-items';
 import MatterDetailPage from './page';
 
 describe('MatterDetailPage', () => {
+  it('remounts stateful Matter content when the route identity changes', () => {
+    const first = MatterDetailPage({ params: { matterId: 'matter-a' } });
+    const second = MatterDetailPage({ params: { matterId: 'matter-b' } });
+
+    expect(first.key).toBe('matter-a');
+    expect(second.key).toBe('matter-b');
+    expect(first.key).not.toBe(second.key);
+  });
+
   it('guides newly created matters to the Conflicts panel', () => {
     const html = renderToStaticMarkup(
       <MatterDetailPage
@@ -23,74 +40,68 @@ describe('MatterDetailPage', () => {
     expect(html).toContain('href="#matter-conflicts"');
   });
 
-  it('wires the Email Vault upload card into the Matter email timeline', () => {
-    const source = readFileSync(
-      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
-      'utf8',
+  it('keeps the Matter body and five tabs when the email timeline request rejects', async () => {
+    const timeline = await resolveMatterEmailTimeline(
+      '11111111-1111-4111-8111-111111111111',
+      async () => {
+        throw new TypeError('fetch failed');
+      },
     );
 
-    expect(source).toMatch(/<EmailUploadCard/);
-    expect(source).toContain('title="이메일 업로드"');
-    expect(source).toContain('EML·MSG 원문 보관');
-    expect(source).toMatch(/onFiled=\{refreshEmails\}/);
-    expect(source).toMatch(/listMatterEmailTimeline\(params\.matterId\)/);
-    expect(source).toContain('setEmailThreads([...(timeline.threads ?? [])])');
-    expect(source).toMatch(/fileEmailThreadToMatter\(threadId/);
-    expect(source).toContain('onFileThread={(threadId) => void fileEmailThread(threadId)}');
+    expect(timeline).toEqual({ status: 'unavailable', emails: [], threads: [] });
+    if (timeline.status === 'ready') throw new Error('expected a rejected timeline result');
+
+    const html = renderToStaticMarkup(
+      <MatterDetailTabs
+        initialTab="documents"
+        panels={{
+          overview: <p>계약 검토 Matter 본문</p>,
+          documents: (
+            <>
+              <p>계약 검토 문서 본문</p>
+              <MatterResourceNotice resource="timeline" status={timeline.status} />
+            </>
+          ),
+          work: <p>업무 본문</p>,
+          team: <p>팀 본문</p>,
+          activity: <p>활동 본문</p>,
+        }}
+      />,
+    );
+
+    expect(html.match(/role="tab"/g)).toHaveLength(5);
+    expect(html).toContain('id="documents-tab"');
+    expect(html).toContain('aria-selected="true"');
+    expect(html).toContain('계약 검토 문서 본문');
+    expect(html).toContain('이메일 기록 연결에 실패했습니다.');
+    expect(html).not.toContain('Matter를 표시하지 못했습니다.');
   });
 
-  it('wires related Matter controls and security fields into the detail surface', () => {
-    const source = readFileSync(
-      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
-      'utf8',
-    );
-
-    expect(source).toContain('title="관련 Matter"');
-    expect(source).toContain('보안 등급');
-    expect(source).toContain('리드 파트너');
-    expect(source).toContain('리드 어소');
-    expect(source).toMatch(/listMatterRelatedMatters\(params\.matterId\)/);
-    expect(source).toMatch(/addMatterRelatedMatter\(params\.matterId/);
-    expect(source).toContain('const result = await removeMatterRelatedMatter');
-    expect(source).toContain('권한 제한 Matter');
+  it('maps dashboard risk and related Matter status without raw enum values', () => {
+    expect(matterTypeLabel('litigation')).toBe('송무');
+    expect(riskLabel('critical')).toBe('최고 위험 · 매우 높음');
+    expect(riskLabel('high')).toBe('최고 위험 · 높음');
+    expect(matterStatusLabel('active')).toBe('진행 중');
+    expect(matterStatusLabel('disposal_review')).toBe('폐기 검토');
+    expect(matterStatusLabel('unknown')).toBe('상태 미확인');
   });
 
-  it('wires the Matter dashboard aggregate into the first-screen workspace panel', () => {
-    const source = readFileSync(
-      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
-      'utf8',
+  it('renders normal, Wall, and legal-hold context as separate Matter states', () => {
+    const normal = renderToStaticMarkup(<MatterContextSummary matter={matterFixture()} />);
+    const wall = renderToStaticMarkup(
+      <MatterContextSummary matter={matterFixture({ ethicalWallActive: true })} />,
+    );
+    const hold = renderToStaticMarkup(
+      <MatterContextSummary matter={matterFixture({ legalHold: true })} />,
     );
 
-    expect(source).toMatch(/getMatterDashboard\(params\.matterId\)/);
-    expect(source).toContain('<MatterDashboardPanel');
-    expect(source).toContain('id="matter-dashboard"');
-    expect(source).toContain('최근 활동');
-    expect(source).toContain('핵심 문서');
-    expect(source).toContain('외부 활동');
-    expect(source).toContain('AI 세션');
-    expect(source).toContain('href: `/audit?matterId=${encodeURIComponent(matterId)}`');
-    expect(source).toContain('id="matter-ai"');
-  });
-
-  it('wires the Matter knowledge tab into the detail surface without opening sealed routes', () => {
-    const source = readFileSync(
-      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
-      'utf8',
-    );
-
-    expect(source).toContain('MatterKnowledgeTab');
-    expect(source).toContain('latestSessionId={dashboard?.aiSessions[0]?.sessionId ?? null}');
-  });
-
-  it('wires the Closing checklist panel into the Matter detail surface', () => {
-    const source = readFileSync(
-      fileURLToPath(import.meta.url).replace(/\.test\.tsx$/, '.tsx'),
-      'utf8',
-    );
-
-    expect(source).toContain('MatterClosingChecklistPanel');
-    expect(source).toContain('id="matter-closing"');
-    expect(source).toContain('onMatterUpdated={setMatter}');
+    expect(normal).toMatch(/보안 등급[\s\S]*표준/);
+    expect(normal).toMatch(/보존 제한[\s\S]*없음/);
+    expect(normal).not.toContain('Wall 활성');
+    expect(wall).toContain('표준 · Wall 활성');
+    expect(wall).toMatch(/보존 제한[\s\S]*없음/);
+    expect(hold).toMatch(/보존 제한[\s\S]*적용됨/);
+    expect(hold).not.toContain('Wall 활성');
   });
 
   it('renders matter issues and near-term key dates with visible status cues', () => {
@@ -141,3 +152,36 @@ describe('MatterDetailPage', () => {
     expect(html).toContain('날짜순');
   });
 });
+
+function matterFixture(overrides: Partial<MatterDto> = {}): MatterDto {
+  return {
+    clientId: '11111111-1111-4111-8111-111111111111',
+    clientDisplayName: '한빛전자',
+    confidentialityLevel: 'standard',
+    conflictsStatus: 'cleared',
+    createdAt: '2026-06-18T00:00:00.000Z',
+    createdBy: '11111111-1111-4111-8111-111111111112',
+    displayName: '계약 검토',
+    ethicalWallActive: false,
+    legalHold: false,
+    leadAssociateId: null,
+    leadAssociateDisplayName: null,
+    leadLawyerDisplayName: '담당 변호사',
+    leadPartnerDisplayName: null,
+    matterCode: 'AMIC-2026-0007',
+    matterId: '11111111-1111-4111-8111-111111111122',
+    matterName: '계약 검토',
+    matterType: 'advisory',
+    metadata: {},
+    openedAt: '2026-06-01T00:00:00.000Z',
+    closedAt: null,
+    practiceGroup: 'AMIC_LAW_GROUP',
+    safeLabel: '계약 검토',
+    status: 'open',
+    tenantId: '11111111-1111-4111-8111-111111111100',
+    updatedAt: '2026-06-18T01:00:00.000Z',
+    leadLawyerId: null,
+    leadPartnerId: null,
+    ...overrides,
+  };
+}

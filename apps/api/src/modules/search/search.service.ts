@@ -21,6 +21,7 @@ import type {
 import { buildSafeLabel, searchQuerySchema } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
 import {
+  failClosedSavedSearchPermissionScopeCtes,
   SEARCH_PERMISSION_SCOPE_PROVIDER,
   type SearchPermissionScopeProvider,
   type SearchRequestContext,
@@ -121,13 +122,41 @@ const internalSavedSearchRoles = [
   'knowledge_manager',
 ] as const;
 
-const savedSearchActorCte = `
-  actor AS (
-    SELECT role, status
-    FROM users
-    WHERE tenant_id = $1
-      AND user_id = $2
-    LIMIT 1
+const savedSearchQueryMatterIdText = `(s.search_query_json #>> '{filters,matterId}')`;
+const savedSearchQueryMatterId = `
+  CASE
+    WHEN ${savedSearchQueryMatterIdText} ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN ${savedSearchQueryMatterIdText}::uuid
+    ELSE NULL::uuid
+  END
+`;
+const savedSearchEffectiveMatterId = `COALESCE(s.matter_id, (${savedSearchQueryMatterId}))`;
+const savedSearchMatterAuthorizationWhere = `
+  (
+    (${savedSearchQueryMatterIdText} IS NULL AND s.matter_id IS NULL)
+    OR (
+      (
+        ${savedSearchQueryMatterIdText} IS NULL
+        OR (
+          (${savedSearchQueryMatterId}) IS NOT NULL
+          AND (
+            s.matter_id IS NULL
+            OR s.matter_id = (${savedSearchQueryMatterId})
+          )
+        )
+      )
+      AND ${savedSearchEffectiveMatterId} IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM allowed_matter_ids allowed
+        WHERE allowed.matter_id = ${savedSearchEffectiveMatterId}
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM wall_blocked_matter_ids blocked
+        WHERE blocked.matter_id = ${savedSearchEffectiveMatterId}
+      )
+    )
   )
 `;
 
@@ -142,15 +171,9 @@ const visibleSavedSearchWhere = `
     OR (
       s.scope_type = 'matter-team'
       AND s.matter_id IS NOT NULL
-      AND EXISTS (
-        SELECT 1
-        FROM matter_members mm
-        WHERE mm.tenant_id = s.tenant_id
-          AND mm.matter_id = s.matter_id
-          AND mm.user_id = $2
-      )
     )
   )
+  AND ${savedSearchMatterAuthorizationWhere}
 `;
 
 function sha256Hex(input: string): string {
@@ -547,7 +570,7 @@ export class SearchService {
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       const result = await client.query(
         `
-          WITH ${savedSearchActorCte}
+          WITH ${failClosedSavedSearchPermissionScopeCtes}
           SELECT
             s.saved_search_id,
             s.name,
@@ -562,7 +585,7 @@ export class SearchService {
             s.updated_at,
             (s.user_id = $2 OR actor.role = ANY($4::text[])) AS can_revoke
           FROM saved_searches s
-          CROSS JOIN actor
+          CROSS JOIN actor_row actor
           WHERE ${visibleSavedSearchWhere}
           ORDER BY
             CASE s.scope_type
@@ -588,11 +611,16 @@ export class SearchService {
     const queryHash = sha256Hex(input.query.query ?? '');
     const refs = filterRefs(input.query);
     const scope = input.scope ?? 'personal';
-    const matterId = scope === 'matter-team' ? (input.matterId ?? null) : null;
+    const queryMatterId = input.query.filters?.matterId ?? null;
+    if (input.matterId && queryMatterId && input.matterId !== queryMatterId) {
+      throw permissionDenied();
+    }
+    const matterId = input.matterId ?? queryMatterId;
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       await this.assertCanSaveSavedSearch(client, ctx, scope, matterId);
       const result = await client.query(
         `
+          WITH ${failClosedSavedSearchPermissionScopeCtes}
           INSERT INTO saved_searches (
             tenant_id,
             user_id,
@@ -603,7 +631,30 @@ export class SearchService {
             query_hash,
             filter_refs
           )
-          VALUES ($1, $2, $3, $4, $5::uuid, $6::jsonb, $7, $8)
+          SELECT $1, $2, $3, $4, $5::uuid, $6::jsonb, $7, $8
+          FROM actor_row actor
+          WHERE actor.status = 'active'
+            AND actor.role = ANY($9::text[])
+            AND (
+              $5::uuid IS NULL
+              OR (
+                EXISTS (
+                  SELECT 1
+                  FROM allowed_matter_ids allowed
+                  WHERE allowed.matter_id = $5::uuid
+                )
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM wall_blocked_matter_ids blocked
+                  WHERE blocked.matter_id = $5::uuid
+                )
+              )
+            )
+            AND (
+              $4 = 'personal'
+              OR ($4 = 'admin-shared' AND actor.role = ANY($10::text[]))
+              OR ($4 = 'matter-team' AND $5::uuid IS NOT NULL)
+            )
           ON CONFLICT (tenant_id, user_id, name)
           DO UPDATE SET
             scope_type = EXCLUDED.scope_type,
@@ -637,6 +688,8 @@ export class SearchService {
           JSON.stringify(input.query),
           queryHash,
           refs,
+          [...internalSavedSearchRoles],
+          ['firm_admin', 'security_admin'],
         ],
       );
       const row = result.rows[0] as SavedSearchDbRow | undefined;
@@ -651,19 +704,16 @@ export class SearchService {
     await this.auditService.transaction(ctx.tenantId, async (client) => {
       const result = await client.query(
         `
-          WITH ${savedSearchActorCte},
+          WITH ${failClosedSavedSearchPermissionScopeCtes},
           authorized AS (
             SELECT s.saved_search_id
             FROM saved_searches s
-            CROSS JOIN actor
-            WHERE s.tenant_id = $1
-              AND s.saved_search_id = $3
-              AND s.revoked_at IS NULL
-              AND actor.status = 'active'
-              AND actor.role = ANY($4::text[])
+            CROSS JOIN actor_row actor
+            WHERE ${visibleSavedSearchWhere}
+              AND s.saved_search_id = $5
               AND (
                 s.user_id = $2
-                OR (s.scope_type <> 'personal' AND actor.role = ANY($5::text[]))
+                OR (s.scope_type <> 'personal' AND actor.role = ANY($4::text[]))
               )
             LIMIT 1
           )
@@ -691,9 +741,9 @@ export class SearchService {
         [
           ctx.tenantId,
           ctx.userId,
-          savedSearchId,
           [...internalSavedSearchRoles],
           ['firm_admin', 'security_admin'],
+          savedSearchId,
         ],
       );
       const row = result.rows[0] as SavedSearchDbRow | undefined;
@@ -709,13 +759,13 @@ export class SearchService {
     return this.auditService.transaction(ctx.tenantId, async (client) => {
       const result = await client.query(
         `
-          WITH ${savedSearchActorCte},
+          WITH ${failClosedSavedSearchPermissionScopeCtes},
           visible AS (
             SELECT
               s.saved_search_id,
               (s.user_id = $2 OR actor.role = ANY($4::text[])) AS can_revoke
             FROM saved_searches s
-            CROSS JOIN actor
+            CROSS JOIN actor_row actor
             WHERE ${visibleSavedSearchWhere}
               AND s.saved_search_id = $5
             LIMIT 1
@@ -772,18 +822,6 @@ export class SearchService {
     }
     if (scope === 'matter-team') {
       if (!matterId) throw permissionDenied();
-      const membership = await client.query(
-        `
-          SELECT 1
-          FROM matter_members
-          WHERE tenant_id = $1
-            AND matter_id = $2
-            AND user_id = $3
-          LIMIT 1
-        `,
-        [ctx.tenantId, matterId, ctx.userId],
-      );
-      if (membership.rowCount !== 1) throw permissionDenied();
     }
   }
 

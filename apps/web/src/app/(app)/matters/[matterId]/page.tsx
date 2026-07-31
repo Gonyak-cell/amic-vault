@@ -14,14 +14,14 @@ import {
   Scale,
   Share2,
   Trash2,
-  TriangleAlert,
-  Users,
 } from 'lucide-react';
 import type {
   AiPrepMatterReadinessDto,
+  ErrorCode,
   EmailMatterFilingDto,
   EmailThreadGroupDto,
   MatterDashboardDto,
+  MatterMemberDto,
   MatterDto,
   MatterRelatedMatterDto,
   MatterRelationType,
@@ -42,41 +42,69 @@ import { MatterIssuesKeyDatesPanel } from '@/components/matter/matter-issues-key
 import { MatterKnowledgeTab } from '@/components/matter/matter-knowledge-tab';
 import { MatterPartyPanel } from '@/components/matter/matter-party-panel';
 import { MatterStatusBadge } from '@/components/matter/matter-status-badge';
+import { MatterDetailTabs } from '@/components/matter/matter-detail-tabs';
 import { MatterWorkstreamTabs } from '@/components/matter/matter-workstream-tabs';
 import { MatterWorkspaceActions } from '@/components/matter/matter-workspace-actions';
+import { TeamMemberList } from '@/components/matter/team-member-list';
 import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { PageShell } from '@/components/ui/page-shell';
 import { SectionCard } from '@/components/ui/section-card';
+import {
+  MatterResourceNotice,
+  MatterWorkItems,
+  matterLoadStatusForError,
+  type MatterLoadStatus,
+} from './matter-work-items';
+import {
+  MatterContextSummary,
+  matterConfidentialityLabel,
+  matterStatusLabel,
+  matterTypeLabel,
+  resolveMatterEmailTimeline,
+  riskLabel,
+} from './matter-detail-state';
 import { getMatterAiPrepReadiness } from '@/lib/api/ai-prep';
 import { safeApiErrorMessage } from '@/lib/api/error-messages';
 import {
   addMatterRelatedMatter,
+  ApiClientError,
   fileEmailThreadToMatter,
   getMatter,
   getMatterDashboard,
-  listMatterEmailTimeline,
+  listMatterMembers,
   listMatterRelatedMatters,
   listMatters,
   removeMatterRelatedMatter,
 } from '@/lib/api-client';
 
-type LoadStatus = 'loading' | 'ready' | 'error';
+export default function MatterDetailPage(props: {
+  params: { matterId: string };
+  searchParams?: { created?: string; tab?: string };
+}) {
+  return (
+    <MatterDetailContent
+      key={props.params.matterId}
+      params={props.params}
+      searchParams={props.searchParams}
+    />
+  );
+}
 
-export default function MatterDetailPage({
+function MatterDetailContent({
   params,
   searchParams,
 }: {
   params: { matterId: string };
-  searchParams?: { created?: string };
+  searchParams?: { created?: string; tab?: string } | undefined;
 }) {
   const [matter, setMatter] = useState<MatterDto | null>(null);
   const [emails, setEmails] = useState<EmailMatterFilingDto[]>([]);
   const [emailThreads, setEmailThreads] = useState<EmailThreadGroupDto[]>([]);
+  const [emailLoadStatus, setEmailLoadStatus] = useState<MatterLoadStatus>('loading');
   const [relatedMatters, setRelatedMatters] = useState<MatterRelatedMatterDto[]>([]);
   const [matterOptions, setMatterOptions] = useState<MatterDto[]>([]);
-  const [loadStatus, setLoadStatus] = useState<LoadStatus>('loading');
+  const [loadStatus, setLoadStatus] = useState<MatterLoadStatus>('loading');
   const [dashboard, setDashboard] = useState<MatterDashboardDto | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [readiness, setReadiness] = useState<AiPrepMatterReadinessDto | null>(null);
@@ -87,15 +115,12 @@ export default function MatterDetailPage({
   const [emailThreadBusyId, setEmailThreadBusyId] = useState<string | null>(null);
 
   const refreshEmails = useCallback(() => {
-    listMatterEmailTimeline(params.matterId)
-      .then((timeline) => {
-        setEmails([...timeline.items]);
-        setEmailThreads([...(timeline.threads ?? [])]);
-      })
-      .catch(() => {
-        setEmails([]);
-        setEmailThreads([]);
-      });
+    setEmailLoadStatus('loading');
+    resolveMatterEmailTimeline(params.matterId).then((result) => {
+      setEmails(result.emails);
+      setEmailThreads(result.threads);
+      setEmailLoadStatus(result.status);
+    });
   }, [params.matterId]);
 
   const refreshReadiness = useCallback(() => {
@@ -119,21 +144,27 @@ export default function MatterDetailPage({
   useEffect(() => {
     let active = true;
     setLoadStatus('loading');
-    Promise.all([getMatter(params.matterId), listMatterEmailTimeline(params.matterId)])
-      .then(([matterResult, timeline]) => {
+    setMatter(null);
+    getMatter(params.matterId)
+      .then((matterResult) => {
         if (!active) return;
         setMatter(matterResult);
-        setEmails([...timeline.items]);
-        setEmailThreads([...(timeline.threads ?? [])]);
         setLoadStatus('ready');
       })
-      .catch(() => {
+      .catch((caught: unknown) => {
         if (!active) return;
         setMatter(null);
-        setEmails([]);
-        setEmailThreads([]);
-        setLoadStatus('error');
+        setLoadStatus(matterLoadStatusForError(caught));
       });
+    setEmailLoadStatus('loading');
+    setEmails([]);
+    setEmailThreads([]);
+    resolveMatterEmailTimeline(params.matterId).then((result) => {
+      if (!active) return;
+      setEmails(result.emails);
+      setEmailThreads(result.threads);
+      setEmailLoadStatus(result.status);
+    });
     getMatterAiPrepReadiness(params.matterId)
       .then((result) => {
         if (!active) return;
@@ -236,18 +267,7 @@ export default function MatterDetailPage({
         title={matter?.matterName ?? 'Matter'}
         actions={
           matter ? (
-            <div className="flex max-w-full flex-wrap items-center justify-end gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/matters/${params.matterId}/team`}>
-                  <Users className="h-4 w-4" />팀 권한
-                </Link>
-              </Button>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/walls">
-                  <TriangleAlert className="h-4 w-4" />
-                  정보 차단
-                </Link>
-              </Button>
+            <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
               <MatterWorkspaceActions matter={matter} />
               <MatterStatusBadge status={matter.status} />
             </div>
@@ -255,8 +275,8 @@ export default function MatterDetailPage({
         }
       />
 
-      {loadStatus === 'error' ? (
-        <EmptyState variant="api-error" title="Matter를 표시할 수 없습니다." />
+      {loadStatus !== 'ready' ? (
+        <MatterResourceNotice resource="matter" status={loadStatus} />
       ) : null}
 
       {createdFromIntake ? (
@@ -283,168 +303,180 @@ export default function MatterDetailPage({
       ) : null}
 
       {matter ? (
-        <dl className="grid gap-3 text-sm sm:grid-cols-4">
-          <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">고객</dt>
-            <dd className="mt-1 font-medium">{matter.clientDisplayName ?? '고객 표시명 없음'}</dd>
-          </div>
-          <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">유형</dt>
-            <dd className="mt-1 font-medium">{matter.matterType}</dd>
-          </div>
-          <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">그룹</dt>
-            <dd className="mt-1 font-medium">
-              {matter.practiceGroup ?? '표시할 항목이 없습니다.'}
-            </dd>
-          </div>
-          <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">보안 등급</dt>
-            <dd className="mt-1 font-medium">
-              {matterConfidentialityLabels[matter.confidentialityLevel]}
-              {matter.ethicalWallActive ? ' · Wall 활성' : ''}
-            </dd>
-          </div>
-          <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">보존 제한</dt>
-            <dd className="mt-1 font-medium">{matter.legalHold ? '적용됨' : '없음'}</dd>
-          </div>
-          <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">리드 파트너</dt>
-            <dd className="mt-1 font-medium">
-              {matter.leadPartnerDisplayName ?? matter.leadLawyerDisplayName ?? '미지정'}
-            </dd>
-          </div>
-          <div className="rounded-md border bg-card p-3">
-            <dt className="text-xs uppercase text-muted-foreground">리드 어소</dt>
-            <dd className="mt-1 font-medium">{matter.leadAssociateDisplayName ?? '미지정'}</dd>
-          </div>
-        </dl>
-      ) : null}
+        <MatterDetailTabs
+          initialTab={searchParams?.tab ?? null}
+          panels={{
+            overview: (
+              <>
+                <MatterContextSummary matter={matter} />
 
-      {matter ? (
-        <MatterDashboardPanel
-          matterId={matter.matterId}
-          dashboard={dashboard}
-          error={dashboardError}
+                <MatterDashboardPanel
+                  matterId={matter.matterId}
+                  dashboard={dashboard}
+                  error={dashboardError}
+                />
+
+                <MatterKnowledgeTab
+                  matterId={matter.matterId}
+                  latestSessionId={dashboard?.aiSessions[0]?.sessionId ?? null}
+                />
+
+                <div id="matter-related">
+                  <SectionCard
+                    icon={<Link2 className="h-4 w-4" />}
+                    title="관련 Matter"
+                    meta={
+                      matter.ethicalWallActive
+                        ? '정보 차단 활성'
+                        : matterConfidentialityLabel(matter.confidentialityLevel)
+                    }
+                  >
+                    <MatterRelationsPanel
+                      matterOptions={matterOptions}
+                      relatedMatters={relatedMatters}
+                      selectedRelatedMatterId={selectedRelatedMatterId}
+                      selectedRelationType={selectedRelationType}
+                      busy={relatedBusy}
+                      onSelectMatter={setSelectedRelatedMatterId}
+                      onSelectRelation={setSelectedRelationType}
+                      onAdd={() => void addRelatedMatter()}
+                      onRemove={(item) => void removeRelatedMatter(item)}
+                    />
+                  </SectionCard>
+                </div>
+
+                <div id="matter-issues">
+                  <SectionCard
+                    icon={<CalendarDays className="h-4 w-4" />}
+                    title="쟁점·기한"
+                    meta={matterTypeLabel(matter.matterType)}
+                  >
+                    <MatterIssuesKeyDatesPanel matterId={matter.matterId} />
+                  </SectionCard>
+                </div>
+
+                <div id="matter-conflicts">
+                  <MatterConflictsPanel matter={matter} onMatterUpdated={setMatter} />
+                </div>
+
+                <div id="matter-closing">
+                  <MatterClosingChecklistPanel matter={matter} onMatterUpdated={setMatter} />
+                </div>
+
+                <div id="matter-governance">
+                  <MatterGovernanceContextPanel
+                    matter={matter}
+                    onMatterUpdated={setMatter}
+                    readiness={readiness}
+                  />
+                </div>
+
+                <div id="matter-parties">
+                  <MatterPartyPanel matter={matter} />
+                </div>
+
+                {readiness ? (
+                  <AiPrepMatterDashboard readiness={readiness} onRetryComplete={refreshReadiness} />
+                ) : null}
+                {readinessError ? (
+                  <p className="text-sm text-muted-foreground">{readinessError}</p>
+                ) : null}
+
+                <div id="matter-ai">
+                  <AiAssistantPanel matterId={matter.matterId} />
+                </div>
+              </>
+            ),
+            documents: (
+              <>
+                <MatterFileSection matter={matter} />
+                <SectionCard
+                  icon={<MailPlus className="h-4 w-4" />}
+                  title="이메일 업로드"
+                  meta="EML·MSG 원문 보관"
+                >
+                  <EmailUploadCard
+                    matter={matterToEmailUploadMatter(matter)}
+                    onFiled={refreshEmails}
+                  />
+                </SectionCard>
+                {emailLoadStatus === 'ready' ? (
+                  <MatterEmailTimeline
+                    emails={emails}
+                    threads={emailThreads}
+                    busyThreadId={emailThreadBusyId}
+                    onFileThread={(threadId) => void fileEmailThread(threadId)}
+                  />
+                ) : (
+                  <MatterResourceNotice resource="timeline" status={emailLoadStatus} />
+                )}
+              </>
+            ),
+            work: (
+              <>
+                <MatterWorkItems matterId={matter.matterId} />
+                <div id="matter-workstreams">
+                  <MatterWorkstreamTabs matterId={matter.matterId} />
+                </div>
+                <MatterWorkflowOpsPanel matter={matter} readiness={readiness} />
+              </>
+            ),
+            team: <MatterTeamTab matterId={matter.matterId} />,
+            activity: <MatterAuditTimeline matterId={matter.matterId} />,
+          }}
         />
       ) : null}
-
-      {matter ? (
-        <div id="matter-workstreams">
-          <MatterWorkstreamTabs matterId={matter.matterId} />
-        </div>
-      ) : null}
-
-      {matter ? (
-        <MatterKnowledgeTab
-          matterId={matter.matterId}
-          latestSessionId={dashboard?.aiSessions[0]?.sessionId ?? null}
-        />
-      ) : null}
-
-      {matter ? (
-        <SectionCard
-          icon={<Link2 className="h-4 w-4" />}
-          title="관련 Matter"
-          meta={
-            matter.ethicalWallActive
-              ? '정보 차단 활성'
-              : matterConfidentialityLabels[matter.confidentialityLevel]
-          }
-        >
-          <MatterRelationsPanel
-            matterOptions={matterOptions}
-            relatedMatters={relatedMatters}
-            selectedRelatedMatterId={selectedRelatedMatterId}
-            selectedRelationType={selectedRelationType}
-            busy={relatedBusy}
-            onSelectMatter={setSelectedRelatedMatterId}
-            onSelectRelation={setSelectedRelationType}
-            onAdd={() => void addRelatedMatter()}
-            onRemove={(item) => void removeRelatedMatter(item)}
-          />
-        </SectionCard>
-      ) : null}
-
-      {matter ? (
-        <div id="matter-issues">
-          <SectionCard
-            icon={<CalendarDays className="h-4 w-4" />}
-            title="쟁점·기한"
-            meta={matter.matterType}
-          >
-            <MatterIssuesKeyDatesPanel matterId={matter.matterId} />
-          </SectionCard>
-        </div>
-      ) : null}
-
-      {matter ? (
-        <div id="matter-conflicts">
-          <MatterConflictsPanel matter={matter} onMatterUpdated={setMatter} />
-        </div>
-      ) : null}
-
-      {matter ? (
-        <div id="matter-closing">
-          <MatterClosingChecklistPanel matter={matter} onMatterUpdated={setMatter} />
-        </div>
-      ) : null}
-
-      {matter ? (
-        <MatterGovernanceContextPanel
-          matter={matter}
-          onMatterUpdated={setMatter}
-          readiness={readiness}
-        />
-      ) : null}
-
-      {matter ? <MatterPartyPanel matter={matter} /> : null}
-
-      {matter ? (
-        <div id="matter-activity">
-          <MatterAuditTimeline matterId={matter.matterId} />
-        </div>
-      ) : null}
-
-      {matter ? (
-        <div id="matter-files">
-          <MatterFileSection matter={matter} />
-        </div>
-      ) : null}
-
-      {readiness ? (
-        <AiPrepMatterDashboard readiness={readiness} onRetryComplete={refreshReadiness} />
-      ) : null}
-      {readinessError ? <p className="text-sm text-muted-foreground">{readinessError}</p> : null}
-
-      {matter ? (
-        <div id="matter-ai">
-          <AiAssistantPanel matterId={matter.matterId} />
-        </div>
-      ) : null}
-
-      {matter ? (
-        <SectionCard
-          icon={<MailPlus className="h-4 w-4" />}
-          title="이메일 업로드"
-          meta="EML·MSG 원문 보관"
-        >
-          <EmailUploadCard matter={matterToEmailUploadMatter(matter)} onFiled={refreshEmails} />
-        </SectionCard>
-      ) : null}
-
-      {matter ? (
-        <MatterEmailTimeline
-          emails={emails}
-          threads={emailThreads}
-          busyThreadId={emailThreadBusyId}
-          onFileThread={(threadId) => void fileEmailThread(threadId)}
-        />
-      ) : null}
-
-      {matter ? <MatterWorkflowOpsPanel matter={matter} readiness={readiness} /> : null}
     </PageShell>
+  );
+}
+
+function MatterTeamTab({ matterId }: { matterId: string }) {
+  const [members, setMembers] = useState<MatterMemberDto[]>([]);
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [errorCode, setErrorCode] = useState<ErrorCode | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoadState('loading');
+    setErrorCode(null);
+    listMatterMembers(matterId)
+      .then((result) => {
+        if (!active) return;
+        setMembers(result.items);
+        setLoadState('ready');
+      })
+      .catch((caught: unknown) => {
+        if (!active) return;
+        setMembers([]);
+        setErrorCode(caught instanceof ApiClientError ? caught.code : 'VALIDATION_FAILED');
+        setLoadState('error');
+      });
+    return () => {
+      active = false;
+    };
+  }, [matterId]);
+
+  return (
+    <section className="grid gap-4" aria-labelledby="matter-team-title">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <h2 id="matter-team-title" className="text-base font-semibold text-foreground">
+            Matter 팀
+          </h2>
+          <p className="text-sm text-muted-foreground">현재 Matter에 권한이 부여된 구성원입니다.</p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/matters/${encodeURIComponent(matterId)}/team`}>팀 권한 관리</Link>
+        </Button>
+      </div>
+      {loadState === 'loading' ? (
+        <p className="text-sm text-muted-foreground" role="status">
+          팀 정보를 불러오는 중입니다.
+        </p>
+      ) : (
+        <TeamMemberList members={members} canManage={false} errorCode={errorCode} />
+      )}
+    </section>
   );
 }
 
@@ -585,25 +617,11 @@ function matterToEmailUploadMatter(matter: MatterDto) {
   };
 }
 
-const matterConfidentialityLabels = {
-  standard: '표준',
-  high: '높음',
-  restricted: '제한',
-} as const satisfies Record<MatterDto['confidentialityLevel'], string>;
-
 const matterRelationLabels = {
   preceding: '선행',
   parallel: '병행',
   subsequent: '후속',
 } as const satisfies Record<MatterRelationType, string>;
-
-function riskLabel(value: MatterDashboardDto['issueSummary']['highestRiskLevel']): string {
-  if (value === 'critical') return '최고 위험 critical';
-  if (value === 'high') return '최고 위험 high';
-  if (value === 'medium') return '최고 위험 medium';
-  if (value === 'low') return '최고 위험 low';
-  return '열린 쟁점 없음';
-}
 
 function aiSessionStatusLabel(value: string): string {
   if (value === 'submitted') return '요청됨';
@@ -645,10 +663,10 @@ function MatterRelationsPanel({
   onRemove: (item: MatterRelatedMatterDto) => void;
 }) {
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-3 md:grid-cols-[minmax(220px,1fr)_160px_auto]">
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 md:grid-cols-[minmax(220px,1fr)_160px_auto]">
         <select
-          className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={selectedRelatedMatterId}
           disabled={busy}
           onChange={(event) => onSelectMatter(event.target.value)}
@@ -662,7 +680,7 @@ function MatterRelationsPanel({
           ))}
         </select>
         <select
-          className="h-10 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="h-10 w-full min-w-0 max-w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           value={selectedRelationType}
           disabled={busy}
           onChange={(event) => onSelectRelation(event.target.value as MatterRelationType)}
@@ -674,12 +692,18 @@ function MatterRelationsPanel({
             </option>
           ))}
         </select>
-        <Button type="button" size="sm" disabled={!selectedRelatedMatterId || busy} onClick={onAdd}>
+        <Button
+          type="button"
+          size="sm"
+          className="w-full md:w-auto"
+          disabled={!selectedRelatedMatterId || busy}
+          onClick={onAdd}
+        >
           <Plus className="h-4 w-4" />
           추가
         </Button>
       </div>
-      <div className="grid gap-2">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
         {relatedMatters.map((item) => (
           <div
             key={`${item.linkId}:${item.relationType}`}
@@ -698,7 +722,11 @@ function MatterRelationsPanel({
               </div>
               {item.canReadRelatedMatter ? (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {[item.relatedMatterCode, item.relatedMatterType, item.relatedMatterStatus]
+                  {[
+                    item.relatedMatterCode,
+                    item.relatedMatterType ? matterTypeLabel(item.relatedMatterType) : null,
+                    item.relatedMatterStatus ? matterStatusLabel(item.relatedMatterStatus) : null,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>

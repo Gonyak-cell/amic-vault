@@ -42,16 +42,14 @@ describe('AppShell', () => {
     );
 
     expect(html).toContain('AMIC Vault');
-    expect(html).not.toContain('<main class="grid min-h-screen');
     expect(html).toContain('aria-label="문서 보관함 검색"');
     expect(html).toContain('aria-controls="vault-mobile-navigation"');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('Matter, 문서, 담당자 검색');
     expect(html).toContain('조우상');
     expect(html).toContain('jwsuh@amic.kr');
-    expect(html).toContain('정책 관리');
-    expect(html).not.toContain('거버넌스');
-    expect(html).toContain('접근 기록');
+    expect(html).not.toContain('정책 관리');
+    expect(html).not.toContain('접근 기록');
     expect(html).not.toContain('정보 차단');
     expect(html).not.toContain('href="/walls"');
     expect(html).toContain('관리자 설정');
@@ -59,15 +57,18 @@ describe('AppShell', () => {
     expect(html).toContain('고객');
     expect(html).toContain('href="/admin"');
     expect(html).not.toContain('href="/enterprise"');
-    expect(html).toContain('href="/integrations/outlook"');
-    expect(html).toContain('href="/notifications"');
-    expect(html).toContain('href="/search/folders"');
-    expect(html).toContain('검색 폴더');
+    expect(html).not.toContain('href="/integrations/outlook"');
+    expect(html).toContain('href="/work?view=notifications"');
+    expect(html).not.toContain('href="/notifications"');
+    expect(html).not.toContain('href="/search/folders"');
+    expect(html).not.toContain('검색 폴더');
     expect(html).toContain('Dashboard payload');
     expect(html).toContain('href="/dashboard"');
     expect(html).toContain('aria-hidden="true"');
     expect(html).not.toContain('href="/launch"');
-    expect(html).toContain('href="/records"');
+    expect(html).not.toContain('href="/records"');
+    expect(html).not.toContain('href="/audit"');
+    expect(html).not.toContain('href="/admin/security"');
     expect(html).not.toContain('Gonyak Legal Ops');
     expect(html).not.toContain('amic-prod-shadow');
     expect(html).not.toContain('워크스페이스 ID');
@@ -81,7 +82,7 @@ describe('AppShell', () => {
     expect(html).not.toContain('공유 요청');
   });
 
-  it('does not mark document search active when the visible search folder route is open', () => {
+  it('keeps a search-folder deep link renderable without restoring it to primary navigation', () => {
     navigationMock.pathname = '/search/folders';
     const currentUser: UserSummary = {
       userId: '11111111-1111-4111-8111-111111111101',
@@ -102,10 +103,9 @@ describe('AppShell', () => {
       </LanguageProvider>,
     );
 
-    expect(html).toContain('href="/search/folders"');
-    expect(html).toContain('aria-current="page"');
+    expect(html).not.toContain('href="/search/folders"');
     expect(html).toContain('Search folders payload');
-    expect((html.match(/aria-current="page"/g) || []).length).toBe(1);
+    expect(html).not.toContain('aria-current="page"');
   });
 
   it('builds one encoded global-search destination and rejects blank input', () => {

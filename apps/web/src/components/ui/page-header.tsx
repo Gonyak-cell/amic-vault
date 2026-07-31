@@ -19,7 +19,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <section className={cn('border-b pb-4', className)} {...props}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
           <nav
             aria-label="이동 경로"
@@ -44,7 +44,9 @@ export function PageHeader({
           </h1>
         </div>
         {actions ? (
-          <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+          <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-2 xl:w-auto xl:flex-1 xl:justify-end">
+            {actions}
+          </div>
         ) : null}
       </div>
       {navigation ? <div className="mt-5 min-w-0">{navigation}</div> : null}

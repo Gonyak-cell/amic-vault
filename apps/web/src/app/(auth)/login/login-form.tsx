@@ -1,11 +1,33 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { login } from '@/lib/auth';
+import { getCurrentUserWithoutRedirect, login } from '@/lib/auth';
+import { resolveLoginNextPath } from '@/lib/auth-guard';
 import { LanguageToggle, useI18n } from '@/lib/i18n';
+
+export function navigateAfterLogin(
+  search: string | URLSearchParams | null | undefined,
+  replace: (destination: string) => void,
+): void {
+  replace(resolveLoginNextPath(search));
+}
+
+export async function restoreAuthenticatedLogin(
+  search: string | URLSearchParams | null | undefined,
+  getCurrentUser: () => Promise<unknown>,
+  replace: (destination: string) => void,
+): Promise<boolean> {
+  try {
+    await getCurrentUser();
+  } catch {
+    return false;
+  }
+  navigateAfterLogin(search, replace);
+  return true;
+}
 
 export function LoginForm() {
   const { t } = useI18n();
@@ -13,6 +35,29 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const restore = () => {
+      void restoreAuthenticatedLogin(
+        window.location.search,
+        getCurrentUserWithoutRedirect,
+        (destination) => {
+          if (active) window.location.replace(destination);
+        },
+      );
+    };
+    const restoreFromPageCache = (event: PageTransitionEvent) => {
+      if (event.persisted) restore();
+    };
+
+    restore();
+    window.addEventListener('pageshow', restoreFromPageCache);
+    return () => {
+      active = false;
+      window.removeEventListener('pageshow', restoreFromPageCache);
+    };
+  }, []);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,7 +70,9 @@ export function LoginForm() {
           ? { email: trimmedIdentifier, password }
           : { accountLedgerId: trimmedIdentifier, password },
       );
-      window.location.assign('/dashboard');
+      navigateAfterLogin(window.location.search, (destination) => {
+        window.location.replace(destination);
+      });
     } catch {
       setError(t('auth.invalid'));
     } finally {

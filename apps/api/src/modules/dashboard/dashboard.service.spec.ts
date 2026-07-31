@@ -109,10 +109,13 @@ describe('DashboardService', () => {
     expect(overview).toMatchObject({
       generatedAt: '2026-06-17T05:00:00.000Z',
       recentFiles: [{ title: 'Board minutes', matterLabel: 'M-001 · Governance' }],
-      aiPrepStatus: [{ matterLabel: 'M-001 · Governance', statusLabel: '준비 완료 2건' }],
-      integrationStatus: [{ integrationLabel: 'Outlook 파일링', statusLabel: '완료 1건' }],
+      aiPrepStatus: [],
+      integrationStatus: [],
     });
     expect(queries.some((sql) => sql.includes('FROM matter_members mm'))).toBe(true);
+    expect(queries.some((sql) => sql.includes('FROM ai_prep_artifacts'))).toBe(false);
+    expect(queries.some((sql) => sql.includes('FROM outlook_filing_requests'))).toBe(false);
+    expect(queries.some((sql) => sql.includes('FROM outlook_folder_mappings'))).toBe(false);
     expect(JSON.stringify(overview)).not.toMatch(
       /documentId|matterId|tenantId|workspaceId|hash|raw/i,
     );
@@ -182,20 +185,10 @@ describe('DashboardService', () => {
     expect(workQueue).toMatchObject({
       generatedAt: '2026-06-17T05:00:00.000Z',
       source: 'dashboard_operational_state',
-      items: [
-        { source: 'permission_policy', title: '권한/정책 알림 확인', href: '/audit' },
-        {
-          source: 'ai_prep',
-          title: '파일 정리 준비 상태 확인',
-          href: '/files?aiAllowed=true&sortBy=matter_asc',
-        },
-        { source: 'integration', title: '통합 상태 확인', href: '/integrations/outlook' },
-      ],
+      items: [{ source: 'permission_policy', title: '권한/정책 알림 확인', href: '/audit' }],
     });
     expect(notifications.items.map((item) => item.source)).toEqual([
       'permission_policy',
-      'ai_prep',
-      'integration',
       'recent_activity',
     ]);
     expect(JSON.stringify({ workQueue, notifications })).not.toMatch(

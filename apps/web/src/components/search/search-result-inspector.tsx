@@ -12,7 +12,10 @@ import {
 } from '@/components/ui/detail-inspector';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { SavedItemToggle } from '@/components/saved-item/saved-item-toggle';
+import { documentTypeLabels as documentTypeLabelsByLanguage } from '@/lib/i18n';
 import { documentSearchHitUrlForSearchResult } from './result-card';
+
+const documentTypeLabels: Readonly<Record<string, string>> = documentTypeLabelsByLanguage.ko;
 
 export interface SearchResultInspectorProps {
   onOpen: () => void;
@@ -114,7 +117,10 @@ export function SearchResultInspector({
             />
             <DetailInspectorField
               label="유형"
-              value={result.documentType ?? (authority ? '판례·법령' : '표시 정보 없음')}
+              value={
+                (result.documentType && documentTypeLabels[result.documentType]) ||
+                (authority ? '판례·법령' : '표시 정보 없음')
+              }
             />
             <DetailInspectorField label="업데이트" value={formatDate(result.updatedAt)} />
           </div>

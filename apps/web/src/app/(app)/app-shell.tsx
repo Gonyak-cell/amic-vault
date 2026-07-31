@@ -129,11 +129,11 @@ export function AppShell({
 
   return (
     <div className="grid min-h-screen grid-rows-[63px_minmax(0,1fr)] overflow-x-hidden bg-background text-foreground">
-      <header className="sticky top-0 z-30 grid h-[63px] grid-cols-[minmax(0,1fr)_auto] items-center bg-[linear-gradient(90deg,hsl(var(--primary-strong))_0%,hsl(var(--primary))_100%)] text-primary-foreground shadow-sm md:grid-cols-[255px_minmax(0,1fr)]">
+      <header className="sticky top-0 z-30 grid h-[63px] grid-cols-[minmax(0,1fr)_auto] items-center bg-primary text-primary-foreground shadow-sm lg:grid-cols-[255px_minmax(0,1fr)]">
         <Link
           href="/dashboard"
           aria-label={t('app.homeAria')}
-          className="flex h-full min-w-0 items-center px-[18px] md:border-r md:border-white/15"
+          className="flex h-full min-w-0 items-center px-[18px] lg:border-r lg:border-white/15"
         >
           <img
             src="/icons/amic-vault-wordmark.svg"
@@ -143,11 +143,11 @@ export function AppShell({
           />
         </Link>
 
-        <div className="flex items-center gap-2 pr-3.5 md:hidden">
+        <div className="flex items-center gap-2 pr-3.5 lg:hidden">
           <button
             ref={mobileMenuButtonRef}
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-white/12 text-white ring-1 ring-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-primary-foreground/25 bg-primary-strong text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground"
             aria-label={t('nav.toggle')}
             aria-expanded={mobileNavOpen}
             aria-controls="vault-mobile-navigation"
@@ -162,7 +162,7 @@ export function AppShell({
           <LogoutButton compact />
         </div>
 
-        <div className="hidden min-w-0 items-center justify-between gap-4 px-5 md:flex">
+        <div className="hidden min-w-0 items-center justify-between gap-4 px-5 lg:flex">
           <SearchForm
             ariaLabel={t('nav.searchAria')}
             onSubmit={submitSearch}
@@ -174,8 +174,8 @@ export function AppShell({
           <div className="flex shrink-0 items-center gap-2">
             <LanguageToggle />
             <Link
-              href="/notifications"
-              className="hidden h-9 items-center gap-2 rounded-md bg-white/12 px-3 text-xs font-semibold text-white/90 ring-1 ring-white/16 transition-colors hover:bg-white/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white lg:inline-flex"
+              href="/work?view=notifications"
+              className="hidden h-9 items-center gap-2 rounded-md border border-primary-foreground/25 bg-primary-strong px-3 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary-strong/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground lg:inline-flex"
             >
               <Bell className="h-4 w-4" aria-hidden="true" />
               {t('nav.notifications')}
@@ -188,7 +188,7 @@ export function AppShell({
       {mobileNavOpen ? (
         <div
           id="vault-mobile-navigation"
-          className="fixed inset-0 z-40 md:hidden"
+          className="fixed inset-0 z-40 lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label={t('nav.mobileLabel')}
@@ -236,14 +236,17 @@ export function AppShell({
         </div>
       ) : null}
 
-      <div className="grid min-h-0 grid-cols-1 md:grid-cols-[255px_minmax(0,1fr)]">
-        <aside aria-label={t('nav.mobileLabel')} className="hidden min-h-0 flex-col border-r bg-background md:flex">
+      <div className="grid min-h-0 grid-cols-1 lg:grid-cols-[255px_minmax(0,1fr)]">
+        <aside
+          aria-label={t('nav.mobileLabel')}
+          className="hidden min-h-0 flex-col border-r bg-background lg:flex"
+        >
           <ProfilePanel status={profileStatus} user={currentUser} />
           <NavigationList groups={navigationGroups} />
           <div className="mt-auto" />
         </aside>
 
-        <div className="min-w-0 overflow-x-hidden bg-background px-3.5 py-3.5 sm:px-5 sm:py-5 md:px-6">
+        <div className="min-w-0 overflow-x-hidden bg-background px-3.5 py-3.5 sm:px-5 sm:py-5 lg:px-6">
           {children}
         </div>
       </div>
@@ -273,7 +276,7 @@ function SearchForm({
       className={
         compact
           ? 'flex h-9 w-full items-center gap-2 rounded-lg border bg-card px-3 text-sm text-muted-foreground'
-          : 'flex h-9 w-full max-w-[560px] items-center gap-2.5 rounded-lg bg-white/15 px-3 text-sm text-white/75'
+          : 'flex h-9 w-full max-w-[560px] items-center gap-2.5 rounded-lg bg-primary-strong px-3 text-sm text-primary-foreground/75'
       }
       onSubmit={onSubmit}
       role="search"

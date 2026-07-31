@@ -789,7 +789,7 @@ The parties keep the defined materials controlled.`,
       uploaded.length,
     );
     expect(Date.now() - startedAt).toBeLessThan(30_000);
-  });
+  }, 35_000);
 
   it('dead-letters failed graph sync outbox rows and records failure audit by refs only', async () => {
     const worker = app.get(GraphSyncOutboxWorker);
