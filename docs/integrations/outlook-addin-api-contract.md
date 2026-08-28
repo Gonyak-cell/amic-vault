@@ -32,6 +32,9 @@ authorized by this document.
 | `/v1/m365/outlook/folder-mappings`            | POST   | `CreateOutlookFolderMappingDto`      | OA09                |
 | `/v1/m365/outlook/folder-mappings/:id`        | PATCH  | `UpdateOutlookFolderMappingDto`      | OA09                |
 | `/v1/m365/outlook/deployment-readiness`       | GET    | `OutlookDeploymentReadinessDto`      | OA10                |
+| `/v1/integrations/amic-os/vault/exports/authorize` | POST | `AmicOsExactExportAuthorizeDto` | OA12, workload gate |
+| `/v1/integrations/amic-os/vault/exports/download` | POST | `AmicOsExactExportDownloadDto` | OA12, one-time grant |
+| `/v1/integrations/amic-os/vault/exports/readback` | POST | `AmicOsExactExportReadbackDto` | OA12, consumed proof |
 
 ## Core DTOs
 
@@ -333,6 +336,128 @@ Server behavior:
   mode/status/reason values, and request/idempotency hashes;
 - record `OUTLOOK_DOCUMENT_INSERT_REQUESTED` or
   `OUTLOOK_DOCUMENT_INSERT_DENIED` with reference-only metadata.
+
+### AMIC OS exact-copy provider
+
+PACK-OA-12 does not relax the normal OA08 user-session endpoint. It adds a
+separate server-to-server provider for the AMIC OS trusted server/host adapter.
+Every provider route is default-off and requires the dedicated workload guard;
+PWA cookies, Outlook add-in sessions, browser bearer tokens, and renderer calls
+are not provider credentials.
+
+```ts
+type AmicOsExactVersionDto = {
+  document_id: string;
+  version_id: string;
+  file_object_id: string;
+  sha256: string;
+  byte_size: number;
+  mime_type: string;
+};
+
+type AmicOsExactExportAuthorizeDto = {
+  principal: {
+    tenant_id: string; // correlation context only; never Vault authority
+    user_id: string;   // AMIC OS account-ledger id, resolved server-side
+  };
+  lawos_matter_id: string;
+  requested_exact_version: AmicOsExactVersionDto;
+  installation_ref_sha256: string | null;
+  compose_target_sha256: string | null;
+  operation_id: string;
+  correlation_id: string;
+  operation_kind: 'export_exact_version' | 'attach_outlook';
+  idempotency_key: string;
+};
+```
+
+Authorize behavior:
+
+- require `AMIC_OS_VAULT_PROVIDER_ENABLED=true` and a valid dedicated workload
+  credential held only by the two server processes;
+- resolve one active Vault tenant/user through `account_ledger_id`; do not trust
+  a supplied Vault tenant/user UUID;
+- resolve `lawos_matter_id` through canonical Matter metadata inside that
+  tenant and require exactly one active match;
+- re-resolve the six-field exact tuple and promoted-file state without a
+  current/latest fallback;
+- require `canDownloadDocument`, Ethical Wall, Records/legal-hold/disposal, and
+  DLP egress allow decisions;
+- issue or idempotently replay one server-only grant that expires within 60
+  seconds;
+- return exactly the strict LawOS authorization fields:
+  `authority_kind`, `authority_ref`, `provider_revision`, `state='authorized'`,
+  `provider_export_ref`, `expires_at`, `exact_version`, `attachment_name`, four
+  allow `decisions`, and `audit` containing only `event_id` and the matching
+  `correlation_id`.
+
+```ts
+type AmicOsExactExportDownloadDto = {
+  principal: { tenant_id: string; user_id: string };
+  lawos_matter_id: string;
+  installation_ref_sha256: string | null;
+  compose_target_sha256: string | null;
+  operation: {
+    operation_id: string;
+    correlation_id: string;
+    operation_kind: 'export_exact_version' | 'attach_outlook';
+    idempotency_key: string;
+  };
+  authorization: AmicOsExactExportAuthorizationDto;
+};
+```
+
+Download behavior:
+
+- require the same LawOS Matter, installation, and compose binding used at
+  authorize time; a changed binding cannot match the keyed server-only grant;
+- repeat workload, identity, tenant, Matter, exact tuple, permission, Ethical
+  Wall, Records, DLP, promoted-file, expiry, and unconsumed checks;
+- fetch only bounded storage bytes and recompute SHA-256 and byte size before
+  consumption;
+- atomically mark the grant consumed and write the existing reference-only
+  download audit before returning bytes;
+- return `application/octet-stream` or the exact bounded MIME type with safe
+  provider/exact-version/audit headers. The body is binary, never JSON or a
+  storage locator;
+- if any check changes or a concurrent consumer wins, discard any buffered
+  bytes and return a safe denial with no body bytes.
+
+```ts
+type AmicOsExactExportReadbackDto = {
+  principal: { tenant_id: string; user_id: string };
+  lawos_matter_id: string;
+  installation_ref_sha256: string | null;
+  compose_target_sha256: string | null;
+  operation: {
+    operation_id: string;
+    correlation_id: string;
+    operation_kind: 'export_exact_version' | 'attach_outlook';
+  };
+  authorization: AmicOsExactExportAuthorizationDto;
+  download: {
+    authority_kind: 'amic-vault-api';
+    authority_ref: string;
+    provider_revision: string;
+    state: 'downloaded';
+    provider_export_ref: string;
+    exact_version: AmicOsExactVersionDto;
+    attachment_name: string;
+    audit: { event_id: string; correlation_id: string };
+  };
+};
+```
+
+Readback returns exactly `authority_kind`, `authority_ref`,
+`provider_revision`, `state='consumed'`, `provider_export_ref`, the same
+`exact_version`, four current allow `decisions`, and the matching reference-only
+`audit`. Authorized-but-not-consumed, wrong actor, wrong operation/correlation,
+wrong tuple, missing audit, expiry-only, or replay state fails closed.
+
+The provider never returns a raw grant token, storage URI, presigned URL,
+private endpoint, public/guest/secure/VDR link, document bytes in JSON, or
+caller-selectable Vault identity. Upload/quarantine/promotion is a separate
+contract and is not inferred from this export API.
 
 ### `CreateOutlookFolderMappingDto`
 

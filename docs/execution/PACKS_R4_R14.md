@@ -2426,9 +2426,22 @@ integration gates open.
 | PACK-OA-09 | `codex/outlook-folder-mapping-autofile` | 5 | `OUTLOOK-FOLDERMAP-TUW-001` through `OUTLOOK-AUTOFILE-TUW-002` |
 | PACK-OA-10 | `codex/outlook-deployment-rollback` | 4 | `OUTLOOK-DEPLOY-TUW-001` through `OUTLOOK-DEPLOY-TUW-004` |
 | PACK-OA-11 | `codex/outlook-verification-evidence` | 8 | `OUTLOOK-VERIFY-TUW-001` through `OUTLOOK-VERIFY-TUW-008` |
+| PACK-OA-12 | `codex/outlook-attach-copy-transport` | 6 | `OUTLOOK-ATTACHCOPY-AUTH-TUW-001` through `OUTLOOK-ATTACHCOPY-VERIFY-TUW-001` |
 | PACK-OPS-OA-01 | `codex/outlook-operational-gates` | 10 | `OPS-OA-01` through `OPS-OA-08`, `OPS-OA-10`, `OPS-OA-11` |
 
 Planning contract: `docs/execution/TUW_OUTLOOK_ADDIN_OA00_OA11.md`.
+
+Reviewed exact-copy transport continuation:
+`docs/execution/TUW_OUTLOOK_ATTACH_COPY_TRANSPORT_OA12.md`.
+
+PACK-OA-12 opens only the OA08 server-side copy/transport stop condition for an
+AMIC OS workload. It remains default-off, reuses the existing tenant-RLS short
+session ledger with a maximum 60-second lifetime, transports only a
+server-resolved exact promoted version after download permission, Ethical Wall,
+Records, DLP, and audit checks, and adds no database migration. Local/email
+upload and quarantine/promotion are a later PACK; production credentials,
+Microsoft 365 deployment, installer signing, and rollout remain operational
+gates.
 
 ## PACK-OSS00-01 — OSS governance and provenance
 

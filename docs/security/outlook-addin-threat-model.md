@@ -35,6 +35,7 @@ Server-owned controls remain authoritative:
 | Attachments | Add-in or browser cache holds document bytes | Fetch through approved server-side Graph adapter only after gate; no local Vault cache or raw payload evidence. |
 | Filing jobs | Duplicate retries create duplicate filed emails | Idempotency key and canonical message hash. |
 | Inserted documents | Insert action becomes silent external sharing | R11+ policy gate; no public/guest/secure links before allowed. |
+| Exact Vault copy | Workload replay, stale permission, object substitution, or byte/hash drift attaches the wrong document | Dedicated default-off workload guard, account-ledger resolution, exact promoted tuple, current permission/Wall/Records/DLP checks, bounded integrity verification, one-time consume, and audit readback. |
 | Folder mappings | Folder names expose client/matter information | Tenant RLS, hash-only folder refs, reference-only audit, admin/user approval, no repo evidence values. |
 | Graph scopes | Excessive consent grants mailbox or file access | Least-privilege scope registry and deployment evidence. |
 | Smart Alerts | Client event failure bypasses filing policy | Treat as UX layer; server policy and audit remain source of truth; offline/unavailable never becomes local filing. |
@@ -54,6 +55,13 @@ Server-owned controls remain authoritative:
 | Unacknowledged send-and-file warnings | Server denies send-and-file request until warning reason codes are acknowledged | OA07 send-and-file policy tests |
 | Insert creates external link before R11 | OA08 creates only internal Vault references; public/guest/secure/VDR links are not generated and external-recipient insertions are policy-denied | OA08 external-recipient and link-column tests |
 | Insert transports Vault bytes into Outlook before copy gate | `attach-copy` is policy-denied; no document bytes, filenames, URLs, or provider payloads are stored in insertion rows | OA08 attach-copy denial and schema leakage tests |
+| Copy transport reuses OA08 browser/add-in authority | OA12 is a separate workload route; PWA cookies and Outlook add-in sessions are not provider credentials, and the asserted actor is resolved through the active account-ledger identity | OA12 workload-auth negative tests |
+| Caller selects a Vault tenant, actor, or Matter UUID | Vault tenant/user come only from the active account-ledger mapping and Matter is resolved from canonical LawOS metadata inside that tenant | OA12 identity/Matter mapping tests |
+| “Latest” or a substituted object is attached | Vault re-resolves document/version/file/hash/size/MIME as one promoted exact tuple and rejects any mismatch | OA12 exact-target and promoted-file tests |
+| Authorization survives a permission or policy change | Download repeats permission, Ethical Wall, Records, DLP, expiry, and actor checks immediately before consume | OA12 stale-authorization negative tests |
+| Export grant is replayed or raced | Existing tenant-RLS short-session ledger expires within 60 seconds and atomic revocation permits exactly one successful consumer | OA12 expiry/replay/concurrency tests |
+| Storage corruption or truncation reaches Outlook | Vault bounds the read and recomputes SHA-256/size before atomic consumption; mismatch returns no bytes | OA12 byte-integrity tests |
+| Provider secret or storage locator reaches a client | Workload credential stays server-side; no raw grant, storage URI, presigned URL, private endpoint, public/external link, or byte JSON is emitted | OA12 leakage/static tests |
 | Insert ignores legal hold or records policy | Document/matter legal hold, disposal-locked state, and active requested/approved disposal requests return safe `DOCUMENT_LOCKED` | OA08 records policy tests |
 | Folder mapping leaks matter metadata | Folder mapping is tenant-scoped, permission-checked, hash-only, and audited | OA09 folder mapping tests |
 | Auto-file runs before tenant approval | Auto-file is default-off, requires active mapping approval plus `OUTLOOK_AUTOFILE_ENABLED=true`, and records disabled attempts safely | OA09 auto-file disabled/wrong-matter tests |
@@ -77,6 +85,13 @@ Stop Outlook add-in implementation if any change:
 - creates public/guest/secure/external links before R11+ policy gates;
 - transports Vault document bytes to Outlook before a reviewed copy/transport
   gate;
+- enables the OA12 copy/transport gate without its dedicated workload identity,
+  exact promoted tuple, current download permission, Ethical Wall, Records, DLP,
+  bounded integrity, one-time consumption, and audit readback controls;
+- treats AMIC OS tenant/user fields as Vault authority rather than resolving the
+  active account-ledger identity and tenant;
+- returns a storage URI, presigned URL, raw grant token, provider credential, or
+  document bytes in JSON;
 - changes `docs/package/**`.
 
 ## Test Hooks Required Before Live Implementation
@@ -92,3 +107,7 @@ Stop Outlook add-in implementation if any change:
   attachments.
 - Offline/network failure tests proving no local Vault queue/cache.
 - Graph scope and deployment tests before tenant rollout.
+- OA12 workload-auth, identity/Matter mapping, exact historical version,
+  promoted-file, permission/Wall/Records/DLP drift, expiry, replay/concurrency,
+  hash/size/MIME integrity, audit readback, and metadata leakage tests before the
+  copy provider can be enabled.

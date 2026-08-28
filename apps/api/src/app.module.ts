@@ -25,6 +25,7 @@ import { EnterpriseModule } from './modules/enterprise/enterprise.module';
 import { ScaleModule } from './modules/scale/scale.module';
 import { LawDataModule } from './modules/integrations/law-data/law-data.module';
 import { MatterAppModule } from './modules/integrations/matter-app/matter-app.module';
+import { AmicOsVaultProviderModule } from './modules/integrations/amic-os-vault-provider/amic-os-vault-provider.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ClientModule } from './modules/client/client.module';
 import { EthicalWallModule } from './modules/ethical-wall/ethical-wall.module';
@@ -80,6 +81,7 @@ class AppController {
     ScaleModule,
     LawDataModule,
     MatterAppModule,
+    AmicOsVaultProviderModule,
     HealthModule,
     ClientModule,
     EthicalWallModule,

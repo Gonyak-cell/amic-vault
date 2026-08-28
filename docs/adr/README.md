@@ -25,5 +25,7 @@ Status note: ADR-001 through ADR-012 inherit their accepted status from `docs/pa
 | ADR-017 | Office and OneDrive flow gate | DMS-GA-605, DMS-UX-607, DMS-UX-610 |
 | ADR-018 | WOPI evaluation for Office and Hancom editing | ADR-016, ADR-017, B12 |
 | ADR-019 | Personal saved items | ADR-004, ADR-005, PACK-DMS-WB-03 |
+| ADR-020 | Document bulk actions | ADR-004, ADR-005, ADR-012, PACK-DMS-WB-04 |
+| ADR-021 | AMIC OS exact Vault copy transport | ADR-004, ADR-005, ADR-007, ADR-015, PACK-OA-08, AMIC OS single-install goal |
 
 ADR changes require human approval and a Decision Ledger append.

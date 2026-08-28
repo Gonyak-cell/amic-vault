@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { Injectable } from '@nestjs/common';
 import type { TenantId, TenantStatus } from '@amic-vault/shared';
 
-export type TenantContextSource = 'session';
+export type TenantContextSource = 'session' | 'amic-os-provider';
 
 export interface TenantContext {
   tenantId: TenantId;
