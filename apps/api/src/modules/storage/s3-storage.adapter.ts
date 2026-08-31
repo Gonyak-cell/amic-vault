@@ -39,6 +39,7 @@ interface S3StorageAdapterConfig {
   accessKeyId: string;
   secretAccessKey: string;
   serverSideEncryption?: string;
+  requestTimeoutMs?: number;
 }
 
 type SignedHeaders = Record<string, string>;
@@ -202,7 +203,7 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
   async get(key: string): Promise<StorageGetObjectResult> {
     const response = await this.fetchSigned('GET', key, {
       'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-    });
+    }, undefined, undefined, true);
     if (response.status === 404) {
       throw new StorageUnavailableError('storage object missing');
     }
@@ -219,7 +220,7 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
     const response = await this.fetchSigned('GET', input.key, {
       range: `bytes=${input.start}-${input.end}`,
       'x-amz-content-sha256': 'UNSIGNED-PAYLOAD',
-    });
+    }, undefined, undefined, true);
     if (response.status === 404) {
       throw new StorageUnavailableError('storage object missing');
     }
@@ -493,17 +494,29 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
     headers: SignedHeaders,
     body?: BodyInit,
     query?: Record<string, string>,
+    streamResponse = false,
   ): Promise<Response> {
     const signed = this.signRequest(method, key, headers, query);
+    const configuredTimeoutMs = this.config.requestTimeoutMs;
+    const requestTimeoutMs = Number.isSafeInteger(configuredTimeoutMs)
+      && Number(configuredTimeoutMs) > 0
+      ? Number(configuredTimeoutMs)
+      : 10_000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
+    timer.unref();
     const init: FetchInit = {
       method,
       headers: signed.headers,
-      signal: AbortSignal.timeout(10_000),
+      signal: controller.signal,
       ...(body ? { body, duplex: 'half' } : {}),
     };
     try {
-      return await fetch(signed.url, init);
+      const response = await fetch(signed.url, init);
+      if (streamResponse) clearTimeout(timer);
+      return response;
     } catch (error) {
+      clearTimeout(timer);
       if (error instanceof DOMException && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
         throw new StorageRequestTimeoutError();
       }
