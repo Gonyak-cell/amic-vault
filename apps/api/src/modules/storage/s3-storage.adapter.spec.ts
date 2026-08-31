@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { S3StorageAdapter } from './s3-storage.adapter';
 import {
   StorageAccessDeniedError,
+  StorageRequestTimeoutError,
   StorageUnavailableError,
   StorageVersioningUnsupportedError,
 } from './storage-adapter.interface';
@@ -68,6 +69,64 @@ describe('S3StorageAdapter', () => {
       'SignedHeaders=host;range;x-amz-content-sha256;x-amz-date',
     );
     expect(headers.authorization).toMatch(/Signature=[0-9a-f]{64}$/);
+  });
+
+  it('keeps a signed GET body readable after the bounded response-header timeout', async () => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, {
+        'content-length': '8',
+        'content-type': 'application/pdf',
+      });
+      response.flushHeaders();
+      setTimeout(() => response.end('contract'), 50).unref();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      server.close();
+      throw new Error('test server did not expose a TCP address');
+    }
+    try {
+      const object = await new S3StorageAdapter({
+        endpoint: `http://127.0.0.1:${address.port}`,
+        bucket: 'amic-vault-dev',
+        region: 'ap-northeast-2',
+        accessKeyId: 'test-access',
+        secretAccessKey: 'test-secret',
+        requestTimeoutMs: 10,
+      }).get('tenants/t1/documents/file.pdf');
+      const chunks: Buffer[] = [];
+      for await (const chunk of object.body) chunks.push(Buffer.from(chunk));
+      expect(Buffer.concat(chunks).toString()).toBe('contract');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
+  it('still fails closed when signed GET response headers exceed the timeout', async () => {
+    const server = createServer((_request, response) => {
+      setTimeout(() => response.end('late'), 50).unref();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      server.close();
+      throw new Error('test server did not expose a TCP address');
+    }
+    try {
+      await expect(new S3StorageAdapter({
+        endpoint: `http://127.0.0.1:${address.port}`,
+        bucket: 'amic-vault-dev',
+        region: 'ap-northeast-2',
+        accessKeyId: 'test-access',
+        secretAccessKey: 'test-secret',
+        requestTimeoutMs: 10,
+      }).get('tenants/t1/documents/file.pdf')).rejects.toBeInstanceOf(
+        StorageRequestTimeoutError,
+      );
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it('creates expiring SigV4 presigned GET URLs', async () => {
