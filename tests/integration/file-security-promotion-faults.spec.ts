@@ -188,12 +188,12 @@ describe('file security promotion fault integration', () => {
       const stale = await createScan(Buffer.from('%PDF-1.7\nstale'));
       process.env.INGESTION_WORKER_URL = staleServer.url;
       await fileSecurity.handle({ tenantId: tenantAlphaId, quarantineRef: stale.quarantineRef, expectedSha256: stale.expectedSha256 });
-      await new Promise<void>((resolve) => staleServer.server.close(() => resolve()));
       expect(await state(stale.scanId)).toEqual({ state: 'security_hold', result_code: 'stale_signature' });
       await assertNoPromotion(stale.scanId);
 
       const mismatch = await createScan(Buffer.from('%PDF-1.7\nhash-mismatch'), 'a'.repeat(64));
       await fileSecurity.handle({ tenantId: tenantAlphaId, quarantineRef: mismatch.quarantineRef, expectedSha256: mismatch.expectedSha256 });
+      await new Promise<void>((resolve) => staleServer.server.close(() => resolve()));
       expect(await state(mismatch.scanId)).toEqual({ state: 'security_hold', result_code: 'hash_mismatch' });
       await assertNoPromotion(mismatch.scanId);
 
