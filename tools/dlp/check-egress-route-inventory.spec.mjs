@@ -15,7 +15,7 @@ test('closes every discovered byte, ticket, internal-reference, and generated-do
   assert.equal(report.unknownCount, 0);
   assert.equal(report.staleCount, 0);
   assert.ok(report.candidateCount >= 18);
-  assert.equal(report.routeContractCount, 6);
+  assert.equal(report.routeContractCount, 7);
   assert.ok((report.categories.gated ?? 0) >= 6);
   assert.ok((report.categories.reviewed_exclusion ?? 0) >= 6);
 });
@@ -77,4 +77,23 @@ test('fails when DLP evaluation moves after a storage read', () => {
   const report = inspectEgressInventory({ sources: mutated });
   assert.equal(report.status, 'FAIL');
   assert.match(report.errors.join('\n'), /unsafe order/u);
+});
+
+test('fails when the AMIC OS exact download reads storage before authorization', () => {
+  const path =
+    'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.service.ts';
+  const source = sources[path];
+  const authorize = 'this.inspectAuthorizedGrant';
+  const read = 'this.readExactBytes';
+  const mutated = {
+    ...sources,
+    [path]: source
+      .replace(authorize, '__PROVIDER_AUTHORIZE__')
+      .replace(read, authorize)
+      .replace('__PROVIDER_AUTHORIZE__', read),
+  };
+
+  const report = inspectEgressInventory({ sources: mutated });
+  assert.equal(report.status, 'FAIL');
+  assert.match(report.errors.join('\n'), /amic_os_vault_provider_exact_download.*unsafe order/u);
 });

@@ -15,10 +15,14 @@ import { tenantAlphaId, tenantBetaId, createOwnerClient, withClient } from './he
 const sha256 = (body: Buffer) => createHash('sha256').update(body).digest('hex');
 
 async function startVerdictServer(body: Record<string, unknown>, hang = false): Promise<{ server: Server; url: string }> {
-  const server = createServer((_request, response) => {
+  const server = createServer((request, response) => {
     if (hang) return;
-    response.writeHead(200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify(body));
+    request.on('error', () => response.destroy());
+    request.on('data', () => undefined);
+    request.on('end', () => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(body));
+    });
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -184,12 +188,12 @@ describe('file security promotion fault integration', () => {
       const stale = await createScan(Buffer.from('%PDF-1.7\nstale'));
       process.env.INGESTION_WORKER_URL = staleServer.url;
       await fileSecurity.handle({ tenantId: tenantAlphaId, quarantineRef: stale.quarantineRef, expectedSha256: stale.expectedSha256 });
-      await new Promise<void>((resolve) => staleServer.server.close(() => resolve()));
       expect(await state(stale.scanId)).toEqual({ state: 'security_hold', result_code: 'stale_signature' });
       await assertNoPromotion(stale.scanId);
 
       const mismatch = await createScan(Buffer.from('%PDF-1.7\nhash-mismatch'), 'a'.repeat(64));
       await fileSecurity.handle({ tenantId: tenantAlphaId, quarantineRef: mismatch.quarantineRef, expectedSha256: mismatch.expectedSha256 });
+      await new Promise<void>((resolve) => staleServer.server.close(() => resolve()));
       expect(await state(mismatch.scanId)).toEqual({ state: 'security_hold', result_code: 'hash_mismatch' });
       await assertNoPromotion(mismatch.scanId);
 

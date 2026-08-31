@@ -78,7 +78,7 @@ describe('S3StorageAdapter', () => {
         'content-type': 'application/pdf',
       });
       response.flushHeaders();
-      setTimeout(() => response.end('contract'), 50).unref();
+      setTimeout(() => response.end('contract'), 1_500).unref();
     });
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
@@ -93,7 +93,7 @@ describe('S3StorageAdapter', () => {
         region: 'ap-northeast-2',
         accessKeyId: 'test-access',
         secretAccessKey: 'test-secret',
-        requestTimeoutMs: 10,
+        requestTimeoutMs: 1_000,
       }).get('tenants/t1/documents/file.pdf');
       const chunks: Buffer[] = [];
       for await (const chunk of object.body) chunks.push(Buffer.from(chunk));
