@@ -41,7 +41,15 @@ export function roleAllowsDocumentAction(role: UserRole, action: DocumentPermiss
       role === 'knowledge_manager'
     );
   }
-  if (action === 'download' || action === 'read_subversion') {
+  if (action === 'download') {
+    return (
+      role === 'firm_admin' ||
+      role === 'matter_owner' ||
+      role === 'matter_member' ||
+      role === 'limited_reviewer'
+    );
+  }
+  if (action === 'read_subversion') {
     return role === 'matter_owner' || role === 'matter_member' || role === 'limited_reviewer';
   }
   if (action === 'promote_version') {

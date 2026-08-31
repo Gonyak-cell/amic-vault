@@ -175,6 +175,30 @@ describe('DocumentPermissionService', () => {
     ).resolves.toMatchObject({ effect: 'ALLOW' });
   });
 
+  it('allows firm admins to download only when they are matter members', async () => {
+    const { service } = createService();
+    service.actor = { userId, role: 'firm_admin', status: 'active' };
+
+    await expect(
+      service.canDownloadDocument({ tenantId, userId }, documentId, 'casework'),
+    ).resolves.toMatchObject({
+      effect: 'ALLOW',
+      appliedRules: expect.arrayContaining([
+        'document.download:role_allow',
+        'matter_members:present',
+      ]),
+    });
+
+    service.member = null;
+    await expect(
+      service.canDownloadDocument({ tenantId, userId }, documentId, 'casework'),
+    ).resolves.toMatchObject({
+      effect: 'DENY',
+      reasonCode: 'PERMISSION_DENIED',
+      appliedRules: ['matter_members:missing'],
+    });
+  });
+
   it('allows core edit lifecycle actions for matter owners and members only', async () => {
     const { service } = createService();
     service.actor = { userId, role: 'matter_member', status: 'active' };

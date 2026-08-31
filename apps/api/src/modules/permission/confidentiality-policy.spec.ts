@@ -32,12 +32,13 @@ describe('confidentiality policy', () => {
   it('keeps download narrower than read', () => {
     expect(roleAllowsDocumentAction('knowledge_manager', 'read')).toBe(true);
     expect(roleAllowsDocumentAction('knowledge_manager', 'download')).toBe(false);
-    expect(roleAllowsDocumentAction('firm_admin', 'download')).toBe(false);
+    expect(roleAllowsDocumentAction('firm_admin', 'download')).toBe(true);
     expect(roleAllowsDocumentAction('matter_member', 'download')).toBe(true);
   });
 
   it('keeps editing and promotion narrower than read and download', () => {
     expect(roleAllowsDocumentAction('firm_admin', 'checkout')).toBe(false);
+    expect(roleAllowsDocumentAction('firm_admin', 'read_subversion')).toBe(false);
     expect(roleAllowsDocumentAction('knowledge_manager', 'read_subversion')).toBe(false);
     expect(roleAllowsDocumentAction('limited_reviewer', 'read_subversion')).toBe(true);
     expect(roleAllowsDocumentAction('limited_reviewer', 'checkout')).toBe(false);
