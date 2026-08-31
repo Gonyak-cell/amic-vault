@@ -53,7 +53,10 @@ describe('file security scan integration', () => {
 
   it('records a clean result and audit only after the worker verdict', async () => {
     vi.spyOn(storage, 'getByStorageUri').mockResolvedValue({ body: Readable.from([Buffer.from('safe')]), key: 'ignored', contentLength: 4, contentType: 'application/octet-stream', etag: null });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ outcome: 'clean', engine_version: '1.4.3', signature_age_seconds: 1 }), { status: 200 })));
+    vi.stubGlobal('fetch', vi.fn(async (_input: unknown, init?: RequestInit) => {
+      await new Response(init?.body ?? null).arrayBuffer();
+      return new Response(JSON.stringify({ outcome: 'clean', engine_version: '1.4.3', signature_age_seconds: 1 }), { status: 200 });
+    }));
     await fileSecurity.handle({ tenantId: tenantAlphaId, quarantineRef, expectedSha256 });
     await withClient(createOwnerClient(), async (client) => {
       const scan = await client.query<{ state: string; result_code: string }>('SELECT state, result_code FROM file_security_scans WHERE tenant_id = $1 AND scan_id = $2', [tenantAlphaId, scanId]);

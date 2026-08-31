@@ -15,10 +15,14 @@ import { tenantAlphaId, tenantBetaId, createOwnerClient, withClient } from './he
 const sha256 = (body: Buffer) => createHash('sha256').update(body).digest('hex');
 
 async function startVerdictServer(body: Record<string, unknown>, hang = false): Promise<{ server: Server; url: string }> {
-  const server = createServer((_request, response) => {
+  const server = createServer((request, response) => {
     if (hang) return;
-    response.writeHead(200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify(body));
+    request.on('error', () => response.destroy());
+    request.on('data', () => undefined);
+    request.on('end', () => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(body));
+    });
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
