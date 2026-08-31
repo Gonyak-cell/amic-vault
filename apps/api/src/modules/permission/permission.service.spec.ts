@@ -153,6 +153,24 @@ describe('PermissionService matter evaluator', () => {
     });
   });
 
+  it('lets a firm admin upload only as an explicit owner or edit-level member', async () => {
+    const { service } = createService();
+    service.actor = { userId, role: 'firm_admin', status: 'active' };
+
+    await expect(service.canEditMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'DENY',
+    });
+    await expect(service.canUploadToMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'ALLOW',
+      appliedRules: expect.arrayContaining(['matter.upload:firm_admin_member_edit']),
+    });
+
+    service.member = { matterRole: 'member', accessLevel: 'read' };
+    await expect(service.canUploadToMatter({ tenantId, userId }, matterId)).resolves.toMatchObject({
+      effect: 'DENY',
+    });
+  });
+
   it('lets explicit denies override otherwise allowed matter access', async () => {
     const { service } = createService();
     service.explicitRows = [{ effect: 'DENY', condition_json: null }];

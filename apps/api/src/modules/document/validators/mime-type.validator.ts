@@ -338,6 +338,16 @@ function isLegacyExcelExtensionMismatch(actual: string, extension: string): bool
 }
 
 export class MimeTypeValidator {
+  validateDeclaration(input: {
+    extension: string;
+    declaredMimeType?: string | null;
+  }): MimeTypeValidationResult {
+    if (!isSupportedMimeExtension(input.extension)) throw unsupportedFileType();
+    const declared = supportedMimes[input.extension];
+    if (!isDeclaredMimeAllowed(declared, input.declaredMimeType)) throw unsupportedFileType();
+    return { mimeType: declared.mimeType };
+  }
+
   async validate(input: MimeTypeValidationInput): Promise<MimeTypeValidationResult> {
     if (!isSupportedMimeExtension(input.extension)) throw unsupportedFileType();
     const buffer = await readSniffBuffer(input.path, input.sizeBytes);

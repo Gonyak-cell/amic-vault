@@ -3,6 +3,7 @@ import {
   createWorkerIdentityAdapter,
   DevelopmentLoopbackWorkerIdentityAdapter,
   PrivateGatewayMtlsWorkerIdentityAdapter,
+  ProductionLoopbackSidecarWorkerIdentityAdapter,
 } from './worker-identity.adapters';
 
 const requestId = '11111111-1111-4111-8111-111111111111';
@@ -19,6 +20,14 @@ const gatewayEnvironment = {
   INGESTION_GATEWAY_CLIENT_CERT_FILE: '/run/secrets/ingestion_api_client_cert',
   INGESTION_GATEWAY_CLIENT_KEY_FILE: '/run/secrets/ingestion_api_client_key',
   INGESTION_GATEWAY_SERVER_NAME: 'ingestion-gateway.internal',
+} as const;
+const sidecarEnvironment = {
+  NODE_ENV: 'production',
+  INGESTION_WORKER_IDENTITY_PROFILE: 'loopback-sidecar',
+  INGESTION_GATEWAY_DIRECT_WORKER_ACCESS: 'loopback-only',
+  INGESTION_GATEWAY_WORKLOAD_SUBJECT: 'amic-vault-api',
+  INGESTION_GATEWAY_AUDIENCE: 'amic-vault-ingestion',
+  INGESTION_WORKER_URL: 'http://127.0.0.1:8000',
 } as const;
 
 describe('worker identity adapters', () => {
@@ -65,6 +74,34 @@ describe('worker identity adapters', () => {
           INGESTION_WORKER_IDENTITY_PROFILE: 'loopback-dev',
         }),
     ).toThrow('WORKER_IDENTITY_CONFIGURATION_INVALID');
+  });
+
+  it('allows the production sidecar only at the exact loopback worker address', () => {
+    const adapter = new ProductionLoopbackSidecarWorkerIdentityAdapter(sidecarEnvironment);
+    expect(adapter.profile).toBe('loopback-sidecar');
+    expect(
+      adapter.createRequestIdentity(requestId, new Date('2030-01-01T00:00:00Z')),
+    ).toMatchObject({
+      audience: 'amic-vault-ingestion',
+      requestId,
+      expiresAt: '2030-01-01T00:05:00Z',
+    });
+
+    for (const [key, value] of [
+      ['NODE_ENV', 'staging'],
+      ['INGESTION_GATEWAY_DIRECT_WORKER_ACCESS', 'blocked'],
+      ['INGESTION_WORKER_URL', 'http://localhost:8000'],
+      ['INGESTION_WORKER_URL', 'http://127.0.0.1:8001'],
+      ['INGESTION_WORKER_URL', 'https://127.0.0.1:8000'],
+    ] as const) {
+      expect(
+        () =>
+          new ProductionLoopbackSidecarWorkerIdentityAdapter({
+            ...sidecarEnvironment,
+            [key]: value,
+          }),
+      ).toThrow('WORKER_IDENTITY_CONFIGURATION_INVALID');
+    }
   });
 
   it('permits loopback only outside production and rejects malformed request IDs', () => {

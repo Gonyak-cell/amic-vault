@@ -241,11 +241,12 @@
       },
       "platform": "linux/amd64",
       "environment": {
-        "CLAMD_CONF_StreamMaxLength": "25M",
-        "CLAMD_CONF_MaxFileSize": "25M",
-        "CLAMD_CONF_MaxScanSize": "25M",
-        "CLAMD_CONF_ReadTimeout": "5",
-        "CLAMD_CONF_CommandReadTimeout": "5"
+        "CLAMD_CONF_StreamMaxLength": "1024M",
+        "CLAMD_CONF_MaxFileSize": "1024M",
+        "CLAMD_CONF_MaxScanSize": "2048M",
+        "CLAMD_CONF_AlertExceedsMax": "yes",
+        "CLAMD_CONF_ReadTimeout": "7200",
+        "CLAMD_CONF_CommandReadTimeout": "7200"
       },
       "read_only": true,
       "cap_drop": ["ALL"],

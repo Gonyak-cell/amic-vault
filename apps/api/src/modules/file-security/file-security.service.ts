@@ -1,4 +1,5 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { Readable } from 'node:stream';
 import { Inject, Injectable } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import { AuditService } from '../audit/audit.service';
@@ -19,7 +20,15 @@ interface ScanTarget {
   attemptNo: number;
 }
 
-function timeoutMs(): number { const value = Number(process.env.FILE_SECURITY_SCAN_TIMEOUT_MS ?? '10000'); return Number.isInteger(value) && value > 0 ? value : 10000; }
+const maxScanBytes = 1024 * 1024 * 1024;
+const defaultScanTimeoutMs = 2 * 60 * 60 * 1000;
+
+function timeoutMs(): number {
+  const value = Number(process.env.FILE_SECURITY_SCAN_TIMEOUT_MS ?? defaultScanTimeoutMs);
+  return Number.isSafeInteger(value) && value > 0 && value <= 24 * 60 * 60 * 1000
+    ? value
+    : defaultScanTimeoutMs;
+}
 function validHash(value: string): boolean { return /^[a-f0-9]{64}$/u.test(value); }
 function isLegacyPromotionInputMissing(error: unknown): boolean {
   return error instanceof Error && error.message === 'FILE_SECURITY_PROMOTION_INPUT_MISSING';
@@ -78,17 +87,63 @@ export class FileSecurityService {
 
   private async scan(target: ScanTarget, payload: FileSecurityScanJobPayload): Promise<{ state: ScanState; code: ResultCode; observedSha256: string | null; engineVersion: string | null; signatureAt: Date | null }> {
     try {
-      if (!Number.isSafeInteger(target.sizeBytes) || target.sizeBytes < 0 || target.sizeBytes > 25 * 1024 * 1024) return this.failure('scanner_error');
+      if (!Number.isSafeInteger(target.sizeBytes) || target.sizeBytes < 1 || target.sizeBytes > maxScanBytes) return this.failure('scanner_error');
       const object = await this.storageService.getByStorageUri(payload.tenantId, target.storageUri);
-      const chunks: Buffer[] = []; let total = 0; const hash = createHash('sha256');
-      for await (const part of object.body) { const chunk = Buffer.isBuffer(part) ? part : Buffer.from(part); total += chunk.length; if (total > 25 * 1024 * 1024) return this.failure('scanner_error'); hash.update(chunk); chunks.push(chunk); }
-      const observedSha256 = hash.digest('hex');
-      if (observedSha256 !== payload.expectedSha256) return { ...this.failure('hash_mismatch'), observedSha256 };
+      if (object.contentLength !== target.sizeBytes) {
+        object.body.destroy();
+        return this.failure('scanner_error');
+      }
+      const boundary = `amic-vault-scan-${randomBytes(18).toString('hex')}`;
+      const prefix = Buffer.from(
+        `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="quarantine_ref"\r\n\r\n' +
+        `${payload.quarantineRef}\r\n` +
+        `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="expected_sha256"\r\n\r\n' +
+        `${payload.expectedSha256}\r\n` +
+        `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="file"; filename="quarantine.bin"\r\n' +
+        'Content-Type: application/octet-stream\r\n\r\n',
+        'utf8',
+      );
+      const suffix = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
+      const hash = createHash('sha256');
+      let total = 0;
+      let complete = false;
+      const multipart = Readable.from((async function* () {
+        yield prefix;
+        for await (const part of object.body) {
+          const chunk = Buffer.isBuffer(part) ? part : Buffer.from(part);
+          total += chunk.byteLength;
+          if (total > target.sizeBytes || total > maxScanBytes) {
+            throw new Error('FILE_SECURITY_SCAN_SIZE_MISMATCH');
+          }
+          hash.update(chunk);
+          yield chunk;
+        }
+        if (total !== target.sizeBytes) throw new Error('FILE_SECURITY_SCAN_SIZE_MISMATCH');
+        complete = true;
+        yield suffix;
+      })());
       const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), timeoutMs());
       try {
-        const form = new FormData(); form.append('quarantine_ref', payload.quarantineRef); form.append('expected_sha256', payload.expectedSha256); form.append('file', new Blob([new Uint8Array(Buffer.concat(chunks))]), 'quarantine.bin');
-        const response = await fetchIngestionWorker('/security/scan', { method: 'POST', headers: { 'x-amic-tenant-id': payload.tenantId }, body: form, signal: controller.signal });
+        const response = await fetchIngestionWorker('/security/scan', {
+          method: 'POST',
+          headers: {
+            'content-length': String(prefix.byteLength + target.sizeBytes + suffix.byteLength),
+            'content-type': `multipart/form-data; boundary=${boundary}`,
+            'x-amic-tenant-id': payload.tenantId,
+          },
+          body: Readable.toWeb(multipart) as unknown as BodyInit,
+          signal: controller.signal,
+          duplex: 'half',
+        } as RequestInit & { duplex: 'half' });
         const body = await response.json().catch(() => null) as Record<string, unknown> | null;
+        if (!complete || total !== target.sizeBytes) return this.failure('scanner_error');
+        const observedSha256 = hash.digest('hex');
+        if (observedSha256 !== payload.expectedSha256) {
+          return { ...this.failure('hash_mismatch'), observedSha256 };
+        }
         if (!response.ok || !body || !['clean', 'infected', 'error', 'stale_signature'].includes(String(body.outcome))) return this.failure('malformed_response', observedSha256);
         const verdict = body.outcome as Verdict;
         const engineVersion = typeof body.engine_version === 'string' && body.engine_version.length <= 128 ? body.engine_version : null;
@@ -99,7 +154,11 @@ export class FileSecurityService {
         if (verdict === 'infected') return { state: 'infected', code: 'infected', observedSha256, engineVersion, signatureAt };
         if (verdict === 'stale_signature') return { state: 'security_hold', code: 'stale_signature', observedSha256, engineVersion, signatureAt };
         return this.failure('scanner_error', observedSha256);
-      } finally { clearTimeout(timer); }
+      } finally {
+        clearTimeout(timer);
+        multipart.destroy();
+        object.body.destroy();
+      }
     } catch (error) { return this.failure(error instanceof DOMException && error.name === 'AbortError' ? 'scanner_timeout' : 'scanner_error'); }
   }
 

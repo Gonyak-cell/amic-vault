@@ -161,6 +161,30 @@ export class FilePromotionService {
                 [payload.tenantId, row.scan_id],
               );
               if (updated.rowCount !== 1) throw promotionFailure('FILE_SECURITY_PROMOTION_RACE');
+              const intakeAudit = await tx.query(
+                `
+                  SELECT correlation_id, metadata_json
+                  FROM audit_events
+                  WHERE tenant_id = $1
+                    AND action = 'FILE_QUARANTINED'
+                    AND target_type = 'file_security_scan'
+                    AND target_id = $2
+                  ORDER BY seq
+                  LIMIT 2
+                `,
+                [payload.tenantId, row.scan_id],
+              ) as {
+                rows: Array<{
+                  correlation_id: string | null;
+                  metadata_json: Record<string, unknown>;
+                }>;
+              };
+              if (intakeAudit.rows.length !== 1) {
+                throw promotionFailure('FILE_SECURITY_QUARANTINE_AUDIT_MISSING');
+              }
+              const intakeBinding = intakeAudit.rows[0];
+              const requestId = intakeBinding?.metadata_json.request_id;
+              const idempotencyHash = intakeBinding?.metadata_json.idempotency_hash;
               await this.auditService.log(
                 {
                   tenantId: payload.tenantId,
@@ -170,7 +194,16 @@ export class FilePromotionService {
                   targetId: row.scan_id,
                   matterId: row.matter_id,
                   result: 'success',
-                  metadata: { hash: uploaded.sha256 },
+                  metadata: {
+                    hash: uploaded.sha256,
+                    ...(typeof intakeBinding?.correlation_id === 'string'
+                      ? { correlation_id: intakeBinding.correlation_id }
+                      : {}),
+                    ...(typeof requestId === 'string' ? { request_id: requestId } : {}),
+                    ...(typeof idempotencyHash === 'string'
+                      ? { idempotency_hash: idempotencyHash }
+                      : {}),
+                  },
                 },
                 tx,
               );

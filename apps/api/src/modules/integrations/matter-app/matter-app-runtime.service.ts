@@ -181,7 +181,7 @@ export class MatterAppRuntimeService {
     const envMode = normalizeSourceMode(
       envValue('MATTER_APP_SOURCE_MODE', 'NEXT_PUBLIC_MATTER_APP_SOURCE_MODE'),
     );
-    const syncState = envMode === 'matter_app_api' ? null : await this.loadSyncState();
+    const syncState = await this.loadSyncState();
     const requestedMode =
       envMode === 'unconfigured' && syncState ? 'matter_app_event_projection' : envMode;
     const sourceConfigured =

@@ -106,6 +106,32 @@ describe('S3StorageAdapter', () => {
     expect(url.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('creates a one-file-bound presigned PUT URL with exact length and SSE headers', async () => {
+    const oneGiB = 1024 * 1024 * 1024;
+    const result = await createAdapter({ serverSideEncryption: 'AES256' }).createWriteUrl({
+      key: 'tenants/t1/quarantine/one-gib',
+      contentLength: oneGiB,
+      contentType: 'text/plain',
+      expiresInSeconds: 2 * 60 * 60,
+    });
+    const url = new URL(result.url);
+
+    expect(url.pathname).toBe('/amic-vault-dev/tenants/t1/quarantine/one-gib');
+    expect(url.searchParams.get('X-Amz-Algorithm')).toBe('AWS4-HMAC-SHA256');
+    expect(url.searchParams.get('X-Amz-Expires')).toBe('7200');
+    expect(url.searchParams.get('X-Amz-SignedHeaders')).toBe(
+      'content-length;content-type;host;if-none-match;x-amz-server-side-encryption',
+    );
+    expect(url.searchParams.get('X-Amz-Signature')).toMatch(/^[0-9a-f]{64}$/);
+    expect(result.headers).toEqual({
+      'content-length': String(oneGiB),
+      'content-type': 'text/plain',
+      'if-none-match': '*',
+      'x-amz-server-side-encryption': 'AES256',
+    });
+    expect(result.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
   it('adds S3 SSE headers to object PUTs', async () => {
     const calls: Array<{ init: RequestInit | undefined }> = [];
     vi.spyOn(globalThis, 'fetch')

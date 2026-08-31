@@ -9,6 +9,7 @@ import {
   matterTypeToVault,
   parseArgs,
   planReflection,
+  readLawOsSource,
   summarizeDetails,
   validateLawOsMatterCode,
   validateManifest,
@@ -177,6 +178,36 @@ test('exits non-zero with usage when source artifact contract input is missing',
   assert.equal(result.status, 2);
   assert.match(result.stderr, /usage: pnpm matter:lawos-reflection/);
   assert.equal(result.stderr.includes(usage()), true);
+});
+
+test('loads an HTTPS canonical source with the dedicated bridge token and no redirect following', async () => {
+  const payload = JSON.stringify(sampleSource());
+  let capturedUrl = null;
+  let capturedOptions = null;
+  const result = await readLawOsSource('https://lawos.example/api/matters/vault-bridge/canonical-snapshot', {
+    sourceToken: 'test-source-token',
+    fetchFn: async (url, options) => {
+      capturedUrl = String(url);
+      capturedOptions = options;
+      return new Response(payload, {
+        status: 200,
+        headers: { 'content-type': 'application/json; charset=utf-8' },
+      });
+    },
+  });
+
+  assert.equal(capturedUrl, 'https://lawos.example/api/matters/vault-bridge/canonical-snapshot');
+  assert.equal(capturedOptions.redirect, 'error');
+  assert.equal(capturedOptions.headers['x-lawos-vault-bridge-token'], 'test-source-token');
+  assert.deepEqual(result.source, sampleSource());
+  assert.equal(result.sourceArtifactHash, sha256Hex(payload));
+});
+
+test('rejects HTTPS canonical sources without the dedicated bridge token', async () => {
+  await assert.rejects(
+    readLawOsSource('https://lawos.example/api/matters/vault-bridge/canonical-snapshot'),
+    /LAWOS_CANONICAL_SOURCE_TOKEN is required/,
+  );
 });
 
 test('validates Law Firm OS matter code format without alias rewrites', () => {

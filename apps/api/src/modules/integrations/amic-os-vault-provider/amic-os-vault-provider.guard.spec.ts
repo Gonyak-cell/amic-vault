@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TenantContextService } from '../../tenant/tenant-context';
 import type { UserService } from '../../user/user.service';
 import {
+  AMIC_OS_VAULT_ACCOUNT_LEDGER_HEADER,
   AMIC_OS_VAULT_PROVIDER_TOKEN_HEADER,
   AmicOsVaultProviderConfig,
   AmicOsVaultProviderGuard,
@@ -116,6 +117,39 @@ describe('AmicOsVaultProviderGuard', () => {
       tenantId,
       source: 'amic-os-provider',
     });
+  });
+
+  it('authenticates multipart requests from the bounded account-ledger header and rejects body/header disagreement', async () => {
+    const userService = {
+      findLoginCandidateByAccountLedgerId: vi.fn(async () => candidate()),
+    } as unknown as UserService;
+    const guard = new AmicOsVaultProviderGuard(
+      new AmicOsVaultProviderConfig(),
+      userService,
+      new TenantContextService(),
+    );
+    const multipartRequest: RequestWithAmicOsVaultProvider = {
+      headers: {
+        [AMIC_OS_VAULT_PROVIDER_TOKEN_HEADER]: token,
+        [AMIC_OS_VAULT_ACCOUNT_LEDGER_HEADER]: 'USER_AMIC_JWSUH',
+      },
+    };
+
+    await expect(guard.canActivate(context(multipartRequest))).resolves.toBe(true);
+    expect(userService.findLoginCandidateByAccountLedgerId).toHaveBeenCalledWith(
+      'user_amic_jwsuh',
+    );
+
+    const confusedRequest: RequestWithAmicOsVaultProvider = {
+      headers: {
+        [AMIC_OS_VAULT_PROVIDER_TOKEN_HEADER]: token,
+        [AMIC_OS_VAULT_ACCOUNT_LEDGER_HEADER]: 'user_amic_jwsuh',
+      },
+      body: { principal: { user_id: 'user_other_account' } },
+    };
+    await expect(guard.canActivate(context(confusedRequest))).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('fails closed when disabled, the token is short, or the mapped user is inactive', async () => {

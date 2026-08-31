@@ -11,6 +11,7 @@ import { normalizeAccountLedgerId, UserService } from '../../user/user.service';
 import { AMIC_OS_VAULT_MAX_EXPORT_BYTES } from './amic-os-vault-provider.contract';
 
 export const AMIC_OS_VAULT_PROVIDER_TOKEN_HEADER = 'x-amic-os-vault-provider-token';
+export const AMIC_OS_VAULT_ACCOUNT_LEDGER_HEADER = 'x-amic-os-account-ledger-id';
 
 export interface AmicOsVaultProviderPrincipal {
   accountLedgerId: string;
@@ -72,6 +73,17 @@ export class AmicOsVaultProviderConfig {
       : 'oa12-exact-copy-v1';
   }
 
+  uploadAuthorityRef(): string {
+    return 'amic-vault-api:single-install';
+  }
+
+  uploadProviderRevision(): string {
+    const configured = process.env.AMIC_OS_VAULT_UPLOAD_PROVIDER_REVISION;
+    return configured && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u.test(configured)
+      ? configured
+      : 'single-install-upload-v1';
+  }
+
   maxExportBytes(): number {
     const configured = Number(process.env.AMIC_OS_VAULT_PROVIDER_MAX_EXPORT_BYTES);
     return Number.isSafeInteger(configured) && configured > 0 && configured <= AMIC_OS_VAULT_MAX_EXPORT_BYTES
@@ -101,6 +113,12 @@ function assertedAccountLedgerId(body: unknown): string | null {
   return typeof value === 'string' ? normalizeAccountLedgerId(value) : null;
 }
 
+function assertedHeaderAccountLedgerId(
+  value: string | string[] | undefined,
+): string | null {
+  return typeof value === 'string' ? normalizeAccountLedgerId(value) : null;
+}
+
 @Injectable()
 export class AmicOsVaultProviderGuard implements CanActivate {
   constructor(
@@ -116,7 +134,18 @@ export class AmicOsVaultProviderGuard implements CanActivate {
       throw authRequired();
     }
 
-    const accountLedgerId = assertedAccountLedgerId(request.body);
+    const bodyAccountLedgerId = assertedAccountLedgerId(request.body);
+    const headerAccountLedgerId = assertedHeaderAccountLedgerId(
+      request.headers[AMIC_OS_VAULT_ACCOUNT_LEDGER_HEADER],
+    );
+    if (
+      bodyAccountLedgerId &&
+      headerAccountLedgerId &&
+      bodyAccountLedgerId !== headerAccountLedgerId
+    ) {
+      throw authRequired();
+    }
+    const accountLedgerId = headerAccountLedgerId ?? bodyAccountLedgerId;
     if (!accountLedgerId) throw authRequired();
 
     let candidate: Awaited<ReturnType<UserService['findLoginCandidateByAccountLedgerId']>>;

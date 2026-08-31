@@ -7,6 +7,8 @@ import { runtimeSecretValue } from '../../common/config/runtime-secret';
 import type {
   StorageAdapter,
   StorageCreateReadUrlInput,
+  StorageCreateWriteUrlInput,
+  DirectWriteStorageAdapter,
   QuarantineInventoryStorageAdapter,
   StorageGetRangeInput,
   StorageGetObjectResult,
@@ -15,6 +17,7 @@ import type {
   StorageObjectLockMetadata,
   StoragePutObjectInput,
   StorageReadUrlResult,
+  StorageWriteUrlResult,
   StorageVersionedObjectMetadata,
   StorageVersionReference,
   VersionedStorageAdapter,
@@ -134,7 +137,7 @@ function toFetchBody(body: StoragePutObjectInput['body']): BodyInit {
   return Readable.toWeb(body) as unknown as BodyInit;
 }
 
-export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter, QuarantineInventoryStorageAdapter {
+export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter, QuarantineInventoryStorageAdapter, DirectWriteStorageAdapter {
   private readonly endpoint: URL;
   private readonly readUrlEndpoint: URL;
   private readonly objectVersions = new WeakMap<StorageObjectVersion, string>();
@@ -275,6 +278,72 @@ export class S3StorageAdapter implements StorageAdapter, VersionedStorageAdapter
     return {
       url: url.toString(),
       expiresAt: new Date(nowDate.getTime() + ttl * 1000),
+    };
+  }
+
+  async createWriteUrl(input: StorageCreateWriteUrlInput): Promise<StorageWriteUrlResult> {
+    if (!this.config.accessKeyId || !this.config.secretAccessKey) {
+      throw new StorageUnavailableError('storage credentials are not configured');
+    }
+    if (
+      !Number.isSafeInteger(input.contentLength) ||
+      input.contentLength < 1 ||
+      !input.contentType ||
+      /[\r\n]/u.test(input.contentType)
+    ) {
+      throw new StorageUnavailableError('storage write url input is invalid');
+    }
+    const ttl = input.expiresInSeconds ?? defaultReadUrlTtlSeconds;
+    if (!Number.isSafeInteger(ttl) || ttl <= 0 || ttl > 2 * 60 * 60) {
+      throw new StorageUnavailableError('storage write url ttl is invalid');
+    }
+
+    const nowDate = new Date();
+    const now = amzDate(nowDate);
+    const url = new URL(this.endpoint.toString());
+    url.pathname = `/${this.config.bucket}/${encodeKey(input.key)}`;
+    const requiredHeaders: SignedHeaders = {
+      'content-length': String(input.contentLength),
+      'content-type': input.contentType,
+      'if-none-match': '*',
+      ...(this.config.serverSideEncryption
+        ? { 'x-amz-server-side-encryption': this.config.serverSideEncryption }
+        : {}),
+    };
+    const signed = canonicalHeaders({ host: url.host, ...requiredHeaders });
+    const credentialScope = `${now.short}/${this.config.region}/s3/aws4_request`;
+    const params: Record<string, string> = {
+      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+      'X-Amz-Credential': `${this.config.accessKeyId}/${credentialScope}`,
+      'X-Amz-Date': now.stamp,
+      'X-Amz-Expires': String(ttl),
+      'X-Amz-SignedHeaders': signed.signed,
+    };
+    const canonicalRequest = [
+      'PUT',
+      url.pathname,
+      canonicalQuery(params),
+      signed.canonical,
+      signed.signed,
+      'UNSIGNED-PAYLOAD',
+    ].join('\n');
+    const stringToSign = [
+      'AWS4-HMAC-SHA256',
+      now.stamp,
+      credentialScope,
+      sha256Hex(canonicalRequest),
+    ].join('\n');
+    params['X-Amz-Signature'] = createHmac(
+      'sha256',
+      signingKey(this.config.secretAccessKey, now.short, this.config.region),
+    )
+      .update(stringToSign)
+      .digest('hex');
+    url.search = canonicalQuery(params);
+    return {
+      url: url.toString(),
+      expiresAt: new Date(nowDate.getTime() + ttl * 1_000),
+      headers: Object.freeze(requiredHeaders),
     };
   }
 

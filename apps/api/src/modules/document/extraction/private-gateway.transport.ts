@@ -7,6 +7,7 @@ import {
   createWorkerIdentityAdapter,
   createWorkerIdentityHeaders,
   privateGatewayUrl,
+  sidecarLoopbackUrl,
 } from './worker-identity.adapters';
 
 const MAX_PEM_BYTES = 64 * 1024;
@@ -17,6 +18,7 @@ const BINDING_HEADERS = [
 ] as const;
 const CLIENT_ONLY_IDENTITY_HEADERS = [
   'x-amic-dev-loopback-identity',
+  'x-amic-sidecar-loopback-identity',
   'x-amic-gateway-mtls-verified',
   'x-amic-gateway-workload-subject',
   'x-amic-gateway-audience',
@@ -79,7 +81,17 @@ function boundedHeaders(init: RequestInit, env: TransportEnvironment): Record<st
   headers.delete('transfer-encoding');
   if (adapter.profile === 'private-gateway-mtls') {
     for (const name of CLIENT_ONLY_IDENTITY_HEADERS) headers.delete(name);
-  } else if (headers.get('x-amic-dev-loopback-identity') !== 'true') {
+  } else if (adapter.profile === 'loopback-sidecar') {
+    if (
+      headers.get('x-amic-sidecar-loopback-identity') !== 'true' ||
+      headers.has('x-amic-dev-loopback-identity')
+    ) {
+      throw configurationError();
+    }
+  } else if (
+    headers.get('x-amic-dev-loopback-identity') !== 'true' ||
+    headers.has('x-amic-sidecar-loopback-identity')
+  ) {
     throw configurationError();
   }
   return Object.fromEntries(headers.entries());
@@ -228,11 +240,13 @@ export async function fetchIngestionWorker(
   const base =
     adapter.profile === 'private-gateway-mtls'
       ? privateGatewayUrl(env)
+      : adapter.profile === 'loopback-sidecar'
+        ? sidecarLoopbackUrl(env)
       : new URL(env.INGESTION_WORKER_URL ?? 'http://127.0.0.1:8000');
   const url = new URL(path.slice(1), `${base.toString().replace(/\/+$/u, '')}/`);
   if (url.origin !== base.origin) throw configurationError();
   const headers = boundedHeaders(init, env);
-  if (adapter.profile === 'loopback-dev') {
+  if (adapter.profile !== 'private-gateway-mtls') {
     return fetch(url.toString(), { ...init, headers });
   }
   return privateGatewayFetch(url, init, env, headers);

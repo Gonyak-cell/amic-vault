@@ -2,7 +2,10 @@ export const ingestionWorkerAudience = 'amic-vault-ingestion';
 export const ingestionGatewayWorkloadSubject = 'amic-vault-api';
 export const ingestionWorkerIdentityTtlSeconds = 300;
 
-export type WorkerIdentityProfile = 'loopback-dev' | 'private-gateway-mtls';
+export type WorkerIdentityProfile =
+  | 'loopback-dev'
+  | 'loopback-sidecar'
+  | 'private-gateway-mtls';
 
 export interface WorkerRequestIdentity {
   audience: typeof ingestionWorkerAudience;

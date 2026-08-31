@@ -8,6 +8,7 @@ from app.service_identity import (
     InMemoryNonceReplayStore,
     DevelopmentLoopbackServiceIdentity,
     PrivateGatewayMtlsServiceIdentity,
+    ProductionLoopbackSidecarServiceIdentity,
     ServiceIdentityDenied,
     assert_service_identity_profile,
     verify_ingestion_request_identity,
@@ -31,6 +32,16 @@ GATEWAY_ENV = {
     "INGESTION_GATEWAY_DIRECT_WORKER_ACCESS": "blocked",
     "INGESTION_GATEWAY_WORKLOAD_SUBJECT": INGESTION_GATEWAY_WORKLOAD_SUBJECT,
     "INGESTION_GATEWAY_AUDIENCE": INGESTION_WORKER_AUDIENCE,
+    "INGESTION_NONCE_STORE_PATH": "/var/lib/amic-vault/replay/nonces.sqlite3",
+}
+SIDECAR_ENV = {
+    "NODE_ENV": "production",
+    "INGESTION_WORKER_IDENTITY_PROFILE": "loopback-sidecar",
+    "INGESTION_GATEWAY_DIRECT_WORKER_ACCESS": "loopback-only",
+    "INGESTION_GATEWAY_WORKLOAD_SUBJECT": INGESTION_GATEWAY_WORKLOAD_SUBJECT,
+    "INGESTION_GATEWAY_AUDIENCE": INGESTION_WORKER_AUDIENCE,
+    "INGESTION_WORKER_URL": "http://127.0.0.1:8000",
+    "INGESTION_WORKER_BIND_HOST": "127.0.0.1",
     "INGESTION_NONCE_STORE_PATH": "/var/lib/amic-vault/replay/nonces.sqlite3",
 }
 
@@ -110,6 +121,39 @@ def test_development_loopback_identity_is_explicit_short_lived_and_one_use() -> 
         )
 
 
+def test_production_sidecar_identity_requires_actual_loopback_peer_and_distinct_header() -> None:
+    headers = {
+        "x-amic-sidecar-loopback-identity": "true",
+        "x-amic-request-id": HEADERS["x-amic-request-id"],
+        "x-amic-ingestion-nonce": HEADERS["x-amic-ingestion-nonce"],
+        "x-amic-ingestion-expires-at": HEADERS["x-amic-ingestion-expires-at"],
+    }
+    identity = ProductionLoopbackSidecarServiceIdentity(InMemoryNonceReplayStore()).verify(
+        headers, "127.0.0.1", NOW
+    )
+    assert identity.subject == INGESTION_GATEWAY_WORKLOAD_SUBJECT
+
+    for peer in [None, "testclient", "10.0.0.8"]:
+        with pytest.raises(ServiceIdentityDenied, match="PERMISSION_DENIED"):
+            ProductionLoopbackSidecarServiceIdentity(InMemoryNonceReplayStore()).verify(headers, peer, NOW)
+    with pytest.raises(ServiceIdentityDenied, match="PERMISSION_DENIED"):
+        ProductionLoopbackSidecarServiceIdentity(InMemoryNonceReplayStore()).verify(
+            {**headers, "x-amic-dev-loopback-identity": "true"}, "127.0.0.1", NOW
+        )
+
+
+def test_production_sidecar_profile_requires_exact_bind_url_and_durable_nonce_store() -> None:
+    assert_service_identity_profile(SIDECAR_ENV)
+    for key, value in [
+        ("INGESTION_WORKER_URL", "http://localhost:8000"),
+        ("INGESTION_WORKER_BIND_HOST", "0.0.0.0"),
+        ("INGESTION_GATEWAY_DIRECT_WORKER_ACCESS", "allowed"),
+        ("INGESTION_NONCE_STORE_PATH", "relative/nonces.sqlite3"),
+    ]:
+        with pytest.raises(ServiceIdentityDenied, match="PERMISSION_DENIED"):
+            assert_service_identity_profile({**SIDECAR_ENV, key: value})
+
+
 def test_identity_profile_selects_gateway_in_production_and_loopback_only_outside_it() -> None:
     assert verify_ingestion_request_identity(
         HEADERS,
@@ -124,3 +168,16 @@ def test_identity_profile_selects_gateway_in_production_and_loopback_only_outsid
             nonce_store=InMemoryNonceReplayStore(),
             now=NOW,
         )
+    sidecar_headers = {
+        "x-amic-sidecar-loopback-identity": "true",
+        "x-amic-request-id": HEADERS["x-amic-request-id"],
+        "x-amic-ingestion-nonce": "44444444-4444-4444-8444-444444444444",
+        "x-amic-ingestion-expires-at": HEADERS["x-amic-ingestion-expires-at"],
+    }
+    assert verify_ingestion_request_identity(
+        sidecar_headers,
+        env=SIDECAR_ENV,
+        nonce_store=InMemoryNonceReplayStore(),
+        peer_host="127.0.0.1",
+        now=NOW,
+    ).subject == INGESTION_GATEWAY_WORKLOAD_SUBJECT

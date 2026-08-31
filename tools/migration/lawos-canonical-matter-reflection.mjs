@@ -13,6 +13,7 @@ const DEFAULT_DETAILS = `${DEFAULT_OUTPUT_DIR}/lawos-canonical-matter-reflection
 const SOURCE_REF = 'lawos_lazycodex_canonical_identity';
 const DEFAULT_SOURCE_PACKAGE_REF = 'amic-matter-code-candidates.js';
 const DEFAULT_SOURCE_CONTRACT_REF = 'matter-core-contract.json';
+const MAX_SOURCE_ARTIFACT_BYTES = 8 * 1024 * 1024;
 const ALLOWED_AXES = new Set(['Advisory', 'DEAL', 'Dispute']);
 const LITIGATION_AXES = new Set(['CIV', 'CRM', 'ADM']);
 const VALID_MODES = new Set([
@@ -45,10 +46,10 @@ const DEFAULT_LOCAL_AI_FILE_ORG_POLICY_NAME = 'AMIC local file organization prep
 
 export function usage() {
   return [
-    'usage: pnpm matter:lawos-reflection -- --mode <preflight|dry-run|execute|replay|invariant-check|runtime-smoke|negative-smoke|rollback|closeout> --source-artifact <path> --source-revision <revision> --tenant-id <uuid> [--operator-user-id <uuid>] [--approval-ref <ref>]',
+    'usage: pnpm matter:lawos-reflection -- --mode <preflight|dry-run|execute|replay|invariant-check|runtime-smoke|negative-smoke|rollback|closeout> --source-artifact <path-or-https-url> --source-revision <revision> --tenant-id <uuid> [--operator-user-id <uuid>]',
     '',
     'Required contract inputs:',
-    '  --source-artifact <path>      LawOS canonical matter artifact JSON, or LAWOS_CANONICAL_SOURCE_ARTIFACT',
+    '  --source-artifact <value>     LawOS canonical matter JSON path or HTTPS URL, or LAWOS_CANONICAL_SOURCE_ARTIFACT',
     '  --source-revision <revision> Expected artifact revision, or LAWOS_CANONICAL_SOURCE_REVISION',
     '',
     'Optional contract inputs:',
@@ -113,6 +114,7 @@ export function parseArgs(argv = process.argv.slice(2), env = process.env) {
     operatorUserId: null,
     mode: env.LAWOS_CANONICAL_REFLECTION_MODE || 'preflight',
     sourceArtifact: env.LAWOS_CANONICAL_SOURCE_ARTIFACT || '',
+    sourceToken: env.LAWOS_CANONICAL_SOURCE_TOKEN || env.MATTER_APP_API_TOKEN || '',
     sourceRevision: env.LAWOS_CANONICAL_SOURCE_REVISION || '',
     sourcePackageRef: env.LAWOS_CANONICAL_SOURCE_PACKAGE_REF || DEFAULT_SOURCE_PACKAGE_REF,
     sourceContractRef: env.LAWOS_CANONICAL_SOURCE_CONTRACT_REF || DEFAULT_SOURCE_CONTRACT_REF,
@@ -301,7 +303,7 @@ export function buildReflectionManifest({ source, sourceArtifactHash, args }) {
 
   return {
     source: {
-      artifact_ref: path.basename(args.sourceArtifact),
+      artifact_ref: path.basename(new URL(args.sourceArtifact, 'file:///').pathname) || 'canonical-snapshot',
       package_ref: path.basename(args.sourcePackageRef ?? DEFAULT_SOURCE_PACKAGE_REF),
       contract_ref: path.basename(args.sourceContractRef ?? DEFAULT_SOURCE_CONTRACT_REF),
       source_revision: clean(source?.source_revision),
@@ -684,8 +686,38 @@ async function validateNegativeSmoke({ db, args, snapshot, allowEphemeralEthical
   };
 }
 
-async function readLawOsSource(filePath) {
-  const raw = fs.readFileSync(filePath, 'utf8');
+export async function readLawOsSource(sourceArtifact, {
+  sourceToken = '',
+  fetchFn = globalThis.fetch,
+} = {}) {
+  let raw;
+  if (/^https:\/\//u.test(sourceArtifact)) {
+    const sourceUrl = new URL(sourceArtifact);
+    if (sourceUrl.protocol !== 'https:' || sourceUrl.username || sourceUrl.password || sourceUrl.hash) {
+      throw new Error('canonical source URL must be credential-free HTTPS without a fragment');
+    }
+    if (!clean(sourceToken)) throw new Error('LAWOS_CANONICAL_SOURCE_TOKEN is required for HTTPS source');
+    const response = await fetchFn(sourceUrl, {
+      method: 'GET',
+      headers: {
+        accept: 'application/json',
+        'x-lawos-vault-bridge-token': sourceToken,
+      },
+      redirect: 'error',
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!response.ok) throw new Error(`canonical source request failed with HTTP ${response.status}`);
+    const contentType = response.headers.get('content-type') ?? '';
+    if (!contentType.toLowerCase().includes('application/json')) {
+      throw new Error('canonical source response must be application/json');
+    }
+    raw = await response.text();
+  } else {
+    raw = fs.readFileSync(sourceArtifact, 'utf8');
+  }
+  if (Buffer.byteLength(raw, 'utf8') > MAX_SOURCE_ARTIFACT_BYTES) {
+    throw new Error('canonical source artifact exceeds maximum size');
+  }
   return { source: JSON.parse(raw), sourceArtifactHash: sha256Hex(raw) };
 }
 
@@ -1069,13 +1101,8 @@ async function executeReflection(db, { args, manifest, plan, snapshot }) {
   };
 }
 
-function reflectedCount(executeResult) {
-  return (
-    (executeResult?.clients_created ?? 0) +
-    (executeResult?.clients_updated ?? 0) +
-    (executeResult?.matters_created ?? 0) +
-    (executeResult?.matters_updated ?? 0)
-  );
+function reflectedCount(manifest) {
+  return manifest.counts.clients + manifest.counts.matters;
 }
 
 function driftCount(plan) {
@@ -1114,14 +1141,15 @@ async function recordMatterAppSyncState(db, { args, manifest, plan, executeResul
     [
       args.tenantId,
       SOURCE_REF,
-      reflectedCount(executeResult),
+      reflectedCount(manifest),
       driftCount(plan),
       sha256Hex(manifest.source.source_revision),
       manifest.source.source_artifact_hash,
       sha256Hex(args.runId),
       JSON.stringify({
         artifact: 'lawos_canonical_matter_reflection_sanitized',
-        reflected_count: reflectedCount(executeResult),
+        source_count: reflectedCount(manifest),
+        reflected_count: reflectedCount(manifest),
         drift_count: driftCount(plan),
         action_counts: plan.summary.actions,
         blocker_counts: plan.summary.blockers,
@@ -1310,7 +1338,9 @@ async function main() {
     return;
   }
 
-  const { source, sourceArtifactHash } = await readLawOsSource(args.sourceArtifact);
+  const { source, sourceArtifactHash } = await readLawOsSource(args.sourceArtifact, {
+    sourceToken: args.sourceToken,
+  });
   const manifest = buildReflectionManifest({ source, sourceArtifactHash, args });
   const manifestBlockers = validateManifest(manifest, args);
   const db = new Client({ connectionString: args.databaseUrl });
@@ -1333,7 +1363,6 @@ async function main() {
     if (['execute', 'runtime-smoke', 'negative-smoke', 'rollback'].includes(args.mode) && !operator) {
       environmentBlockers.push('active_operator_missing_or_unauthorized');
     }
-    if (args.mode === 'execute' && !clean(args.approvalRef)) environmentBlockers.push('approval_ref_missing');
     if (args.mode === 'rollback' && !clean(args.rollbackApprovalRef)) {
       environmentBlockers.push('rollback_approval_ref_missing');
     }

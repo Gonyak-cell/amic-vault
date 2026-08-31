@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 
-export const DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES = 500 * 1024 * 1024;
+export const DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024;
 export const DEFAULT_DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024;
 
 export interface FileSizeValidationOptions {

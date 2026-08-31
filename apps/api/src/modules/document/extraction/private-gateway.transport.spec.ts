@@ -204,6 +204,35 @@ afterAll(async () => {
 });
 
 describe('private gateway transport', () => {
+  it('uses plaintext only for the exact production loopback sidecar address', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
+    try {
+      const response = await fetchIngestionWorker(
+        '/security/scan',
+        { method: 'POST' },
+        {
+          NODE_ENV: 'production',
+          INGESTION_WORKER_IDENTITY_PROFILE: 'loopback-sidecar',
+          INGESTION_GATEWAY_DIRECT_WORKER_ACCESS: 'loopback-only',
+          INGESTION_GATEWAY_WORKLOAD_SUBJECT: 'amic-vault-api',
+          INGESTION_GATEWAY_AUDIENCE: 'amic-vault-ingestion',
+          INGESTION_WORKER_URL: 'http://127.0.0.1:8000',
+        },
+      );
+
+      expect(response.status).toBe(204);
+      expect(fetchSpy).toHaveBeenCalledOnce();
+      const [url, init] = fetchSpy.mock.calls[0] ?? [];
+      expect(url).toBe('http://127.0.0.1:8000/security/scan');
+      expect(init?.headers).toMatchObject({
+        'x-amic-sidecar-loopback-identity': 'true',
+      });
+      expect(init?.headers).not.toHaveProperty('x-amic-dev-loopback-identity');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it('uses real mTLS, adds one-use binding headers, streams JSON, and avoids global fetch', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const response = await fetchIngestionWorker(

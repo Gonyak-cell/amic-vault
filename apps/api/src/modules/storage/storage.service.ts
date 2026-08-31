@@ -4,8 +4,10 @@ import { sha256Stream } from '../document/integrity/sha256.util';
 import type {
   StorageAdapter,
   StorageBody,
+  DirectWriteStorageAdapter,
   StorageGetObjectResult,
   StorageReadUrlResult,
+  StorageWriteUrlResult,
   StorageObjectVersion,
   QuarantineInventoryStorageAdapter,
   VersionedStorageAdapter,
@@ -193,6 +195,29 @@ export class StorageService {
       storageUri: this.pathResolver.storageUriForKey(key),
       encryptionKeyId: encrypted.encryptionKeyId,
     };
+  }
+
+  quarantineStorageUri(tenantId: string, quarantineRef: string): string {
+    const key = this.pathResolver.buildQuarantineObjectKey({ tenantId, quarantineRef });
+    return this.pathResolver.storageUriForKey(key);
+  }
+
+  async createQuarantineWriteUrl(input: {
+    tenantId: string;
+    quarantineRef: string;
+    contentLength: number;
+    contentType: string;
+    expiresInSeconds: number;
+  }): Promise<StorageWriteUrlResult> {
+    const key = this.pathResolver.buildQuarantineObjectKey(input);
+    return this.observeStorageOperation(() =>
+      this.directWriteAdapter().createWriteUrl({
+        key,
+        contentLength: input.contentLength,
+        contentType: input.contentType,
+        expiresInSeconds: input.expiresInSeconds,
+      }),
+    );
   }
 
   async headByStorageUri(tenantId: string, storageUri: string) {
@@ -408,6 +433,14 @@ export class StorageService {
       throw new StorageVersioningUnsupportedError();
     }
     return candidate as VersionedStorageAdapter;
+  }
+
+  private directWriteAdapter(): DirectWriteStorageAdapter {
+    const adapter = this.adapter as StorageAdapter & Partial<DirectWriteStorageAdapter>;
+    if (typeof adapter.createWriteUrl !== 'function') {
+      throw new StorageUnavailableError('storage direct write urls are unsupported');
+    }
+    return adapter as StorageAdapter & DirectWriteStorageAdapter;
   }
 
   private quarantineInventoryAdapter(): QuarantineInventoryStorageAdapter {

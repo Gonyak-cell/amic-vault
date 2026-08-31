@@ -97,4 +97,26 @@ describe('createIngestionWorkerRequest', () => {
 
     expect(request.headers).not.toHaveProperty('x-amic-dev-loopback-identity');
   });
+
+  it('uses the distinct production sidecar marker only for the exact loopback profile', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('INGESTION_WORKER_IDENTITY_PROFILE', 'loopback-sidecar');
+    vi.stubEnv('INGESTION_GATEWAY_DIRECT_WORKER_ACCESS', 'loopback-only');
+    vi.stubEnv('INGESTION_GATEWAY_WORKLOAD_SUBJECT', 'amic-vault-api');
+    vi.stubEnv('INGESTION_GATEWAY_AUDIENCE', 'amic-vault-ingestion');
+    vi.stubEnv('INGESTION_WORKER_URL', 'http://127.0.0.1:8000');
+
+    const request = await createIngestionWorkerRequest({
+      target,
+      parserProfile: 'extract',
+      storageService: { latestVersionFingerprintByStorageUri: vi.fn(async () => 'b'.repeat(64)) },
+      storagePathResolver: new StoragePathResolver('amic-vault-dev'),
+      now: new Date('2030-01-01T00:00:00Z'),
+    });
+
+    expect(request.headers).toMatchObject({
+      'x-amic-sidecar-loopback-identity': 'true',
+    });
+    expect(request.headers).not.toHaveProperty('x-amic-dev-loopback-identity');
+  });
 });

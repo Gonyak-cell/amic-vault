@@ -9,9 +9,9 @@ import {
 } from './file-size.validator';
 
 describe('FileSizeValidator', () => {
-  it('uses a 500MB default and accepts exact-limit uploads', () => {
+  it('uses a 1 GiB default and accepts exact-limit uploads', () => {
     expect(documentUploadMaxBytes(undefined)).toBe(DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES);
-    expect(DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES).toBe(500 * 1024 * 1024);
+    expect(DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES).toBe(1024 * 1024 * 1024);
     expect(() => new FileSizeValidator(3).validate(3)).not.toThrow();
   });
 

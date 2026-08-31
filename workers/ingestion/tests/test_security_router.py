@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.security.clamav_client import ScanOutcome, ScanVerdict
+from app import security_router
 from app.security_router import ClamAvClient
 
 
@@ -19,7 +20,13 @@ def _loopback_identity_headers() -> dict[str, str]:
 
 
 def test_scan_accepts_only_uploaded_bytes_and_returns_bounded_verdict(monkeypatch) -> None:
-    monkeypatch.setattr(ClamAvClient, "scan", lambda _self, _payload: ScanVerdict(ScanOutcome.CLEAN, "1.4.3", 1))
+    scanned: list[bytes] = []
+
+    def scan_chunks(_self, chunks) -> ScanVerdict:
+        scanned.append(b"".join(chunks))
+        return ScanVerdict(ScanOutcome.CLEAN, "1.4.3", 1)
+
+    monkeypatch.setattr(ClamAvClient, "scan_chunks", scan_chunks)
     response = TestClient(app).post(
         "/security/scan",
         data={"quarantine_ref": "11111111-1111-4111-8111-111111111111", "expected_sha256": "a" * 64},
@@ -31,6 +38,7 @@ def test_scan_accepts_only_uploaded_bytes_and_returns_bounded_verdict(monkeypatc
     )
     assert response.status_code == 200
     assert response.json() == {"outcome": "clean", "engine_version": "1.4.3", "signature_age_seconds": 1}
+    assert scanned == [b"safe"]
 
 
 def test_scan_rejects_missing_tenant_or_opaque_inputs() -> None:
@@ -42,7 +50,9 @@ def test_scan_rejects_missing_tenant_or_opaque_inputs() -> None:
     assert response.status_code == 403
 
 
-def test_scan_rejects_malformed_identifiers_hash_and_oversized_upload() -> None:
+def test_scan_rejects_malformed_identifiers_hash_and_oversized_upload(monkeypatch) -> None:
+    assert security_router.MAX_SCAN_BYTES == 1024 * 1024 * 1024
+    monkeypatch.setattr(security_router, "MAX_SCAN_BYTES", 4)
     client = TestClient(app)
     invalid = client.post(
         "/security/scan",
@@ -53,7 +63,7 @@ def test_scan_rejects_malformed_identifiers_hash_and_oversized_upload() -> None:
     oversized = client.post(
         "/security/scan",
         data={"quarantine_ref": "11111111-1111-4111-8111-111111111111", "expected_sha256": "a" * 64},
-        files={"file": ("ignored.bin", b"x" * (25 * 1024 * 1024 + 1), "application/octet-stream")},
+        files={"file": ("ignored.bin", b"x" * 5, "application/octet-stream")},
         headers={
             **_loopback_identity_headers(),
             "x-amic-tenant-id": "22222222-2222-4222-8222-222222222222",

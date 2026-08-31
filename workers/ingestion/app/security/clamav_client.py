@@ -42,7 +42,7 @@ class ClamAvClient:
         host: str | None = None,
         port: int | None = None,
         timeout_seconds: float = 5,
-        max_bytes: int = 25 * 1024 * 1024,
+        max_bytes: int = 1024 * 1024 * 1024,
         max_chunk_bytes: int = 1024 * 1024,
         max_signature_age: timedelta = timedelta(days=7),
         now: Callable[[], datetime] | None = None,

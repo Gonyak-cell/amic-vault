@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from ipaddress import ip_address
 from pathlib import Path
 import re
 from typing import Mapping, MutableMapping, Protocol
@@ -144,11 +145,77 @@ class DevelopmentLoopbackServiceIdentity:
         )
 
 
+class ProductionLoopbackSidecarServiceIdentity:
+    """Accept production requests only from the task's loopback network namespace."""
+
+    def __init__(self, nonce_store: NonceReplayStore) -> None:
+        self._nonce_store = nonce_store
+
+    def verify(
+        self,
+        headers: Mapping[str, str],
+        peer_host: str | None,
+        now: datetime | None = None,
+    ) -> VerifiedWorkloadIdentity:
+        current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+        request_id = _header(headers, "x-amic-request-id")
+        nonce = _header(headers, "x-amic-ingestion-nonce")
+        expires_at_value = _header(headers, "x-amic-ingestion-expires-at")
+        try:
+            loopback_peer = peer_host is not None and ip_address(peer_host).is_loopback
+        except ValueError:
+            loopback_peer = False
+        if (
+            not loopback_peer
+            or _header(headers, "x-amic-sidecar-loopback-identity") != "true"
+            or _header(headers, "x-amic-dev-loopback-identity") is not None
+            or request_id is None
+            or nonce is None
+            or expires_at_value is None
+            or _UUID.fullmatch(request_id) is None
+            or _UUID.fullmatch(nonce) is None
+        ):
+            raise ServiceIdentityDenied()
+        expires_at = _instant(expires_at_value)
+        if expires_at <= current or expires_at > current + IDENTITY_TTL:
+            raise ServiceIdentityDenied()
+        try:
+            consumed = self._nonce_store.consume(nonce, expires_at, current)
+        except Exception as exc:
+            raise ServiceIdentityDenied() from exc
+        if not consumed:
+            raise ServiceIdentityDenied()
+        return VerifiedWorkloadIdentity(
+            INGESTION_GATEWAY_WORKLOAD_SUBJECT,
+            INGESTION_WORKER_AUDIENCE,
+            request_id,
+            nonce,
+            expires_at,
+        )
+
+
 def assert_service_identity_profile(env: Mapping[str, str]) -> None:
     """Reject dev loopback and incomplete private-gateway configuration in production."""
     profile = env.get("INGESTION_WORKER_IDENTITY_PROFILE", "loopback-dev")
     if profile == "loopback-dev":
         if env.get("NODE_ENV") == "production":
+            raise ServiceIdentityDenied()
+        return
+    if profile == "loopback-sidecar":
+        if any(
+            env.get(name) != expected
+            for name, expected in {
+                "NODE_ENV": "production",
+                "INGESTION_GATEWAY_DIRECT_WORKER_ACCESS": "loopback-only",
+                "INGESTION_GATEWAY_WORKLOAD_SUBJECT": INGESTION_GATEWAY_WORKLOAD_SUBJECT,
+                "INGESTION_GATEWAY_AUDIENCE": INGESTION_WORKER_AUDIENCE,
+                "INGESTION_WORKER_URL": "http://127.0.0.1:8000",
+                "INGESTION_WORKER_BIND_HOST": "127.0.0.1",
+            }.items()
+        ):
+            raise ServiceIdentityDenied()
+        nonce_store_path = env.get("INGESTION_NONCE_STORE_PATH", "")
+        if "\x00" in nonce_store_path or not Path(nonce_store_path).is_absolute():
             raise ServiceIdentityDenied()
         return
     if profile != "private-gateway-mtls" or any(
@@ -170,7 +237,10 @@ def assert_service_identity_profile(env: Mapping[str, str]) -> None:
 def create_nonce_replay_store(env: Mapping[str, str]) -> NonceReplayStore:
     """Use memory only for development; private production must open durable SQLite."""
     assert_service_identity_profile(env)
-    if env.get("INGESTION_WORKER_IDENTITY_PROFILE", "loopback-dev") == "private-gateway-mtls":
+    if env.get("INGESTION_WORKER_IDENTITY_PROFILE", "loopback-dev") in {
+        "loopback-sidecar",
+        "private-gateway-mtls",
+    }:
         try:
             return SqliteNonceReplayStore(env["INGESTION_NONCE_STORE_PATH"])
         except (KeyError, RuntimeError) as exc:
@@ -183,9 +253,12 @@ def verify_ingestion_request_identity(
     *,
     env: Mapping[str, str] = {},
     nonce_store: NonceReplayStore,
+    peer_host: str | None = None,
     now: datetime | None = None,
 ) -> VerifiedWorkloadIdentity:
     assert_service_identity_profile(env)
     if env.get("INGESTION_WORKER_IDENTITY_PROFILE", "loopback-dev") == "private-gateway-mtls":
         return PrivateGatewayMtlsServiceIdentity(nonce_store).verify(headers, now)
+    if env.get("INGESTION_WORKER_IDENTITY_PROFILE", "loopback-dev") == "loopback-sidecar":
+        return ProductionLoopbackSidecarServiceIdentity(nonce_store).verify(headers, peer_host, now)
     return DevelopmentLoopbackServiceIdentity(nonce_store).verify(headers, now)

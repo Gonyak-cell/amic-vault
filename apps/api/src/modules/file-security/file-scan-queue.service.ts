@@ -8,7 +8,7 @@ import { FileSecurityService } from './file-security.service';
 import { fileSecurityScanDeadLetterQueueName, fileSecurityScanQueueName, type FileSecurityScanJobPayload } from './file-security.types';
 
 export function fileSecurityScanSendOptions(payload: FileSecurityScanJobPayload, client: PoolClient): SendOptions {
-  return { singletonKey: payload.quarantineRef, retryLimit: 3, retryDelay: 5, retryBackoff: true, deadLetter: fileSecurityScanDeadLetterQueueName, db: pgBossDbFromPoolClient(client) };
+  return { singletonKey: payload.quarantineRef, retryLimit: 3, retryDelay: 5, retryBackoff: true, expireInSeconds: 3 * 60 * 60, deadLetter: fileSecurityScanDeadLetterQueueName, db: pgBossDbFromPoolClient(client) };
 }
 
 @Injectable()

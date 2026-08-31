@@ -6,7 +6,6 @@ import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
 import { allowPermission, denyPermission } from '@amic-vault/shared';
 import { DocumentUploadService, type UploadedDiskFile } from './document-upload.service';
-import { DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES } from './validators/file-size.validator';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '11111111-1111-4111-8111-111111111101';
@@ -509,25 +508,35 @@ describe('DocumentUploadService', () => {
   });
 
   it('allows migration uploads over the browser upload size default', async () => {
-    const file = await tempUploadFile('Large.PDF');
-    file.size = DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES + 1;
-    const { createFileObject, service } = createService();
+    const previousUploadMax = process.env.DOCUMENT_UPLOAD_MAX_BYTES;
+    const previousMigrationMax = process.env.DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES;
+    process.env.DOCUMENT_UPLOAD_MAX_BYTES = '3';
+    process.env.DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES = '5';
+    try {
+      const file = await tempUploadFile('Large.PDF', '%PDF');
+      const { createFileObject, service } = createService();
 
-    await service.upload({
-      actorUserId,
-      matterId,
-      fields: {},
-      file,
-      sourceSystem: 'migration',
-    });
-
-    expect(createFileObject).toHaveBeenCalledWith(
-      expect.objectContaining({
-        sizeBytes: DEFAULT_DOCUMENT_UPLOAD_MAX_BYTES + 1,
+      await service.upload({
+        actorUserId,
+        matterId,
+        fields: {},
+        file,
         sourceSystem: 'migration',
-      }),
-      expect.anything(),
-    );
+      });
+
+      expect(createFileObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sizeBytes: 4,
+          sourceSystem: 'migration',
+        }),
+        expect.anything(),
+      );
+    } finally {
+      if (previousUploadMax === undefined) delete process.env.DOCUMENT_UPLOAD_MAX_BYTES;
+      else process.env.DOCUMENT_UPLOAD_MAX_BYTES = previousUploadMax;
+      if (previousMigrationMax === undefined) delete process.env.DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES;
+      else process.env.DOCUMENT_MIGRATION_UPLOAD_MAX_BYTES = previousMigrationMax;
+    }
   });
 
   it('allows migration image MIME mismatches while preserving the source filename', async () => {

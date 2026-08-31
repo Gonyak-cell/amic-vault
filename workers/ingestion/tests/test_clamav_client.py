@@ -109,6 +109,18 @@ def test_compose_scanner_is_internal_and_has_no_storage_credentials_or_mounts() 
     assert "ports:" not in scanner
     assert "volumes:" not in scanner
     assert "S3_" not in scanner
-    assert "CLAMD_CONF_StreamMaxLength: 25M" in scanner
+    assert "CLAMD_CONF_StreamMaxLength: 1024M" in scanner
+    assert "CLAMD_CONF_AlertExceedsMax: \"yes\"" in scanner
     assert "clamdscan -p1" in scanner
     assert "freshclam --foreground --stdout && unset CLAMAV_NO_CLAMD && exec /init" in scanner
+
+
+def test_ingestion_gateway_allows_one_gib_file_plus_multipart_overhead() -> None:
+    gateway = Path(__file__).parents[3] / "infra/ingestion-gateway/nginx.conf"
+    configuration = gateway.read_text()
+
+    assert "client_max_body_size 1100m;" in configuration
+    scan_location = configuration.split("location = /security/scan {", 1)[1].split("}", 1)[0]
+    assert "proxy_request_buffering off;" in scan_location
+    assert "proxy_send_timeout 7200s;" in scan_location
+    assert "proxy_read_timeout 7200s;" in scan_location

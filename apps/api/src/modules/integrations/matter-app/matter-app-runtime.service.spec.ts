@@ -144,6 +144,42 @@ describe('MatterAppRuntimeService', () => {
     });
   });
 
+  it('uses tenant sync state instead of the static timestamp in Matter app API mode', async () => {
+    process.env.MATTER_APP_SOURCE_MODE = 'matter_app_api';
+    process.env.MATTER_APP_SOURCE_CONFIGURED = 'true';
+    process.env.MATTER_APP_RUNTIME_READY = 'true';
+    process.env.MATTER_APP_API_BASE_URL = 'https://lawos.example';
+    process.env.MATTER_APP_API_TOKEN = 'test-token';
+    process.env.MATTER_APP_SOURCE_UPDATED_AT = '2026-06-01T00:00:00.000Z';
+    process.env.MATTER_APP_STALENESS_MAX_SECONDS = '900';
+    vi.mocked(tenantQuery).mockResolvedValue({
+      rowCount: 1,
+      rows: [{
+        last_sync_at: new Date('2026-06-20T00:00:30.000Z'),
+        reflected_count: 247,
+        drift_count: 0,
+      }],
+    } as never);
+    const { context, service } = createService();
+
+    const status = await context.run(
+      { tenantId, slug: 'amic', status: 'active', source: 'session' },
+      () => service.status(new Date('2026-06-20T00:01:00.000Z')),
+    );
+
+    expect(status).toMatchObject({
+      mode: 'matter_app_api',
+      requestedMode: 'matter_app_api',
+      sourceAvailable: true,
+      sourceUpdatedAt: '2026-06-20T00:00:30.000Z',
+      lastSyncAt: '2026-06-20T00:00:30.000Z',
+      reflectedCount: 247,
+      driftCount: 0,
+      syncStateAvailable: true,
+      sourceStale: false,
+    });
+  });
+
   it('returns safe empty lookup without touching the projection when source is unavailable', async () => {
     const { service } = createService();
 
@@ -189,10 +225,19 @@ describe('MatterAppRuntimeService', () => {
     process.env.MATTER_APP_RUNTIME_READY = 'true';
     process.env.MATTER_APP_API_BASE_URL = 'http://127.0.0.1:4180';
     process.env.MATTER_APP_API_TOKEN = 'test-token';
-    vi.mocked(tenantQuery).mockResolvedValue({
-      rowCount: 1,
-      rows: [
-        {
+    vi.mocked(tenantQuery)
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [{
+          last_sync_at: new Date('2099-06-20T00:00:30.000Z'),
+          reflected_count: 247,
+          drift_count: 0,
+        }],
+      } as never)
+      .mockResolvedValueOnce({
+        rowCount: 1,
+        rows: [
+          {
           matter_id: '22222222-2222-4222-8222-222222222222',
           matter_code: 'AMIC-2026-0001',
           matter_name: 'Investment Advisory',
@@ -202,9 +247,9 @@ describe('MatterAppRuntimeService', () => {
           metadata_json: {},
           updated_at: new Date('2026-06-20T00:00:00.000Z'),
           total_count: '1',
-        },
-      ],
-    } as never);
+          },
+        ],
+      } as never);
     const { context, service } = createService();
 
     const response = await context.run(
@@ -212,7 +257,7 @@ describe('MatterAppRuntimeService', () => {
       () => service.lookup(userId, { q: 'AMIC-2026-0001', pageSize: 20 }),
     );
 
-    const sql = vi.mocked(tenantQuery).mock.calls[0]?.[2] ?? '';
+    const sql = vi.mocked(tenantQuery).mock.calls.find((call) => String(call[2]).includes('FROM matters m'))?.[2] ?? '';
     expect(sql).toContain('FROM matter_members mm');
     expect(sql).toContain('FROM ethical_walls ew');
     expect(sql).toContain('LEFT JOIN clients c');

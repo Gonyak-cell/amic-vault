@@ -74,6 +74,8 @@ export async function createIngestionWorkerRequest(input: {
       'x-amic-ingestion-expires-at': identity.expiresAt,
       ...(identityAdapter.profile === 'loopback-dev'
         ? { 'x-amic-dev-loopback-identity': 'true' }
+        : identityAdapter.profile === 'loopback-sidecar'
+          ? { 'x-amic-sidecar-loopback-identity': 'true' }
         : {}),
     },
   };

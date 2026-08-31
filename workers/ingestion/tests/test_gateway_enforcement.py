@@ -20,8 +20,18 @@ GATEWAY_ENV = {
     "INGESTION_GATEWAY_WORKLOAD_SUBJECT": INGESTION_GATEWAY_WORKLOAD_SUBJECT,
     "INGESTION_GATEWAY_AUDIENCE": INGESTION_WORKER_AUDIENCE,
 }
+SIDECAR_ENV = {
+    "NODE_ENV": "production",
+    "INGESTION_WORKER_IDENTITY_PROFILE": "loopback-sidecar",
+    "INGESTION_GATEWAY_DIRECT_WORKER_ACCESS": "loopback-only",
+    "INGESTION_GATEWAY_WORKLOAD_SUBJECT": INGESTION_GATEWAY_WORKLOAD_SUBJECT,
+    "INGESTION_GATEWAY_AUDIENCE": INGESTION_WORKER_AUDIENCE,
+    "INGESTION_WORKER_URL": "http://127.0.0.1:8000",
+    "INGESTION_WORKER_BIND_HOST": "127.0.0.1",
+}
 
 client = TestClient(app)
+loopback_client = TestClient(app, client=("127.0.0.1", 50000))
 
 
 def _binding_headers() -> dict[str, str]:
@@ -44,6 +54,10 @@ def _gateway_headers() -> dict[str, str]:
         "x-amic-gateway-workload-subject": INGESTION_GATEWAY_WORKLOAD_SUBJECT,
         "x-amic-gateway-audience": INGESTION_WORKER_AUDIENCE,
     }
+
+
+def _sidecar_headers() -> dict[str, str]:
+    return {**_binding_headers(), "x-amic-sidecar-loopback-identity": "true"}
 
 
 def _route_requests(headers: dict[str, str] | None = None) -> list:
@@ -139,3 +153,29 @@ def test_production_loopback_profile_denies_operations_but_not_health(monkeypatc
     assert operation.json() == {"detail": {"code": "PERMISSION_DENIED"}}
     assert health.status_code == 200
     assert health.json() == {"status": "ok"}
+
+
+def test_production_sidecar_profile_accepts_only_the_actual_loopback_peer(monkeypatch, tmp_path) -> None:
+    for name, value in {**SIDECAR_ENV, "INGESTION_NONCE_STORE_PATH": str(tmp_path / "nonces.sqlite3")}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(
+        ClamAvClient,
+        "scan",
+        lambda _self, _payload: ScanVerdict(ScanOutcome.CLEAN, "1.4.3", 1),
+    )
+
+    denied = client.post(
+        "/security/scan",
+        data={"quarantine_ref": TENANT_ID, "expected_sha256": "a" * 64},
+        files={"file": ("payload.bin", b"payload", "application/octet-stream")},
+        headers={**_sidecar_headers(), "x-amic-tenant-id": TENANT_ID},
+    )
+    accepted = loopback_client.post(
+        "/security/scan",
+        data={"quarantine_ref": TENANT_ID, "expected_sha256": "a" * 64},
+        files={"file": ("payload.bin", b"payload", "application/octet-stream")},
+        headers={**_sidecar_headers(), "x-amic-tenant-id": TENANT_ID},
+    )
+
+    assert denied.status_code == 403
+    assert accepted.status_code == 200, accepted.text

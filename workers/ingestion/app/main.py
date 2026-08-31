@@ -82,6 +82,7 @@ async def enforce_ingestion_service_identity(request: Request, call_next):
             request.headers,
             env=os.environ,
             nonce_store=_configured_nonce_store(),
+            peer_host=request.client.host if request.client is not None else None,
         )
     except ServiceIdentityDenied:
         _emit_request_event(

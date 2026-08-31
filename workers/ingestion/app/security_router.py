@@ -4,11 +4,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from .security.clamav_client import ClamAvClient
 
 router = APIRouter()
-MAX_SCAN_BYTES = 25 * 1024 * 1024
+MAX_SCAN_BYTES = 1024 * 1024 * 1024
+SCAN_CHUNK_BYTES = 1024 * 1024
 
 
 class ScanResponse(BaseModel):
@@ -31,10 +33,21 @@ async def scan(
         raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"}) from None
     if fullmatch(r"[a-f0-9]{64}", expected_sha256) is None:
         raise HTTPException(status_code=403, detail={"code": "PERMISSION_DENIED"})
-    payload = await file.read(MAX_SCAN_BYTES + 1)
-    if len(payload) > MAX_SCAN_BYTES:
+    if file.size is None or file.size < 1 or file.size > MAX_SCAN_BYTES:
         raise HTTPException(status_code=413, detail={"code": "VALIDATION_FAILED"})
-    verdict = ClamAvClient().scan(payload)
+    await file.seek(0)
+
+    def chunks():
+        while True:
+            chunk = file.file.read(SCAN_CHUNK_BYTES)
+            if not chunk:
+                return
+            yield chunk
+
+    verdict = await run_in_threadpool(
+        ClamAvClient(timeout_seconds=2 * 60 * 60, max_bytes=MAX_SCAN_BYTES).scan_chunks,
+        chunks(),
+    )
     return ScanResponse(
         outcome=verdict.outcome,
         engine_version=verdict.engine_version,

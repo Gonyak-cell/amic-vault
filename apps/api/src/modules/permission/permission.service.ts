@@ -361,7 +361,20 @@ export class PermissionService {
     matterId: string,
   ): Promise<PermissionDecision> {
     const edit = await this.evaluateCanEditMatter(ctx, matterId);
-    if (edit.effect !== 'ALLOW') return edit;
+    let uploadBase = edit;
+    if (edit.effect !== 'ALLOW') {
+      const actor = await this.findActor(ctx.tenantId as TenantId, ctx.userId);
+      if (actor?.role !== 'firm_admin') return edit;
+
+      const read = await this.evaluateCanReadMatter(ctx, matterId);
+      if (read.effect !== 'ALLOW') return read;
+      const member = await this.findMatterMember(ctx.tenantId as TenantId, matterId, ctx.userId);
+      if (!member || !canEditFromMember(member)) return edit;
+      uploadBase = allowPermission([
+        ...read.appliedRules,
+        'matter.upload:firm_admin_member_edit',
+      ]);
+    }
 
     const matter = await this.findMatter(ctx.tenantId as TenantId, matterId);
     if (!matter || !isMatterState(matter.status)) {
@@ -381,7 +394,7 @@ export class PermissionService {
     );
     if (explicit.effect === 'DENY') return explicit;
 
-    return allowPermission([...edit.appliedRules, 'matter.upload:status_open']);
+    return allowPermission([...uploadBase.appliedRules, 'matter.upload:status_open']);
   }
 
   protected async evaluateCanManageMatterMembers(

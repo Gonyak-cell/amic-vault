@@ -21,9 +21,20 @@ export interface StorageCreateReadUrlInput {
   expiresInSeconds?: number;
 }
 
+export interface StorageCreateWriteUrlInput {
+  key: string;
+  contentLength: number;
+  contentType: string;
+  expiresInSeconds?: number;
+}
+
 export interface StorageReadUrlResult {
   url: string;
   expiresAt: Date;
+}
+
+export interface StorageWriteUrlResult extends StorageReadUrlResult {
+  headers: Readonly<Record<string, string>>;
 }
 
 export interface StorageObjectMetadata {
@@ -102,6 +113,11 @@ export interface StorageAdapter {
    * for Records disposal because it cannot prove an exact object version.
    */
   delete(key: string): Promise<void>;
+}
+
+/** Optional capability used only for pre-authorized direct quarantine ingress. */
+export interface DirectWriteStorageAdapter {
+  createWriteUrl(input: StorageCreateWriteUrlInput): Promise<StorageWriteUrlResult>;
 }
 
 /**

@@ -79,6 +79,30 @@ export function privateGatewayUrl(
   return gatewayUrl;
 }
 
+export function sidecarLoopbackUrl(
+  env: WorkerIdentityEnvironment = process.env,
+): URL {
+  let workerUrl: URL;
+  try {
+    workerUrl = new URL(env.INGESTION_WORKER_URL ?? '');
+  } catch {
+    failConfiguration();
+  }
+  if (
+    workerUrl.protocol !== 'http:' ||
+    workerUrl.hostname !== '127.0.0.1' ||
+    workerUrl.port !== '8000' ||
+    workerUrl.username !== '' ||
+    workerUrl.password !== '' ||
+    workerUrl.pathname !== '/' ||
+    workerUrl.search !== '' ||
+    workerUrl.hash !== ''
+  ) {
+    failConfiguration();
+  }
+  return workerUrl;
+}
+
 abstract class BaseWorkerIdentityAdapter implements WorkerIdentityAdapter {
   abstract readonly profile: WorkerIdentityProfile;
 
@@ -102,6 +126,24 @@ export class DevelopmentLoopbackWorkerIdentityAdapter extends BaseWorkerIdentity
     if (
       env.NODE_ENV === 'production' ||
       (env.INGESTION_WORKER_IDENTITY_PROFILE ?? 'loopback-dev') !== 'loopback-dev'
+    ) {
+      failConfiguration();
+    }
+  }
+}
+
+export class ProductionLoopbackSidecarWorkerIdentityAdapter extends BaseWorkerIdentityAdapter {
+  readonly profile = 'loopback-sidecar' as const;
+
+  constructor(env: WorkerIdentityEnvironment = process.env) {
+    super();
+    sidecarLoopbackUrl(env);
+    if (
+      env.NODE_ENV !== 'production' ||
+      env.INGESTION_WORKER_IDENTITY_PROFILE !== 'loopback-sidecar' ||
+      env.INGESTION_GATEWAY_DIRECT_WORKER_ACCESS !== 'loopback-only' ||
+      env.INGESTION_GATEWAY_WORKLOAD_SUBJECT !== ingestionGatewayWorkloadSubject ||
+      env.INGESTION_GATEWAY_AUDIENCE !== ingestionWorkerAudience
     ) {
       failConfiguration();
     }
@@ -136,6 +178,9 @@ export function createWorkerIdentityAdapter(
   if (env.INGESTION_WORKER_IDENTITY_PROFILE === 'private-gateway-mtls') {
     return new PrivateGatewayMtlsWorkerIdentityAdapter(env);
   }
+  if (env.INGESTION_WORKER_IDENTITY_PROFILE === 'loopback-sidecar') {
+    return new ProductionLoopbackSidecarWorkerIdentityAdapter(env);
+  }
   return new DevelopmentLoopbackWorkerIdentityAdapter(env);
 }
 
@@ -152,6 +197,8 @@ export function createWorkerIdentityHeaders(
     'x-amic-ingestion-expires-at': identity.expiresAt,
     ...(adapter.profile === 'loopback-dev'
       ? { 'x-amic-dev-loopback-identity': 'true' }
+      : adapter.profile === 'loopback-sidecar'
+        ? { 'x-amic-sidecar-loopback-identity': 'true' }
       : {}),
   };
 }

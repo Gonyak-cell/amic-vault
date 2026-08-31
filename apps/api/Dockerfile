@@ -19,6 +19,17 @@ COPY packages/domain packages/domain
 COPY packages/shared packages/shared
 RUN pnpm --filter @amic-vault/domain build && pnpm --filter @amic-vault/shared build && pnpm --filter @amic-vault/ai build && pnpm --filter @amic-vault/api build
 
+FROM deps AS migrator
+COPY db db
+COPY tools/db tools/db
+ENTRYPOINT ["node", "tools/db/migrate.mjs"]
+CMD ["up"]
+
+FROM deps AS matter-reflection
+COPY tools/migration tools/migration
+COPY tools/db tools/db
+ENTRYPOINT ["node", "tools/migration/lawos-canonical-matter-reflection.mjs"]
+
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production

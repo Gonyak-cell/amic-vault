@@ -36,7 +36,13 @@ function row(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function createService(sourceRow = row()) {
+function createService(
+  sourceRow = row(),
+  intakeAudit: { correlation_id: string | null; metadata_json: Record<string, unknown> } = {
+    correlation_id: null,
+    metadata_json: { hash: expectedSha256 },
+  },
+) {
   const lookupQuery = vi.fn(async () => ({ rows: [sourceRow] }));
   const database = {
     tenantTransaction: vi.fn(async (_tenant: string, work: (client: { query: typeof lookupQuery }) => Promise<unknown>) => work({ query: lookupQuery })),
@@ -46,6 +52,12 @@ function createService(sourceRow = row()) {
       return { rows: [{ state: 'clean', result_code: 'clean', expected_sha256: expectedSha256, observed_sha256: expectedSha256, signature_at: new Date() }], rowCount: 1 };
     }
     if (sql.includes('SELECT storage_uri')) return { rows: [{ storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/matters/${matterId}/documents/a/files/b` }], rowCount: 1 };
+    if (sql.includes("action = 'FILE_QUARANTINED'")) {
+      return {
+        rows: [intakeAudit],
+        rowCount: 1,
+      };
+    }
     if (sql.includes('UPDATE file_security_scans')) return { rows: [], rowCount: 1 };
     return { rows: [], rowCount: 1 };
   });
@@ -100,6 +112,35 @@ describe('FilePromotionService', () => {
     await expect(service.promote({ tenantId, quarantineRef, expectedSha256 })).rejects.toThrow('FILE_SECURITY_PROMOTION_INPUT_MISSING');
     expect(storage.getByStorageUri).not.toHaveBeenCalled();
     expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('carries the AMIC OS operation binding into the promotion audit', async () => {
+    const correlationId = `vaultcorr_${'2'.repeat(32)}`;
+    const requestId = 'a'.repeat(64);
+    const idempotencyHash = 'b'.repeat(64);
+    const { audit, service } = createService(row(), {
+      correlation_id: correlationId,
+      metadata_json: {
+        hash: expectedSha256,
+        request_id: requestId,
+        idempotency_hash: idempotencyHash,
+      },
+    });
+
+    await service.promote({ tenantId, quarantineRef, expectedSha256 });
+
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'FILE_PROMOTED',
+        metadata: {
+          hash: expectedSha256,
+          correlation_id: correlationId,
+          request_id: requestId,
+          idempotency_hash: idempotencyHash,
+        },
+      }),
+      expect.anything(),
+    );
   });
 
   it('fails closed for an expired scanner signature before reading quarantine bytes', async () => {

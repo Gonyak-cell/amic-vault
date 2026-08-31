@@ -6,6 +6,15 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const quarantineRef = '22222222-2222-4222-8222-222222222222';
 const expectedSha256 = '8b3369944dd2a3fab39e32d1aeb1f763946a458ae3e6368a46432adc8f3a0860';
 
+function scanFetch(body: Record<string, unknown>, status = 200) {
+  return vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.body) {
+      for await (const _chunk of init.body as unknown as AsyncIterable<Uint8Array>) void _chunk;
+    }
+    return new Response(JSON.stringify(body), { status });
+  });
+}
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
@@ -25,8 +34,8 @@ describe('FileSecurityService', () => {
     });
     const tx = { query };
     const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
-    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ body: Readable.from([Buffer.from('safe')]) }) };
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ outcome: 'clean', engine_version: '1.4.3', signature_age_seconds: 1 }), { status: 200 })));
+    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ contentLength: 4, body: Readable.from([Buffer.from('safe')]) }) };
+    vi.stubGlobal('fetch', scanFetch({ outcome: 'clean', engine_version: '1.4.3', signature_age_seconds: 1 }));
 
     const promotion = { promote: vi.fn().mockResolvedValue({}) };
     await new FileSecurityService(audit as never, promotion as never, storage as never).handle({ tenantId, quarantineRef, expectedSha256 });
@@ -68,7 +77,7 @@ describe('FileSecurityService', () => {
     });
     const tx = { query };
     const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
-    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ body: Readable.from([Buffer.from('safe')]) }) };
+    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ contentLength: 4, body: Readable.from([Buffer.from('safe')]) }) };
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
@@ -85,7 +94,7 @@ describe('FileSecurityService', () => {
     );
   });
 
-  it('holds a hash mismatch without calling the worker', async () => {
+  it('holds a hash mismatch after the bounded scanner stream independently hashes the object', async () => {
     const query = vi.fn(async (sql: string) => {
       if (sql.includes('FROM file_security_scans')) return { rows: [{ scan_id: '33333333-3333-4333-8333-333333333333', matter_id: '44444444-4444-4444-8444-444444444444', quarantine_storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`, size_bytes: '5', state: 'quarantined' }] };
       if (sql.includes('COALESCE(MAX(attempt_no)')) return { rows: [{ attempt_no: 1 }] };
@@ -93,12 +102,12 @@ describe('FileSecurityService', () => {
     });
     const tx = { query };
     const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
-    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ body: Readable.from([Buffer.from('wrong')]) }) };
-    vi.stubGlobal('fetch', vi.fn());
+    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ contentLength: 5, body: Readable.from([Buffer.from('wrong')]) }) };
+    vi.stubGlobal('fetch', scanFetch({ outcome: 'clean', engine_version: '1.4.3', signature_age_seconds: 1 }));
 
     await new FileSecurityService(audit as never, { promote: vi.fn() } as never, storage as never).handle({ tenantId, quarantineRef, expectedSha256 });
 
-    expect(fetch).not.toHaveBeenCalled();
+    expect(fetch).toHaveBeenCalledOnce();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'FILE_SECURITY_HELD', metadata: expect.objectContaining({ reason_code: 'hash_mismatch' }) }), tx);
   });
 
@@ -124,8 +133,8 @@ describe('FileSecurityService', () => {
     });
     const tx = { query };
     const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
-    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ body: Readable.from([Buffer.from('safe')]) }) };
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ outcome: 'infected' }), { status: 200 })));
+    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ contentLength: 4, body: Readable.from([Buffer.from('safe')]) }) };
+    vi.stubGlobal('fetch', scanFetch({ outcome: 'infected' }));
     await new FileSecurityService(audit as never, { promote: vi.fn() } as never, storage as never).handle({ tenantId, quarantineRef, expectedSha256 });
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
       action: 'FILE_SCAN_COMPLETED',
@@ -135,7 +144,7 @@ describe('FileSecurityService', () => {
   });
 
   it.each([
-    ['malformed worker response', vi.fn().mockResolvedValue(new Response('{}', { status: 200 })), 'malformed_response'],
+    ['malformed worker response', scanFetch({}), 'malformed_response'],
     ['worker timeout', vi.fn().mockRejectedValue(new DOMException('aborted', 'AbortError')), 'scanner_timeout'],
   ])('fails closed on %s', async (_label, fetchMock, expectedCode) => {
     const query = vi.fn(async (sql: string) => {
@@ -145,7 +154,7 @@ describe('FileSecurityService', () => {
     });
     const tx = { query };
     const audit = { transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)), log: vi.fn().mockResolvedValue({}) };
-    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ body: Readable.from([Buffer.from('safe')]) }) };
+    const storage = { getByStorageUri: vi.fn().mockResolvedValue({ contentLength: 4, body: Readable.from([Buffer.from('safe')]) }) };
     vi.stubGlobal('fetch', fetchMock);
     await new FileSecurityService(audit as never, { promote: vi.fn() } as never, storage as never).handle({ tenantId, quarantineRef, expectedSha256 });
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: 'FILE_SCAN_COMPLETED', result: 'failure', metadata: expect.objectContaining({ reason_code: expectedCode }) }), tx);
