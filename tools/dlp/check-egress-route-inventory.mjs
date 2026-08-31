@@ -187,9 +187,23 @@ export const EGRESS_INVENTORY = Object.freeze({
     authorityControl: 'size cap, expected SHA-256 and private scanner call',
     auditControl: 'FILE_SCAN_COMPLETED or FILE_SECURITY_HELD',
     required: [
-      '25 * 1024 * 1024',
+      'target.sizeBytes > maxScanBytes',
       'observedSha256 !== payload.expectedSha256',
       "fetchIngestionWorker('/security/scan'",
+    ],
+  },
+  'AmicOsVaultProviderService.readExactBytes': {
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.service.ts',
+    category: 'internal_processing',
+    rationale: 'reads the exact version selected by the provider authorization flow and returns bytes only to its single-use download operation',
+    authorityControl: 'tenant-scoped storage URI plus exact size, configured size ceiling, and SHA-256 integrity checks',
+    auditControl: 'the calling download method records denials and consumes the authorized grant exactly once',
+    required: [
+      'this.config.maxExportBytes()',
+      'target.size_bytes > maxBytes',
+      'this.storageService.getByStorageUri(tenantId, target.storage_uri)',
+      'size !== target.size_bytes',
+      "digest.digest('hex') !== target.sha256",
     ],
   },
   'ClosingBinderService.downloadArchive': {
@@ -288,6 +302,17 @@ const ROUTE_CONTRACTS = Object.freeze([
     className: 'DdController',
     methodName: 'exportReport',
     required: ['this.dd.exportReport('],
+  },
+  {
+    id: 'amic_os_vault_provider_exact_download',
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.service.ts',
+    className: 'AmicOsVaultProviderService',
+    methodName: 'download',
+    required: ['inspectAuthorizedGrant', 'readExactBytes', 'consumeAuthorizedGrant', 'recordDenied'],
+    order: [
+      ['inspectAuthorizedGrant', 'readExactBytes'],
+      ['readExactBytes', 'consumeAuthorizedGrant'],
+    ],
   },
 ]);
 
