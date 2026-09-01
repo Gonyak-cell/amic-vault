@@ -32,6 +32,7 @@ import {
 
 const grantLifetimeSeconds = 45;
 const downloadReasonCode = 'amic_os_exact_copy';
+const replayDownloadReasonCode = 'amic_os_exact_copy_replay';
 
 type DenialReason =
   | 'permission_denied'
@@ -407,32 +408,59 @@ export class AmicOsVaultProviderService {
     };
 
     const first = await this.inspectAuthorizedGrant(principal, input, false);
+    let authorized: AllowedPolicy;
+    let replay = false;
     if (first.kind === 'denied') {
-      await this.recordDenied(principal, { ...auditContext, ...first });
-      throw denialException(first.reason);
+      if (first.reason !== 'consumed') {
+        await this.recordDenied(principal, { ...auditContext, ...first });
+        throw denialException(first.reason);
+      }
+      const inspectedReplay = await this.inspectConsumedReplay(principal, input, false);
+      if (inspectedReplay.kind === 'denied') {
+        await this.recordDenied(principal, { ...auditContext, ...inspectedReplay });
+        throw denialException(inspectedReplay.reason);
+      }
+      authorized = inspectedReplay;
+      replay = true;
+    } else {
+      authorized = first;
     }
 
     let bytes: Buffer;
     try {
-      bytes = await this.readExactBytes(principal.tenantId, first.target);
+      bytes = await this.readExactBytes(principal.tenantId, authorized.target);
     } catch (error) {
       const reason: DenialReason =
         error instanceof PayloadTooLargeException ? 'oversize' : 'integrity_failed';
       await this.recordDenied(principal, {
         ...auditContext,
         reason,
-        target: first.target,
+        target: authorized.target,
       });
       throw denialException(reason);
     }
 
-    const consumed = await this.consumeAuthorizedGrant(principal, input, first.target);
-    if (consumed.kind === 'denied') {
+    let completed = replay
+      ? await this.recordConsumedReplay(principal, input, authorized.target)
+      : await this.consumeAuthorizedGrant(principal, input, authorized.target);
+    if (!replay && completed.kind === 'denied' && completed.reason === 'consumed') {
+      completed = await this.recordConsumedReplay(principal, input, authorized.target);
+    }
+    if (completed.kind === 'denied') {
       bytes.fill(0);
-      await this.recordDenied(principal, { ...auditContext, ...consumed });
-      throw denialException(consumed.reason);
+      await this.recordDenied(principal, { ...auditContext, ...completed });
+      throw denialException(completed.reason);
     }
 
+    return this.downloadResult(input, completed.target, completed.audit, bytes);
+  }
+
+  private downloadResult(
+    input: AmicOsVaultExportDownloadInput,
+    target: ExactTarget,
+    audit: AmicOsVaultProviderAudit,
+    body: Buffer,
+  ): DownloadResult {
     return {
       metadata: {
         authority_kind: 'amic-vault-api',
@@ -440,14 +468,11 @@ export class AmicOsVaultProviderService {
         provider_revision: this.config.providerRevision(),
         state: 'downloaded',
         provider_export_ref: input.authorization.provider_export_ref,
-        exact_version: exactVersion(consumed.target),
-        attachment_name: consumed.target.normalized_filename,
-        audit: {
-          event_id: consumed.audit.event_id,
-          correlation_id: operation.correlation_id,
-        },
+        exact_version: exactVersion(target),
+        attachment_name: target.normalized_filename,
+        audit,
       },
-      body: bytes,
+      body,
     };
   }
 
@@ -857,59 +882,9 @@ export class AmicOsVaultProviderService {
     lock: boolean,
   ): Promise<AllowedPolicy | DeniedOutcome> {
     try {
-      return await this.auditService.transaction(principal.tenantId, async (tx) => {
-        const identity = this.validateProviderIdentity(
-          input.operation.operation_id,
-          input.operation.correlation_id,
-          input.authorization,
-        );
-        if (identity) return identity;
-        const fingerprint = this.grantFingerprint(principal, {
-          principalTenantId: input.principal.tenant_id,
-          lawosMatterId: input.lawos_matter_id,
-          installationRefSha256: input.installation_ref_sha256,
-          composeTargetSha256: input.compose_target_sha256,
-          operationId: input.operation.operation_id,
-          correlationId: input.operation.correlation_id,
-          operationKind: input.operation.operation_kind,
-          idempotencyKey: input.operation.idempotency_key,
-          exact: input.authorization.exact_version,
-        });
-        const grant = await this.readGrant(
-          tx,
-          principal,
-          input.operation.operation_id,
-          input.authorization.exact_version,
-          this.config.grantTokenHash(fingerprint),
-          false,
-          lock,
-        );
-        if (grant.kind === 'denied') return grant;
-        const policy = await this.evaluatePolicy(
-          tx,
-          principal,
-          input.lawos_matter_id,
-          input.authorization.exact_version,
-        );
-        if (policy.kind === 'denied') return policy;
-        return (
-          (await this.authorizationMismatch(
-            tx,
-            principal,
-            input.operation.operation_id,
-            input.operation.correlation_id,
-            input.authorization,
-            grant.row,
-            policy,
-            clientRequestHash({
-              principalTenantId: input.principal.tenant_id,
-              lawosMatterId: input.lawos_matter_id,
-              installationRefSha256: input.installation_ref_sha256,
-              composeTargetSha256: input.compose_target_sha256,
-            }),
-          )) ?? policy
-        );
-      });
+      return await this.auditService.transaction(principal.tenantId, (tx) =>
+        this.inspectAuthorizedGrantInTransaction(tx, principal, input, lock),
+      );
     } catch {
       return { kind: 'denied', reason: 'permission_denied' };
     }
@@ -925,10 +900,19 @@ export class AmicOsVaultProviderService {
   > {
     try {
       return await this.auditService.transaction(principal.tenantId, async (tx) => {
-        const inspected = await this.inspectAuthorizedGrantInTransaction(tx, principal, input, true);
+        const inspected = await this.inspectAuthorizedGrantInTransaction(
+          tx,
+          principal,
+          input,
+          true,
+        );
         if (inspected.kind === 'denied') return inspected;
         if (!sameExactVersion(exactVersion(inspected.target), exactVersion(firstTarget))) {
-          return { kind: 'denied' as const, reason: 'integrity_failed' as const, target: inspected.target };
+          return {
+            kind: 'denied' as const,
+            reason: 'integrity_failed' as const,
+            target: inspected.target,
+          };
         }
 
         const updated = await tx.query(
@@ -993,11 +977,102 @@ export class AmicOsVaultProviderService {
     }
   }
 
+  private async inspectConsumedReplay(
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultExportDownloadInput,
+    lock: boolean,
+  ): Promise<AllowedPolicy | DeniedOutcome> {
+    try {
+      return await this.auditService.transaction(principal.tenantId, async (tx) => {
+        const inspected = await this.inspectAuthorizedGrantInTransaction(
+          tx,
+          principal,
+          input,
+          lock,
+          true,
+        );
+        if (inspected.kind === 'denied') return inspected;
+        return (await this.hasInitialDownloadAudit(tx, principal, input, inspected.target))
+          ? inspected
+          : { kind: 'denied' as const, reason: 'consumed' as const, target: inspected.target };
+      });
+    } catch {
+      return { kind: 'denied', reason: 'permission_denied' };
+    }
+  }
+
+  private async recordConsumedReplay(
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultExportDownloadInput,
+    expectedTarget: ExactTarget,
+  ): Promise<
+    | { kind: 'allowed'; target: ExactTarget; audit: AmicOsVaultProviderAudit }
+    | DeniedOutcome
+  > {
+    try {
+      return await this.auditService.transaction(principal.tenantId, async (tx) => {
+        const inspected = await this.inspectAuthorizedGrantInTransaction(
+          tx,
+          principal,
+          input,
+          true,
+          true,
+        );
+        if (inspected.kind === 'denied') return inspected;
+        if (!sameExactVersion(exactVersion(inspected.target), exactVersion(expectedTarget))) {
+          return {
+            kind: 'denied' as const,
+            reason: 'integrity_failed' as const,
+            target: inspected.target,
+          };
+        }
+        if (!(await this.hasInitialDownloadAudit(tx, principal, input, inspected.target))) {
+          return { kind: 'denied' as const, reason: 'consumed' as const, target: inspected.target };
+        }
+        const audit = await this.auditService.log(
+          {
+            tenantId: principal.tenantId,
+            actorId: principal.actorUserId,
+            action: 'DOCUMENT_DOWNLOADED',
+            targetType: 'document',
+            targetId: inspected.target.document_id,
+            matterId: inspected.target.matter_id,
+            metadata: {
+              request_id: input.operation.operation_id,
+              correlation_id: input.operation.correlation_id,
+              matter_id: inspected.target.matter_id,
+              document_id: inspected.target.document_id,
+              version_id: inspected.target.version_id,
+              file_object_id: inspected.target.file_object_id,
+              hash: inspected.target.sha256,
+              download_byte_count: inspected.target.size_bytes,
+              reason_code: replayDownloadReasonCode,
+              policy_mode: input.operation.operation_kind,
+              idempotency_hash: sha256Hex(input.operation.idempotency_key),
+            },
+          },
+          tx,
+        );
+        return {
+          kind: 'allowed' as const,
+          target: inspected.target,
+          audit: {
+            event_id: audit.eventId,
+            correlation_id: input.operation.correlation_id,
+          },
+        };
+      });
+    } catch {
+      return { kind: 'denied', reason: 'permission_denied' };
+    }
+  }
+
   private async inspectAuthorizedGrantInTransaction(
     tx: QueryClient,
     principal: AmicOsVaultProviderPrincipal,
     input: AmicOsVaultExportDownloadInput,
     lock: boolean,
+    allowRevoked = false,
   ): Promise<AllowedPolicy | DeniedOutcome> {
     const identity = this.validateProviderIdentity(
       input.operation.operation_id,
@@ -1022,10 +1097,14 @@ export class AmicOsVaultProviderService {
       input.operation.operation_id,
       input.authorization.exact_version,
       this.config.grantTokenHash(fingerprint),
-      false,
+      allowRevoked,
       lock,
     );
     if (grant.kind === 'denied') return grant;
+    if (allowRevoked) {
+      if (!grant.row.revoked_at) return { kind: 'denied', reason: 'consumed' };
+      if (grant.row.active !== true) return { kind: 'denied', reason: 'expired' };
+    }
     const policy = await this.evaluatePolicy(
       tx,
       principal,
@@ -1033,23 +1112,68 @@ export class AmicOsVaultProviderService {
       input.authorization.exact_version,
     );
     if (policy.kind === 'denied') return policy;
-    return (
-      (await this.authorizationMismatch(
-        tx,
-        principal,
-        input.operation.operation_id,
-        input.operation.correlation_id,
-        input.authorization,
-        grant.row,
-        policy,
-        clientRequestHash({
-          principalTenantId: input.principal.tenant_id,
-          lawosMatterId: input.lawos_matter_id,
-          installationRefSha256: input.installation_ref_sha256,
-          composeTargetSha256: input.compose_target_sha256,
-        }),
-      )) ?? policy
+    const mismatch = await this.authorizationMismatch(
+      tx,
+      principal,
+      input.operation.operation_id,
+      input.operation.correlation_id,
+      input.authorization,
+      grant.row,
+      policy,
+      clientRequestHash({
+        principalTenantId: input.principal.tenant_id,
+        lawosMatterId: input.lawos_matter_id,
+        installationRefSha256: input.installation_ref_sha256,
+        composeTargetSha256: input.compose_target_sha256,
+      }),
     );
+    return mismatch ?? policy;
+  }
+
+  private async hasInitialDownloadAudit(
+    tx: QueryClient,
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultExportDownloadInput,
+    target: ExactTarget,
+  ): Promise<boolean> {
+    const result = await tx.query(
+      `
+        SELECT event_id
+        FROM audit_events
+        WHERE tenant_id = $1::uuid
+          AND actor_id = $2::uuid
+          AND action = 'DOCUMENT_DOWNLOADED'
+          AND target_type = 'document'
+          AND target_id = $3::uuid
+          AND matter_id = $4::uuid
+          AND correlation_id = $5
+          AND metadata_json ->> 'version_id' = $6
+          AND metadata_json ->> 'file_object_id' = $7
+          AND metadata_json ->> 'hash' = $8
+          AND metadata_json ->> 'request_id' = $9
+          AND metadata_json ->> 'idempotency_hash' = $10
+          AND metadata_json ->> 'reason_code' = $11
+          AND metadata_json ->> 'download_byte_count' = $12
+          AND metadata_json ->> 'policy_mode' = $13
+        LIMIT 1
+      `,
+      [
+        principal.tenantId,
+        principal.actorUserId,
+        target.document_id,
+        target.matter_id,
+        input.operation.correlation_id,
+        target.version_id,
+        target.file_object_id,
+        target.sha256,
+        input.operation.operation_id,
+        sha256Hex(input.operation.idempotency_key),
+        downloadReasonCode,
+        String(target.size_bytes),
+        input.operation.operation_kind,
+      ],
+    );
+    return result.rowCount === 1;
   }
 
   private validateProviderIdentity(

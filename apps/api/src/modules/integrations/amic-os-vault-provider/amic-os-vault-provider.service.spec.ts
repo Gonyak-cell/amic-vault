@@ -183,6 +183,26 @@ function createHarness() {
         state.grant.revoked_at = new Date();
         return { rows: [{ revoked_at: state.grant.revoked_at }], rowCount: 1 };
       }
+      if (sql.includes("metadata_json ->> 'reason_code' = $11")) {
+        const found = [...state.events.entries()].find(([, event]) =>
+          event.action === 'DOCUMENT_DOWNLOADED' &&
+          event.actorId === params[1] &&
+          event.targetId === params[2] &&
+          event.matterId === params[3] &&
+          event.metadata?.correlation_id === params[4] &&
+          event.metadata?.version_id === params[5] &&
+          event.metadata?.file_object_id === params[6] &&
+          event.metadata?.hash === params[7] &&
+          event.metadata?.request_id === params[8] &&
+          event.metadata?.idempotency_hash === params[9] &&
+          event.metadata?.reason_code === params[10] &&
+          String(event.metadata?.download_byte_count) === params[11] &&
+          event.metadata?.policy_mode === params[12],
+        );
+        return found
+          ? { rows: [{ event_id: found[0] }], rowCount: 1 }
+          : { rows: [], rowCount: 0 };
+      }
       if (sql.includes('FROM audit_events')) {
         const event = state.events.get(String(params[1]));
         const actionMatches = event ? sql.includes(`action = '${event.action}'`) : false;
@@ -391,7 +411,7 @@ describe('AmicOsVaultProviderService', () => {
     ).rejects.toMatchObject({ response: { code: 'VALIDATION_FAILED' } });
   });
 
-  it('allows only one concurrent consumer and blocks replay before another storage read', async () => {
+  it('replays exact bytes within the consumed grant lifetime and audits every transport read', async () => {
     const harness = createHarness();
     const authorization = await harness.run(() =>
       harness.service.authorize(principal, authorizeInput()),
@@ -402,13 +422,70 @@ describe('AmicOsVaultProviderService', () => {
         harness.service.download(principal, downloadInput(authorization)),
       ]),
     );
-    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
-    const readsAfterRace = harness.state.storageReads;
+    expect(results.every(({ status }) => status === 'fulfilled')).toBe(true);
+    const downloads = results.map((result) => {
+      if (result.status === 'rejected') throw result.reason;
+      return result.value;
+    });
+    expect(downloads.map(({ body }) => body)).toEqual([bytes, bytes]);
+    expect(new Set(downloads.map(({ metadata }) => metadata.audit.event_id)).size).toBe(2);
+    expect(harness.state.storageReads).toBe(2);
+
+    const replay = await harness.run(() =>
+      harness.service.download(principal, downloadInput(authorization)),
+    );
+    expect(replay.body).toEqual(bytes);
+    expect(harness.state.storageReads).toBe(3);
+    expect(
+      [...harness.state.events.values()]
+        .filter(({ action }) => action === 'DOCUMENT_DOWNLOADED')
+        .map(({ metadata }) => metadata?.reason_code),
+    ).toEqual(['amic_os_exact_copy', 'amic_os_exact_copy_replay', 'amic_os_exact_copy_replay']);
+  });
+
+  it('fails a consumed replay before storage when the grant expires or policy changes', async () => {
+    for (const configure of [
+      (state: TestState) => {
+        if (!state.grant) throw new Error('grant missing');
+        state.grant.expires_at = new Date(Date.now() - 1);
+      },
+      (state: TestState) => {
+        state.permission = {
+          effect: 'DENY',
+          reasonCode: 'ETHICAL_WALL_BLOCKED',
+          appliedRules: ['ethical_wall:excluded'],
+        };
+      },
+    ]) {
+      const harness = createHarness();
+      const authorization = await harness.run(() =>
+        harness.service.authorize(principal, authorizeInput()),
+      );
+      await harness.run(() => harness.service.download(principal, downloadInput(authorization)));
+      configure(harness.state);
+      const readsBeforeReplay = harness.state.storageReads;
+
+      await expect(
+        harness.run(() => harness.service.download(principal, downloadInput(authorization))),
+      ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+      expect(harness.state.storageReads).toBe(readsBeforeReplay);
+    }
+  });
+
+  it('does not replay a revoked grant without its immutable initial download audit', async () => {
+    const harness = createHarness();
+    const authorization = await harness.run(() =>
+      harness.service.authorize(principal, authorizeInput()),
+    );
+    await harness.run(() => harness.service.download(principal, downloadInput(authorization)));
+    for (const [eventId, event] of harness.state.events) {
+      if (event.action === 'DOCUMENT_DOWNLOADED') harness.state.events.delete(eventId);
+    }
+    const readsBeforeReplay = harness.state.storageReads;
 
     await expect(
       harness.run(() => harness.service.download(principal, downloadInput(authorization))),
     ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
-    expect(harness.state.storageReads).toBe(readsAfterRace);
+    expect(harness.state.storageReads).toBe(readsBeforeReplay);
   });
 });

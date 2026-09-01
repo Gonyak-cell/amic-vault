@@ -407,9 +407,47 @@ describe('AMIC OS exact-copy provider integration', () => {
       headers: { 'content-type': 'application/json', [providerHeader]: providerToken },
       body: JSON.stringify(downloadBody),
     });
-    const replayText = await replay.text();
-    expect(replay.status, replayText).toBe(409);
-    expect(replayText).not.toContain('%PDF');
+    const replayBytes = Buffer.from(await replay.arrayBuffer());
+    expect(replay.status).toBe(201);
+    expect(createHash('sha256').update(replayBytes).digest('hex')).toBe(exact.sha256);
+    expect(replayBytes).toEqual(downloadedBytes);
+    const replayAuditEventId = replay.headers.get('x-amic-vault-audit-event-id');
+    expect(replayAuditEventId).toMatch(/^[0-9a-f-]{36}$/u);
+    expect(replayAuditEventId).not.toBe(downloadMetadata.audit.event_id);
+
+    const replayReadback = await fetch(
+      `${baseUrl}/v1/integrations/amic-os/vault/exports/readback`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [providerHeader]: providerToken },
+        body: JSON.stringify({
+          principal: authorize.principal,
+          lawos_matter_id: lawosMatterId,
+          installation_ref_sha256: installationRef,
+          compose_target_sha256: composeTarget,
+          operation: {
+            operation_id: operationId,
+            correlation_id: correlationId,
+            operation_kind: 'attach_outlook',
+          },
+          authorization,
+          download: {
+            ...downloadMetadata,
+            audit: {
+              event_id: replayAuditEventId,
+              correlation_id: replay.headers.get('x-amic-vault-correlation-id'),
+            },
+          },
+        }),
+      },
+    );
+    const replayReadbackText = await replayReadback.text();
+    expect(replayReadback.status, replayReadbackText).toBe(201);
+    expect(JSON.parse(replayReadbackText)).toMatchObject({
+      state: 'consumed',
+      exact_version: exact,
+      audit: { event_id: replayAuditEventId, correlation_id: correlationId },
+    });
 
     const ledger = await withClient(createOwnerClient(), async (client) => {
       const grant = await client.query<{ token_hash: string; revoked_at: Date | null }>(
@@ -435,6 +473,11 @@ describe('AMIC OS exact-copy provider integration', () => {
       'OUTLOOK_DOCUMENT_INSERT_DENIED',
       'DOCUMENT_DOWNLOADED',
     ]));
+    expect(
+      ledger.audit
+        .filter(({ action }) => action === 'DOCUMENT_DOWNLOADED')
+        .map(({ metadata_json }) => metadata_json.reason_code),
+    ).toEqual(['amic_os_exact_copy', 'amic_os_exact_copy_replay']);
     const serializedAudit = JSON.stringify(ledger.audit);
     expect(serializedAudit).not.toContain(providerToken);
     expect(serializedAudit).not.toMatch(/storage_uri|presigned|raw_token/iu);
