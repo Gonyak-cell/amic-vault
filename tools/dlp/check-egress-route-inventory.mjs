@@ -250,6 +250,14 @@ export const EGRESS_INVENTORY = Object.freeze({
     auditControl: 'audited preview access session',
     required: ['previewSessionService.authorizeStream', 'parseRange', 'getRangeByStorageUri'],
   },
+  'PreviewService.readPreparedChunk': {
+    path: 'apps/api/src/modules/preview/preview.service.ts',
+    category: 'reviewed_exclusion',
+    rationale: 'bounded in-app preview using the same audited preview-session policy as openPreview',
+    permissionControl: 'AmicOsVaultReadService.previewTarget authorizes the exact session before and after storage',
+    auditControl: 'PreviewSessionService.issue records DOCUMENT_VIEWED before any chunk is requested',
+    required: ['PREVIEW_CHUNK_BYTES', 'getRangeByStorageUri', 'readPreviewBytes'],
+  },
   'StorageService.sha256ByStorageUri': {
     path: 'apps/api/src/modules/storage/storage.service.ts',
     category: 'internal_processing',
@@ -313,6 +321,32 @@ const ROUTE_CONTRACTS = Object.freeze([
       ['inspectAuthorizedGrant', 'readExactBytes'],
       ['readExactBytes', 'consumeAuthorizedGrant'],
     ],
+  },
+  {
+    id: 'amic_os_preview_authority',
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.ts',
+    className: 'AmicOsVaultReadService',
+    methodName: 'previewTarget',
+    required: ['assertPrincipal', 'resolveLawosMatter', 'previewSessions.authorizeStream', 'input.exact', 'original.matter_id !== vaultMatterId'],
+  },
+  {
+    id: 'amic_os_preview_chunk',
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.ts',
+    className: 'AmicOsVaultReadService',
+    methodName: 'previewChunk',
+    required: ['getPreparedPreview', 'file.sha256 !== input.preview.sha256', 'readPreparedChunk', 'await this.previewTarget(principal, input);'],
+    order: [
+      ['const original = await this.previewTarget', 'readPreparedChunk'],
+      ['readPreparedChunk', 'await this.previewTarget(principal, input);\n    return'],
+    ],
+  },
+  {
+    id: 'amic_os_preview_session',
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.ts',
+    className: 'AmicOsVaultReadService',
+    methodName: 'issuePreviewSession',
+    required: ['previewTarget', 'getPreparedPreview', 'previewSessions.issue', 'input.exact'],
+    order: [['previewTarget', 'previewSessions.issue']],
   },
 ]);
 

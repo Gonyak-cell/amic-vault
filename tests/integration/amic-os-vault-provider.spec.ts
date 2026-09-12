@@ -321,7 +321,7 @@ describe('AMIC OS exact-copy provider integration', () => {
       expect(result.text).not.toContain(session.token);
       downloaded.push(bytes);
     }
-    expect(Buffer.concat(downloaded)).toEqual(pdf);
+    expect(Buffer.concat(downloaded).equals(pdf)).toBe(true);
     expect(storedObjects.get(sourceUri)?.bytes).toEqual(sourceBytes);
     expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(1);
     const finalState = await withClient(createOwnerClient(), async client => {
