@@ -40,7 +40,7 @@ const previewInput: AmicOsVaultPreviewInput = {
 };
 const preview = { file_object_id: pdfFile.file_object_id, sha256: pdfFile.sha256,
   byte_size: pdfBytes.byteLength, mime_type: 'application/pdf' as const };
-const session = { previewSessionId: '99999999-9999-4999-8999-999999999999', token: 'a'.repeat(43), expiresAt: '2030-01-01T00:00:00.000Z' };
+const session = { previewSessionId: '99999999-9999-4999-8999-999999999999', token: 'Z'.repeat(43), expiresAt: '2030-01-01T00:00:00.000Z' };
 const chunkInput = { ...previewInput, preview, previewSessionId: session.previewSessionId, token: session.token, offset: 0 };
 const principal: AmicOsVaultProviderPrincipal = {
   accountLedgerId: 'user_amic_jwsuh',
