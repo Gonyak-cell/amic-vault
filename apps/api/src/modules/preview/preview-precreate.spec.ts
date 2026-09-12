@@ -105,6 +105,7 @@ describe('PreviewPrecreateQueueService', () => {
     };
     const boss = {
       send: vi.fn(async () => 'preview-job-id'),
+      findJobs: vi.fn(async () => []),
       stop: vi.fn(async () => undefined),
     };
     const queueRegistry = {
@@ -137,6 +138,35 @@ describe('PreviewPrecreateQueueService', () => {
     expect(boss.send).toHaveBeenCalledTimes(1);
     expect(queueRegistry.register).toHaveBeenCalledTimes(2);
     expect(queueRegistry.producer).toHaveBeenCalledWith(previewConvertQueueName);
+  });
+
+  it.each(['created', 'retry', 'active'])('reuses an existing %s job for an explicit preview request', async state => {
+    const client = { query: vi.fn(async () => ({ rows: [{ mime_type: 'application/msword' }] })) };
+    const boss = {
+      send: vi.fn(),
+      findJobs: vi.fn(async () => [{ id: 'existing-preview', state, data: payload }]),
+    };
+    const service = new PreviewPrecreateQueueService({} as never,
+      { register: vi.fn(), producer: vi.fn(async () => boss) } as never);
+    await expect(service.enqueueVersionCreated(payload, client as never, true)).resolves.toBe('existing-preview');
+    expect(boss.send).not.toHaveBeenCalled();
+    expect(client.query).toHaveBeenNthCalledWith(2, expect.stringContaining('pg_advisory_xact_lock'),
+      [`${previewConvertQueueName}:${tenantId}:${versionId}`]);
+    expect(boss.findJobs).toHaveBeenCalledWith(previewConvertQueueName, expect.objectContaining({ key: versionId }));
+    await expect(service.enqueueVersionCreated({ ...payload, documentId: 'changed-document' }, client as never, true))
+      .rejects.toThrow('preview convert job binding conflict');
+  });
+
+  it('allows a new retry after a terminal job without deleting retained job history', async () => {
+    const client = { query: vi.fn(async () => ({ rows: [{ mime_type: 'application/msword' }] })) };
+    const boss = {
+      send: vi.fn(async () => 'new-preview'),
+      findJobs: vi.fn(async () => [{ id: 'failed-preview', state: 'failed', data: payload }]),
+    };
+    const service = new PreviewPrecreateQueueService({} as never,
+      { register: vi.fn(), producer: vi.fn(async () => boss) } as never);
+    await expect(service.enqueueVersionCreated(payload, client as never, true)).resolves.toBe('new-preview');
+    expect(boss.send).toHaveBeenCalledTimes(1);
   });
 
   it('routes worker jobs to precreate and dead letters to failed status marking', async () => {

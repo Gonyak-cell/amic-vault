@@ -10,6 +10,7 @@
     "REJECTED": "cannot be used by a downstream implementation"
   },
   "l0IneligiblePaths": [
+    "db/migrations/0213_allow_pending_document_previews.sql",
     "apps/api/src/common/db/runtime-role.assertion.ts",
     "apps/api/src/common/db/runtime-role.assertion.spec.ts",
     "apps/api/src/common/db/database.module.ts",

@@ -267,8 +267,9 @@ describe('AMIC OS exact-copy provider integration', () => {
     expect((await request('preview-prepare', { enqueue: false })).body).toMatchObject({ status: 'pending', preview: null });
     expect((await request('preview-sessions')).response.status).toBe(400);
     expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(0);
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const prepared = await request('preview-prepare', { enqueue: true });
+    for (const prepared of await Promise.all([
+      request('preview-prepare', { enqueue: true }), request('preview-prepare', { enqueue: true }),
+    ])) {
       expect(prepared.response.status, prepared.text).toBe(200);
       expect(prepared.body).toMatchObject({ status: 'pending', exact_version: exact });
     }

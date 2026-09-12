@@ -90,7 +90,7 @@ describe('PreviewSessionService', () => {
       () => service.inspect(actorUserId, documentId, changed),
       () => service.issue(actorUserId, documentId, changed),
       () => service.authorizeStream(actorUserId, documentId, '11111111-1111-4111-8111-111111111177', 'a'.repeat(43), changed),
-    ]) await expect(inTenantContext(tenantContext, action)).rejects.toMatchObject({ status: 404 });
+    ]) await expect(inTenantContext<unknown>(tenantContext, action)).rejects.toMatchObject({ status: 404 });
     expect(auditService.log).not.toHaveBeenCalled();
     expect(query.mock.calls.every(([sql]) => sql.includes('FROM documents d'))).toBe(true);
   });
