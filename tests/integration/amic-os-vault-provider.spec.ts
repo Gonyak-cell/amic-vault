@@ -300,7 +300,10 @@ describe('AMIC OS exact-copy provider integration', () => {
     expect(stale.response.status).toBe(404);
     const issued = await request('preview-sessions');
     expect(issued.response.status, issued.text).toBe(200);
-    expect(issued.response.headers.get('cache-control')).toBe('private, no-store');
+    expect(issued.response.headers.get('cache-control')?.split(',').map(value => value.trim()).sort())
+      .toEqual(['private', 'no-store', 'no-cache', 'max-age=0', 'must-revalidate'].sort());
+    expect(issued.response.headers.get('pragma')).toBe('no-cache');
+    expect(issued.response.headers.get('expires')).toBe('0');
     const session = issued.body.session as { previewSessionId: string; token: string };
     expect(session.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(1);
