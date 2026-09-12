@@ -4,6 +4,7 @@ import { DlpModule } from '../../dlp/dlp.module';
 import { FileSecurityModule } from '../../file-security/file-security.module';
 import { MatterAppModule } from '../matter-app/matter-app.module';
 import { PermissionModule } from '../../permission/permission.module';
+import { PreviewModule } from '../../preview/preview.module';
 import { SearchModule } from '../../search/search.module';
 import { StorageModule } from '../../storage/storage.module';
 import { TenantModule } from '../../tenant/tenant.module';
@@ -29,6 +30,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     FileSecurityModule,
     MatterAppModule,
     PermissionModule,
+    PreviewModule,
     SearchModule,
     StorageModule,
     TenantModule,

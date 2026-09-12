@@ -3,7 +3,7 @@ import type { TenantId } from '@amic-vault/shared';
 import type { AuditService, QueryClient } from '../audit/audit.service';
 import type { PermissionService } from '../permission/permission.service';
 import { TenantContextService } from '../tenant/tenant-context';
-import { PreviewSessionService, type PreviewSessionTarget } from './preview-session.service';
+import { PreviewSessionService, type PreviewExactVersion, type PreviewSessionTarget } from './preview-session.service';
 
 const tenantId = '11111111-1111-4111-8111-111111111111' as TenantId;
 const actorUserId = '11111111-1111-4111-8111-111111111101';
@@ -57,6 +57,44 @@ function inTenantContext<T>(tenantContext: TenantContextService, callback: () =>
 }
 
 describe('PreviewSessionService', () => {
+  const exact: PreviewExactVersion = {
+    document_id: target.document_id,
+    version_id: target.version_id,
+    file_object_id: target.file_object_id,
+    sha256: target.sha256,
+    byte_size: Number(target.size_bytes),
+    mime_type: target.mime_type,
+  };
+
+  it('inspects a permitted exact version without issuing a session or recording a view', async () => {
+    const query = vi.fn<QueryClient['query']>().mockResolvedValue({ rowCount: 1, rows: [target] });
+    const { auditService, service, tenantContext, canReadDocument } = createService(query);
+    await expect(inTenantContext(tenantContext, () => service.inspect(actorUserId, documentId, exact))).resolves.toEqual(target);
+    expect(canReadDocument).toHaveBeenCalledWith({ tenantId, userId: actorUserId }, documentId);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(auditService.log).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { document_id: '11111111-1111-4111-8111-111111111134' },
+    { version_id: '11111111-1111-4111-8111-111111111156' },
+    { file_object_id: '11111111-1111-4111-8111-111111111145' },
+    { sha256: 'b'.repeat(64) },
+    { byte_size: 8 },
+    { mime_type: 'application/msword' },
+  ])('rejects changed source bindings before sessions, bytes or audit: %#', async mismatch => {
+    const query = vi.fn<QueryClient['query']>().mockResolvedValue({ rowCount: 1, rows: [target] });
+    const { auditService, service, tenantContext } = createService(query);
+    const changed = { ...exact, ...mismatch };
+    for (const action of [
+      () => service.inspect(actorUserId, documentId, changed),
+      () => service.issue(actorUserId, documentId, changed),
+      () => service.authorizeStream(actorUserId, documentId, '11111111-1111-4111-8111-111111111177', 'a'.repeat(43), changed),
+    ]) await expect(inTenantContext(tenantContext, action)).rejects.toMatchObject({ status: 404 });
+    expect(auditService.log).not.toHaveBeenCalled();
+    expect(query.mock.calls.every(([sql]) => sql.includes('FROM documents d'))).toBe(true);
+  });
+
   it('issues one bounded opaque session and records exactly one document view audit', async () => {
     const expiresAt = new Date('2026-07-22T00:05:00.000Z');
     const query = vi

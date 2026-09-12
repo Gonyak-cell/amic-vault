@@ -7,13 +7,18 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
 import { StorageService } from '../../apps/api/src/modules/storage/storage.service';
+import { PreviewConvertJob, previewConvertQueueName } from '../../apps/api/src/modules/preview/preview-convert.job';
+import { PreviewPrecreateQueueService, type PreviewPrecreateJobPayload } from '../../apps/api/src/modules/preview/preview-precreate-queue.service';
+import { PREVIEW_CHUNK_BYTES } from '../../apps/api/src/modules/preview/preview.service';
 import {
   betaOwnerUserId,
+  auditCount,
   createClient,
   createMatter,
   loginBetaOwner,
   markCanonicalReadyFixture,
   uploadPdf,
+  uploadDocx,
 } from './document-access/document-api-helpers';
 import { createOwnerClient, tenantBetaId, withClient } from './helpers/db';
 
@@ -162,6 +167,15 @@ describe('AMIC OS exact-copy provider integration', () => {
         body: Readable.from([Buffer.from(stored.bytes)]),
       };
     });
+    vi.spyOn(storage, 'getRangeByStorageUri').mockImplementation(async (tenantId, storageUri, start, end) => {
+      const stored = storedObjects.get(storageUri);
+      if (!stored || !stored.key.startsWith(`tenants/${tenantId.toLowerCase()}/`)) {
+        throw new Error('in-memory integration storage range object missing');
+      }
+      const bytes = Buffer.from(stored.bytes.subarray(start, end + 1));
+      return { key: stored.key, contentLength: bytes.byteLength, contentType: stored.contentType,
+        etag: null, body: Readable.from([bytes]) };
+    });
     vi.spyOn(storage, 'deleteByStorageUri').mockImplementation(async (tenantId, storageUri) => {
       const stored = storedObjects.get(storageUri);
       if (stored && !stored.key.startsWith(`tenants/${tenantId.toLowerCase()}/`)) {
@@ -211,6 +225,113 @@ describe('AMIC OS exact-copy provider integration', () => {
     else process.env.AMIC_OS_VAULT_PROVIDER_TOKEN = previousEnv.token;
     if (previousEnv.revision === undefined) delete process.env.AMIC_OS_VAULT_PROVIDER_REVISION;
     else process.env.AMIC_OS_VAULT_PROVIDER_REVISION = previousEnv.revision;
+  });
+
+  it('queues exact Office preview, preserves its source, streams bounded PDF chunks and denies revoked sessions', async () => {
+    const marker = `WEB-PREVIEW-${randomUUID()}`;
+    const clientId = await createClient(baseUrl, betaOwnerCookie, marker);
+    const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, marker);
+    const lawosMatterId = `matter-lawos-${randomUUID()}`;
+    await withClient(createOwnerClient(), client => client.query(
+      `UPDATE matters SET metadata_json = COALESCE(metadata_json, '{}'::jsonb) || jsonb_build_object('lawosMatterId', $2::text)
+       WHERE tenant_id = $1 AND matter_id = $3`,
+      [tenantBetaId, lawosMatterId, matterId],
+    ));
+    const uploaded = await uploadDocx(baseUrl, betaOwnerCookie, matterId, marker);
+    const row = await withClient(createOwnerClient(), async client => {
+      const result = await client.query<ExactVersion & { storage_uri: string }>(
+        `SELECT dv.document_id, dv.version_id, f.file_object_id, f.sha256,
+                f.size_bytes::integer AS byte_size, f.mime_type, f.storage_uri
+         FROM document_versions dv JOIN file_objects f
+           ON f.tenant_id = dv.tenant_id AND f.file_object_id = dv.file_object_id
+         WHERE dv.tenant_id = $1 AND dv.document_id = $2 AND dv.version_status = 'current'`,
+        [tenantBetaId, uploaded.documentId],
+      );
+      if (!result.rows[0]) throw new Error('Preview source fixture missing');
+      return result.rows[0];
+    });
+    const { storage_uri: sourceUri, ...exact } = row;
+    const sourceBytes = Buffer.from(storedObjects.get(sourceUri)?.bytes ?? []);
+    expect(sourceBytes.byteLength).toBe(exact.byte_size);
+    const base = { principal: { tenant_id: 'lawos-correlation', user_id: accountLedgerId },
+      lawos_matter_id: lawosMatterId, requested_exact_version: exact };
+    const request = async (action: string, extra: Record<string, unknown> = {}, token = providerToken) => {
+      const response = await fetch(`${baseUrl}/v1/integrations/amic-os/vault/read/${action}`, {
+        method: 'POST', headers: { 'content-type': 'application/json', [providerHeader]: token },
+        body: JSON.stringify({ ...base, ...extra }),
+      });
+      const text = await response.text();
+      return { response, text, body: JSON.parse(text) as Record<string, unknown> };
+    };
+    expect((await request('preview-prepare', { enqueue: true }, 'invalid-token')).response.status).toBe(401);
+    expect((await request('preview-prepare', { enqueue: false })).body).toMatchObject({ status: 'pending', preview: null });
+    expect((await request('preview-sessions')).response.status).toBe(400);
+    expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(0);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const prepared = await request('preview-prepare', { enqueue: true });
+      expect(prepared.response.status, prepared.text).toBe(200);
+      expect(prepared.body).toMatchObject({ status: 'pending', exact_version: exact });
+    }
+    const jobs = await withClient(createOwnerClient(), async client => (await client.query<{
+      id: string; data: PreviewPrecreateJobPayload;
+    }>(`SELECT id, data FROM pgboss.job WHERE name = $1 AND singleton_key = $2`, [previewConvertQueueName, exact.version_id])).rows);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.data).toMatchObject({ tenantId: tenantBetaId, actorUserId: betaOwnerUserId,
+      documentId: exact.document_id, versionId: exact.version_id, fileObjectId: exact.file_object_id });
+    if (!jobs[0]) throw new Error('Queued preview fixture missing');
+    const pdf = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(PREVIEW_CHUNK_BYTES, 32), Buffer.from('\n%%EOF')]);
+    const converter = vi.spyOn(app.get(PreviewConvertJob), 'convertOfficeToPdf').mockResolvedValueOnce(pdf);
+    try {
+      await app.get(PreviewPrecreateQueueService).handle(jobs[0].data);
+      expect(converter).toHaveBeenCalledWith(expect.objectContaining({ body: sourceBytes }));
+    } finally {
+      converter.mockRestore();
+      await withClient(createOwnerClient(), client => client.query(
+        `DELETE FROM pgboss.job WHERE name = $1 AND id = $2`, [previewConvertQueueName, jobs[0]?.id],
+      ));
+    }
+    expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(0);
+    const ready = await request('preview-prepare', { enqueue: false });
+    expect(ready.body).toMatchObject({ status: 'ready', exact_version: exact,
+      preview: { byte_size: pdf.byteLength, mime_type: 'application/pdf', sha256: createHash('sha256').update(pdf).digest('hex') } });
+    expect(ready.text).not.toMatch(/storage_uri|s3:\/\//);
+    const stale = await request('preview-sessions', { requested_exact_version: { ...exact, sha256: 'f'.repeat(64) } });
+    expect(stale.response.status).toBe(404);
+    const issued = await request('preview-sessions');
+    expect(issued.response.status, issued.text).toBe(200);
+    expect(issued.response.headers.get('cache-control')).toBe('private, no-store');
+    const session = issued.body.session as { previewSessionId: string; token: string };
+    expect(session.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(1);
+    const chunkRequest = { preview_session_id: session.previewSessionId, token: session.token, preview: issued.body.preview };
+    const downloaded: Buffer[] = [];
+    for (let offset = 0; offset < pdf.byteLength; offset += PREVIEW_CHUNK_BYTES) {
+      const result = await request('preview-chunk', { ...chunkRequest, offset });
+      expect(result.response.status, result.text.slice(0, 300)).toBe(200);
+      const chunk = result.body.chunk as { byte_size: number; content_base64: string; sha256: string };
+      const bytes = Buffer.from(chunk.content_base64, 'base64');
+      expect(bytes.byteLength).toBe(Math.min(PREVIEW_CHUNK_BYTES, pdf.byteLength - offset));
+      expect(chunk.byte_size).toBe(bytes.byteLength);
+      expect(chunk.sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
+      expect(result.body.final_chunk).toBe(offset + bytes.byteLength === pdf.byteLength);
+      expect(result.text).not.toContain(session.token);
+      downloaded.push(bytes);
+    }
+    expect(Buffer.concat(downloaded)).toEqual(pdf);
+    expect(storedObjects.get(sourceUri)?.bytes).toEqual(sourceBytes);
+    expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(1);
+    const finalState = await withClient(createOwnerClient(), async client => {
+      const versions = await client.query(`SELECT file_object_id FROM document_versions WHERE tenant_id = $1 AND document_id = $2`, [tenantBetaId, exact.document_id]);
+      const artifact = await client.query(`SELECT status, file_object_id FROM document_preview_artifacts WHERE tenant_id = $1 AND version_id = $2`, [tenantBetaId, exact.version_id]);
+      await client.query(`UPDATE preview_access_sessions SET revoked_at = now() WHERE tenant_id = $1 AND preview_session_id = $2`, [tenantBetaId, session.previewSessionId]);
+      return { versions: versions.rows, artifact: artifact.rows };
+    });
+    expect(finalState.versions).toEqual([{ file_object_id: exact.file_object_id }]);
+    expect(finalState.artifact).toEqual([{ status: 'ready', file_object_id: (issued.body.preview as { file_object_id: string }).file_object_id }]);
+    expect(finalState.artifact[0]?.file_object_id).not.toBe(exact.file_object_id);
+    const denied = await request('preview-chunk', { ...chunkRequest, offset: 0 });
+    expect(denied.response.status).toBe(404);
+    expect(denied.text).not.toMatch(/content_base64|storage_uri/);
   });
 
   it('authorizes one exact promoted version, rejects binding drift before bytes, consumes once, and proves audit readback', async () => {

@@ -17,7 +17,7 @@ import { PreviewSessionService, type PreviewSessionTarget } from './preview-sess
 
 type PreviewFileRow = PreviewSessionTarget;
 
-interface PreviewArtifactRow {
+export interface PreviewArtifactRow {
   file_object_id: string;
   storage_uri: string;
   normalized_filename: string;
@@ -25,6 +25,12 @@ interface PreviewArtifactRow {
   size_bytes: string;
   sha256: string;
 }
+
+export const PREVIEW_CHUNK_BYTES = 3 * 1024 * 1024;
+
+export type PreparedPreview =
+  | { status: 'ready'; file: PreviewArtifactRow }
+  | { status: 'pending' | 'failed'; file: null };
 
 export interface PreviewPrecreateInput {
   tenantId: TenantId;
@@ -163,6 +169,39 @@ export class PreviewService {
     if (!isOfficePreviewMimeType(original.mime_type)) return 'skipped';
     await this.ensureDerivedPreview(input.tenantId, input.actorUserId, original);
     return 'ready';
+  }
+
+  async getPreparedPreview(tenantId: TenantId, original: PreviewSessionTarget): Promise<PreparedPreview> {
+    if (original.tenant_id !== tenantId) throw conversionUnavailable();
+    if (original.mime_type === 'application/pdf') return { status: 'ready', file: original };
+    if (!isOfficePreviewMimeType(original.mime_type)) throw conversionUnavailable();
+    return this.auditService.transaction<PreparedPreview>(tenantId, async (tx) => {
+      const file = await this.findReadyArtifact(tx, tenantId, original.version_id);
+      if (file) return { status: 'ready', file };
+      const state = await tx.query<{ status: string }>(
+        `SELECT status FROM document_preview_artifacts
+         WHERE tenant_id = $1 AND version_id = $2 LIMIT 1`,
+        [tenantId, original.version_id],
+      );
+      return { status: state.rows[0]?.status === 'failed' ? 'failed' : 'pending', file: null };
+    });
+  }
+
+  async readPreparedChunk(
+    tenantId: TenantId,
+    file: PreviewArtifactRow,
+    offset: number,
+  ): Promise<Buffer> {
+    const size = Number(file.size_bytes);
+    if (file.mime_type !== 'application/pdf' || !/^[a-f0-9]{64}$/u.test(file.sha256)
+        || !Number.isSafeInteger(size) || size < 1
+        || !Number.isSafeInteger(offset) || offset < 0 || offset >= size
+        || offset % PREVIEW_CHUNK_BYTES !== 0) throw conversionUnavailable();
+    const length = Math.min(PREVIEW_CHUNK_BYTES, size - offset);
+    const object = await this.storageService.getRangeByStorageUri(
+      tenantId, file.storage_uri, offset, offset + length - 1,
+    );
+    return readPreviewBytes(object.body, PREVIEW_CHUNK_BYTES, length);
   }
 
   async markPrecreateFailed(

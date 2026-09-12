@@ -1,8 +1,16 @@
-import { ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
 import type { SearchQueryDto, SearchResultDto } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { SearchService } from '../../search/search.service';
 import { TenantContextService } from '../../tenant/tenant-context';
+import { PreviewPrecreateQueueService } from '../../preview/preview-precreate-queue.service';
+import {
+  PreviewSessionService,
+  type PreviewExactVersion,
+  type PreviewSessionTarget,
+} from '../../preview/preview-session.service';
+import { PREVIEW_CHUNK_BYTES, PreviewService, type PreviewArtifactRow } from '../../preview/preview.service';
 import {
   AmicOsVaultProviderConfig,
   type AmicOsVaultProviderPrincipal,
@@ -16,6 +24,26 @@ export interface AmicOsVaultReadInput {
   query: string | null;
   dateFrom: string | null;
   dateTo: string | null;
+}
+
+export interface AmicOsVaultPreviewInput {
+  accountLedgerId: string;
+  lawosMatterId: string;
+  exact: PreviewExactVersion;
+}
+
+export interface AmicOsVaultPreviewFile {
+  file_object_id: string;
+  sha256: string;
+  byte_size: number;
+  mime_type: 'application/pdf';
+}
+
+export interface AmicOsVaultPreviewChunkInput extends AmicOsVaultPreviewInput {
+  previewSessionId: string;
+  token: string;
+  preview: AmicOsVaultPreviewFile;
+  offset: number;
 }
 
 interface ExactProjectionRow {
@@ -69,6 +97,17 @@ function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
 
+function previewUnavailable(): BadRequestException {
+  return new BadRequestException({ code: 'VALIDATION_FAILED', reason: 'PREVIEW_CONVERSION_UNAVAILABLE' });
+}
+
+function previewFile(file: PreviewArtifactRow): AmicOsVaultPreviewFile {
+  const size = Number(file.size_bytes);
+  if (file.mime_type !== 'application/pdf' || !Number.isSafeInteger(size) || size < 1
+      || !/^[a-f0-9]{64}$/u.test(file.sha256)) throw previewUnavailable();
+  return { file_object_id: file.file_object_id, sha256: file.sha256, byte_size: size, mime_type: 'application/pdf' };
+}
+
 function lawosMatterId(row: ExactProjectionRow): string | null {
   const value = row.lawos_matter_id?.trim();
   return value && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u.test(value) ? value : null;
@@ -82,6 +121,9 @@ export class AmicOsVaultReadService {
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(AmicOsVaultProviderConfig)
     private readonly config: AmicOsVaultProviderConfig,
+    @Inject(PreviewSessionService) private readonly previewSessions: PreviewSessionService,
+    @Inject(PreviewService) private readonly previews: PreviewService,
+    @Inject(PreviewPrecreateQueueService) private readonly previewQueue: PreviewPrecreateQueueService,
   ) {}
 
   async list(
@@ -96,6 +138,107 @@ export class AmicOsVaultReadService {
     input: AmicOsVaultReadInput,
   ): Promise<AmicOsVaultReadResponse> {
     return this.read(principal, input);
+  }
+
+  async preparePreview(
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultPreviewInput,
+    enqueue: boolean,
+  ) {
+    const original = await this.previewTarget(principal, input);
+    const { tenantId } = this.tenantContext.require();
+    const prepared = await this.previews.getPreparedPreview(tenantId, original);
+    if (prepared.status === 'ready') {
+      return { ...this.previewAuthority(input), status: 'ready' as const, preview: previewFile(prepared.file) };
+    }
+    if (enqueue) {
+      await this.auditService.transaction(principal.tenantId, async (tx) => {
+        await tx.query(
+          `INSERT INTO document_preview_artifacts (
+             tenant_id, document_id, version_id, file_object_id, status, failure_reason_code
+           ) VALUES ($1, $2, $3, $4, 'pending', NULL)
+           ON CONFLICT (tenant_id, version_id) DO UPDATE
+             SET status = 'pending', failure_reason_code = NULL, updated_at = now()
+           WHERE document_preview_artifacts.status = 'failed'`,
+          [principal.tenantId, original.document_id, original.version_id, original.file_object_id],
+        );
+        await this.previewQueue.enqueueVersionCreated({
+          tenantId,
+          actorUserId: principal.actorUserId,
+          documentId: original.document_id,
+          versionId: original.version_id,
+          fileObjectId: original.file_object_id,
+        }, tx, true);
+      });
+    }
+    return { ...this.previewAuthority(input), status: enqueue ? 'pending' as const : prepared.status, preview: null };
+  }
+
+  async issuePreviewSession(
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultPreviewInput,
+  ) {
+    const original = await this.previewTarget(principal, input);
+    const prepared = await this.previews.getPreparedPreview(this.tenantContext.require().tenantId, original);
+    if (prepared.status !== 'ready') throw previewUnavailable();
+    const file = previewFile(prepared.file);
+    const session = await this.previewSessions.issue(principal.actorUserId, original.document_id, input.exact);
+    return { ...this.previewAuthority(input), status: 'ready' as const, preview: file, session, chunk_bytes: PREVIEW_CHUNK_BYTES };
+  }
+
+  async previewChunk(
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultPreviewChunkInput,
+  ) {
+    const original = await this.previewTarget(principal, input);
+    const { tenantId } = this.tenantContext.require();
+    const prepared = await this.previews.getPreparedPreview(tenantId, original);
+    if (prepared.status !== 'ready') throw previewUnavailable();
+    const file = previewFile(prepared.file);
+    if (file.file_object_id !== input.preview.file_object_id || file.sha256 !== input.preview.sha256
+        || file.byte_size !== input.preview.byte_size || file.mime_type !== input.preview.mime_type) {
+      throw permissionDenied();
+    }
+    const bytes = await this.previews.readPreparedChunk(tenantId, prepared.file, input.offset);
+    // A slow storage read must not release bytes after a version, permission or session change.
+    await this.previewTarget(principal, input);
+    return {
+      ...this.previewAuthority(input),
+      preview: file,
+      preview_session_id: input.previewSessionId,
+      chunk: {
+        offset: input.offset,
+        byte_size: bytes.byteLength,
+        sha256: createHash('sha256').update(bytes).digest('hex'),
+        content_base64: bytes.toString('base64'),
+      },
+      next_offset: input.offset + bytes.byteLength,
+      final_chunk: input.offset + bytes.byteLength === file.byte_size,
+    };
+  }
+
+  private previewAuthority(input: AmicOsVaultPreviewInput) {
+    return {
+      authority_kind: 'amic-vault-api' as const,
+      authority_ref: this.config.uploadAuthorityRef(),
+      provider_revision: this.config.uploadProviderRevision(),
+      exact_version: input.exact,
+    };
+  }
+
+  private async previewTarget(
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultPreviewInput | AmicOsVaultPreviewChunkInput,
+  ): Promise<PreviewSessionTarget> {
+    this.assertPrincipal(principal, input.accountLedgerId);
+    const vaultMatterId = await this.resolveLawosMatter(principal.tenantId, input.lawosMatterId);
+    const original = 'previewSessionId' in input
+      ? await this.previewSessions.authorizeStream(
+        principal.actorUserId, input.exact.document_id, input.previewSessionId, input.token, input.exact,
+      )
+      : await this.previewSessions.inspect(principal.actorUserId, input.exact.document_id, input.exact);
+    if (original.matter_id !== vaultMatterId) throw permissionDenied();
+    return original;
   }
 
   private async read(

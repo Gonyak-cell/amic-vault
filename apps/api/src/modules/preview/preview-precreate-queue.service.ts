@@ -53,6 +53,7 @@ export class PreviewPrecreateQueueService implements OnModuleInit {
   async enqueueVersionCreated(
     input: PreviewPrecreateJobPayload,
     client: PoolClient,
+    allowExistingJob = false,
   ): Promise<string | null> {
     if (!(await this.isOfficeVersion(input.tenantId, input.fileObjectId, client))) return null;
     const boss = await this.ensureStarted();
@@ -61,7 +62,7 @@ export class PreviewPrecreateQueueService implements OnModuleInit {
       input,
       previewConvertQueueSendOptions(input, client),
     );
-    if (!jobId) throw new Error('preview convert job enqueue returned no id');
+    if (!jobId && !allowExistingJob) throw new Error('preview convert job enqueue returned no id');
     return jobId;
   }
 

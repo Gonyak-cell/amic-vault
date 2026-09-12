@@ -10,7 +10,7 @@ import {
   PreviewPrecreateQueueService,
   type PreviewPrecreateJobPayload,
 } from './preview-precreate-queue.service';
-import { PreviewService } from './preview.service';
+import { PREVIEW_CHUNK_BYTES, PreviewService } from './preview.service';
 
 const tenantId = '11111111-1111-4111-8111-111111111111' as TenantId;
 const documentId = '11111111-1111-4111-8111-111111111133';
@@ -254,6 +254,7 @@ function fixture(overrides: { bytes?: Buffer; size?: string; hash?: string } = {
   const create = vi.fn(async () => undefined);
   const storage = {
     getByStorageUri: vi.fn(async () => ({ body: Readable.from([overrides.bytes ?? source]) })),
+    getRangeByStorageUri: vi.fn(async () => ({ body: Readable.from([pdf]) })),
     putTenantObject: vi.fn(async () => ({ storageUri: 's3://private/derived.pdf', encryptionKeyId: 'test-key' })),
     deleteByStorageUri: vi.fn(async () => undefined),
   };
@@ -269,6 +270,40 @@ function fixture(overrides: { bytes?: Buffer; size?: string; hash?: string } = {
 }
 
 describe('PreviewService original preservation', () => {
+  const preparedFile = {
+    file_object_id: '11111111-1111-4111-8111-111111111188',
+    storage_uri: 's3://private/derived.pdf', normalized_filename: 'preview.pdf',
+    mime_type: 'application/pdf', size_bytes: String(pdf.byteLength), sha256: digest(pdf),
+  };
+
+  it('checks prepared state without invoking the converter and preserves source PDF identity', async () => {
+    const f = fixture();
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toEqual({ status: 'pending', file: null });
+    const originalPdf = { ...f.original, mime_type: 'application/pdf' };
+    await expect(f.service.getPreparedPreview(tenantId, originalPdf)).resolves.toEqual({ status: 'ready', file: originalPdf });
+    expect(f.convert).not.toHaveBeenCalled();
+    expect(f.storage.getByStorageUri).not.toHaveBeenCalled();
+    await expect(f.service.getPreparedPreview('other-tenant' as TenantId, originalPdf)).rejects.toThrow();
+  });
+
+  it('reads a bounded PDF range and rejects truncated or oversized range bodies', async () => {
+    const f = fixture();
+    await expect(f.service.readPreparedChunk(tenantId, preparedFile, 0)).resolves.toEqual(pdf);
+    expect(f.storage.getRangeByStorageUri).toHaveBeenCalledWith(tenantId, preparedFile.storage_uri, 0, pdf.byteLength - 1);
+    for (const bytes of [pdf.subarray(0, -1), Buffer.concat([pdf, Buffer.from('extra')])]) {
+      const body = Readable.from([bytes]);
+      f.storage.getRangeByStorageUri.mockResolvedValueOnce({ body });
+      await expect(f.service.readPreparedChunk(tenantId, preparedFile, 0)).rejects.toBeInstanceOf(PreviewConversionUnavailableError);
+      expect(body.destroyed).toBe(true);
+    }
+  });
+
+  it.each([-1, 1, PREVIEW_CHUNK_BYTES, Number.MAX_SAFE_INTEGER + 1])('rejects invalid or out-of-bounds offset %s before storage access', async offset => {
+    const f = fixture();
+    await expect(f.service.readPreparedChunk(tenantId, preparedFile, offset)).rejects.toThrow();
+    expect(f.storage.getRangeByStorageUri).not.toHaveBeenCalled();
+  });
+
   it('converts the verified bytes and stores only a separate PDF file object', async () => {
     const f = fixture();
     const original = structuredClone(f.original);

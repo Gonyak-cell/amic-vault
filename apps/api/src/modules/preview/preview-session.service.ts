@@ -21,6 +21,15 @@ export interface PreviewSessionTarget {
   sha256: string;
 }
 
+export interface PreviewExactVersion {
+  document_id: string;
+  version_id: string;
+  file_object_id: string;
+  sha256: string;
+  byte_size: number;
+  mime_type: string;
+}
+
 interface PreviewSessionRow {
   preview_session_id: string;
   expires_at: Date;
@@ -44,15 +53,28 @@ export class PreviewSessionService {
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
 
-  async issue(actorUserId: string, documentId: string): Promise<PreviewAccessSessionDto> {
+  async inspect(
+    actorUserId: string,
+    documentId: string,
+    expected?: PreviewExactVersion,
+  ): Promise<PreviewSessionTarget> {
+    const { tenantId } = this.tenantContext.require();
+    return this.auditService.transaction(tenantId, (tx) =>
+      this.authorizeCurrentTarget(tx, tenantId, actorUserId, documentId, expected));
+  }
+
+  async issue(
+    actorUserId: string,
+    documentId: string,
+    expected?: PreviewExactVersion,
+  ): Promise<PreviewAccessSessionDto> {
     const context = this.tenantContext.require();
     const token = createOpaqueToken();
     const tokenHash = hashOpaqueToken(token);
     const issued = await this.auditService.transaction(context.tenantId, async (tx) => {
-      const target = await this.findCurrentTarget(tx, context.tenantId, documentId);
-      if (!target) throw notFoundDenied();
-      if (target.status === 'deleted') throw documentLocked();
-      await this.assertCanPreview(context.tenantId, actorUserId, documentId);
+      const target = await this.authorizeCurrentTarget(
+        tx, context.tenantId, actorUserId, documentId, expected,
+      );
       const inserted = await tx.query(
         `
           INSERT INTO preview_access_sessions (
@@ -90,14 +112,14 @@ export class PreviewSessionService {
     documentId: string,
     previewSessionId: string,
     token: string,
+    expected?: PreviewExactVersion,
   ): Promise<PreviewSessionTarget> {
     const context = this.tenantContext.require();
     const tokenHash = hashOpaqueToken(token);
     return this.auditService.transaction(context.tenantId, async (tx) => {
-      const target = await this.findCurrentTarget(tx, context.tenantId, documentId);
-      if (!target) throw notFoundDenied();
-      if (target.status === 'deleted') throw documentLocked();
-      await this.assertCanPreview(context.tenantId, actorUserId, documentId);
+      const target = await this.authorizeCurrentTarget(
+        tx, context.tenantId, actorUserId, documentId, expected,
+      );
       const session = await tx.query(
         `
           SELECT preview_session_id
@@ -137,6 +159,28 @@ export class PreviewSessionService {
       `,
       [tenantId, userId],
     );
+  }
+
+  private async authorizeCurrentTarget(
+    client: QueryClient,
+    tenantId: TenantId,
+    actorUserId: string,
+    documentId: string,
+    expected?: PreviewExactVersion,
+  ): Promise<PreviewSessionTarget> {
+    const target = await this.findCurrentTarget(client, tenantId, documentId);
+    if (!target) throw notFoundDenied();
+    if (target.status === 'deleted') throw documentLocked();
+    await this.assertCanPreview(tenantId, actorUserId, documentId);
+    if (expected && (
+      target.document_id !== expected.document_id
+      || target.version_id !== expected.version_id
+      || target.file_object_id !== expected.file_object_id
+      || target.sha256 !== expected.sha256
+      || Number(target.size_bytes) !== expected.byte_size
+      || target.mime_type !== expected.mime_type
+    )) throw notFoundDenied();
+    return target;
   }
 
   private async assertCanPreview(

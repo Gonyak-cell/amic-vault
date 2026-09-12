@@ -1,10 +1,14 @@
 import type { SearchResultDto } from '@amic-vault/shared';
+import { createHash } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import type { AmicOsVaultProviderPrincipal } from './amic-os-vault-provider.guard';
 import {
   AmicOsVaultReadService,
   type AmicOsVaultReadInput,
+  type AmicOsVaultPreviewInput,
 } from './amic-os-vault-read.service';
+import type { PreviewSessionTarget } from '../../preview/preview-session.service';
+import { PREVIEW_CHUNK_BYTES, type PreparedPreview } from '../../preview/preview.service';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '22222222-2222-4222-8222-222222222222';
@@ -14,6 +18,30 @@ const documentId = '44444444-4444-4444-8444-444444444444';
 const versionId = '55555555-5555-4555-8555-555555555555';
 const fileObjectId = '66666666-6666-4666-8666-666666666666';
 const sha256 = 'a'.repeat(64);
+const pdfBytes = Buffer.from('%PDF-1.7\npreview');
+const pdfFile = {
+  file_object_id: '77777777-7777-4777-8777-777777777777',
+  sha256: createHash('sha256').update(pdfBytes).digest('hex'),
+  size_bytes: String(pdfBytes.byteLength),
+  mime_type: 'application/pdf',
+  storage_uri: 's3://private/derived.pdf',
+  normalized_filename: 'contract.preview.pdf',
+};
+const source: PreviewSessionTarget = {
+  tenant_id: tenantId, matter_id: vaultMatterId, document_id: documentId, version_id: versionId,
+  file_object_id: fileObjectId, sha256, size_bytes: '4096', status: 'active',
+  mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  normalized_filename: 'contract.docx', storage_uri: 's3://private/source.docx',
+};
+const previewInput: AmicOsVaultPreviewInput = {
+  accountLedgerId: 'user_amic_jwsuh', lawosMatterId,
+  exact: { document_id: documentId, version_id: versionId, file_object_id: fileObjectId,
+    sha256, byte_size: 4096, mime_type: source.mime_type },
+};
+const preview = { file_object_id: pdfFile.file_object_id, sha256: pdfFile.sha256,
+  byte_size: pdfBytes.byteLength, mime_type: 'application/pdf' as const };
+const session = { previewSessionId: '99999999-9999-4999-8999-999999999999', token: 'a'.repeat(43), expiresAt: '2030-01-01T00:00:00.000Z' };
+const chunkInput = { ...previewInput, preview, previewSessionId: session.previewSessionId, token: session.token, offset: 0 };
 const principal: AmicOsVaultProviderPrincipal = {
   accountLedgerId: 'user_amic_jwsuh',
   tenantId,
@@ -59,10 +87,11 @@ function result(overrides: Partial<SearchResultDto> = {}): SearchResultDto {
   };
 }
 
-function createHarness({ source = 'amic-os-provider' } = {}) {
+function createHarness({ source: contextSource = 'amic-os-provider' } = {}) {
   const incompleteDocumentId = '77777777-7777-4777-8777-777777777777';
   const mismatchedDocumentId = '88888888-8888-4888-8888-888888888888';
   const query = vi.fn(async (sql: string) => {
+    if (sql.includes('INSERT INTO document_preview_artifacts')) return { rowCount: 1, rows: [] };
     if (sql.includes('FROM matters')) {
       return { rowCount: 1, rows: [{ matter_id: vaultMatterId }] };
     }
@@ -127,21 +156,114 @@ function createHarness({ source = 'amic-os-provider' } = {}) {
       ],
     })),
   };
+  const previewSessions = {
+    inspect: vi.fn(async () => source),
+    authorizeStream: vi.fn(async () => source),
+    issue: vi.fn(async () => session),
+  };
+  const previews = {
+    getPreparedPreview: vi.fn(async (): Promise<PreparedPreview> => ({ status: 'pending', file: null })),
+    readPreparedChunk: vi.fn(async () => pdfBytes),
+  };
+  const previewQueue = { enqueueVersionCreated: vi.fn(async () => null) };
   const service = new AmicOsVaultReadService(
     auditService as never,
     searchService as never,
     {
-      require: () => ({ tenantId, source }),
+      require: () => ({ tenantId, source: contextSource }),
     } as never,
     {
       uploadAuthorityRef: () => 'amic-vault-api:single-install',
       uploadProviderRevision: () => 'single-install-upload-v1',
     } as never,
+    previewSessions as never,
+    previews as never,
+    previewQueue as never,
   );
-  return { auditService, query, searchService, service };
+  return { auditService, query, searchService, service, previewSessions, previews, previewQueue };
 }
 
 describe('AmicOsVaultReadService', () => {
+  it('polls without writes and explicitly enqueues the authorized exact source in one transaction', async () => {
+    const f = createHarness();
+    await expect(f.service.preparePreview(principal, previewInput, false)).resolves.toMatchObject({ status: 'pending', preview: null });
+    expect(f.previewQueue.enqueueVersionCreated).not.toHaveBeenCalled();
+    expect(f.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO'))).toBe(false);
+    await expect(f.service.preparePreview(principal, previewInput, true)).resolves.toMatchObject({ status: 'pending' });
+    expect(f.previewQueue.enqueueVersionCreated).toHaveBeenCalledWith({
+      tenantId, actorUserId, documentId, versionId, fileObjectId,
+    }, expect.anything(), true);
+    expect(f.previewSessions.inspect).toHaveBeenCalledWith(actorUserId, documentId, previewInput.exact);
+    expect(f.previewSessions.issue).not.toHaveBeenCalled();
+    expect(f.query.mock.calls.some(([sql]) => sql.includes("WHERE document_preview_artifacts.status = 'failed'"))).toBe(true);
+  });
+
+  it('exposes failed preparation until an explicit retry, without issuing an early view session', async () => {
+    const f = createHarness();
+    f.previews.getPreparedPreview.mockResolvedValue({ status: 'failed', file: null });
+    await expect(f.service.preparePreview(principal, previewInput, false)).resolves.toMatchObject({ status: 'failed' });
+    await expect(f.service.issuePreviewSession(principal, previewInput)).rejects.toMatchObject({ response: { reason: 'PREVIEW_CONVERSION_UNAVAILABLE' } });
+    expect(f.previewSessions.issue).not.toHaveBeenCalled();
+    expect(f.previewQueue.enqueueVersionCreated).not.toHaveBeenCalled();
+    await expect(f.service.preparePreview(principal, previewInput, true)).resolves.toMatchObject({ status: 'pending' });
+  });
+
+  it('reuses a ready derivative and issues the native session with the exact source binding', async () => {
+    const f = createHarness();
+    f.previews.getPreparedPreview.mockResolvedValue({ status: 'ready', file: pdfFile });
+    const prepared = await f.service.preparePreview(principal, previewInput, true);
+    expect(prepared).toMatchObject({ status: 'ready', preview, exact_version: previewInput.exact });
+    expect(f.previewQueue.enqueueVersionCreated).not.toHaveBeenCalled();
+    const issued = await f.service.issuePreviewSession(principal, previewInput);
+    expect(issued).toMatchObject({ status: 'ready', session, preview, chunk_bytes: PREVIEW_CHUNK_BYTES });
+    expect(f.previewSessions.issue).toHaveBeenCalledTimes(1);
+    expect(f.previewSessions.issue).toHaveBeenCalledWith(actorUserId, documentId, previewInput.exact);
+    expect(JSON.stringify(issued)).not.toMatch(/storage_uri|s3:\/\/|normalized_filename/);
+  });
+
+  it('blocks wrong account, Matter mapping and permission before preparing or enqueuing', async () => {
+    const f = createHarness();
+    await expect(f.service.preparePreview(principal, { ...previewInput, accountLedgerId: 'another_user' }, true)).rejects.toMatchObject({ status: 403 });
+    f.previewSessions.inspect.mockResolvedValueOnce({ ...source, matter_id: 'other-matter' });
+    await expect(f.service.preparePreview(principal, previewInput, true)).rejects.toMatchObject({ status: 403 });
+    f.previewSessions.inspect.mockRejectedValueOnce(new Error('permission denied'));
+    await expect(f.service.preparePreview(principal, previewInput, true)).rejects.toThrow('permission denied');
+    expect(f.previews.getPreparedPreview).not.toHaveBeenCalled();
+    expect(f.previewQueue.enqueueVersionCreated).not.toHaveBeenCalled();
+  });
+
+  it('binds chunks to the derivative and rechecks the native session after storage returns', async () => {
+    const f = createHarness();
+    f.previews.getPreparedPreview.mockResolvedValue({ status: 'ready', file: pdfFile });
+    const result = await f.service.previewChunk(principal, chunkInput);
+    expect(result).toMatchObject({ preview, exact_version: previewInput.exact,
+      chunk: { offset: 0, byte_size: pdfBytes.byteLength, sha256: pdfFile.sha256, content_base64: pdfBytes.toString('base64') },
+      next_offset: pdfBytes.byteLength, final_chunk: true });
+    expect(f.previews.readPreparedChunk).toHaveBeenCalledWith(tenantId, pdfFile, 0);
+    expect(f.previewSessions.authorizeStream).toHaveBeenCalledTimes(2);
+    expect(f.previewSessions.authorizeStream).toHaveBeenLastCalledWith(actorUserId, documentId, session.previewSessionId, session.token, previewInput.exact);
+    expect(f.previewSessions.inspect).not.toHaveBeenCalled();
+    expect(f.previewSessions.issue).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain(session.token);
+  });
+
+  it.each([
+    { file_object_id: fileObjectId }, { sha256 }, { byte_size: pdfBytes.byteLength + 1 },
+  ])('rejects a changed PDF identity before opening its bytes: %#', async changed => {
+    const f = createHarness();
+    f.previews.getPreparedPreview.mockResolvedValue({ status: 'ready', file: pdfFile });
+    await expect(f.service.previewChunk(principal, { ...chunkInput, preview: { ...preview, ...changed } })).rejects.toMatchObject({ status: 403 });
+    expect(f.previews.readPreparedChunk).not.toHaveBeenCalled();
+  });
+
+  it('does not release a chunk when authorization is revoked during its storage read', async () => {
+    const f = createHarness();
+    f.previews.getPreparedPreview.mockResolvedValue({ status: 'ready', file: pdfFile });
+    f.previewSessions.authorizeStream.mockResolvedValueOnce(source).mockRejectedValueOnce(new Error('session revoked'));
+    await expect(f.service.previewChunk(principal, chunkInput)).rejects.toThrow('session revoked');
+    expect(f.previews.readPreparedChunk).toHaveBeenCalledTimes(1);
+  });
+
   it('uses permission-scoped search and returns only mapped exact current versions', async () => {
     const { query, searchService, service } = createHarness();
 
