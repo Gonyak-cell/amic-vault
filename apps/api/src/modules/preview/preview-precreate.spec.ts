@@ -243,7 +243,7 @@ function fixture(overrides: { bytes?: Buffer; size?: string; hash?: string } = {
     sha256: overrides.hash ?? digest(source),
   };
   let persisted = false;
-  const query = vi.fn(async (sql: string, _params?: readonly unknown[]) => {
+  const query = vi.fn(async (sql: string) => {
     if (sql.includes('FROM documents d')) return { rows: [original], rowCount: 1 };
     if (sql.includes('INSERT INTO document_preview_artifacts')) persisted = true;
     return { rows: persisted ? [{ file_object_id: 'derived-file', sha256: digest(pdf) }] : [], rowCount: persisted ? 1 : 0 };
