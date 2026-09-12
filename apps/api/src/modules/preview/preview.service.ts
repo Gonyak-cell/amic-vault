@@ -7,7 +7,12 @@ import { FileObjectService } from '../storage/file-object.service';
 import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
-import { PreviewConversionUnavailableError, PreviewConvertJob } from './preview-convert.job';
+import {
+  PREVIEW_MAX_INPUT_BYTES,
+  PreviewConversionUnavailableError,
+  PreviewConvertJob,
+  readPreviewBytes,
+} from './preview-convert.job';
 import { PreviewSessionService, type PreviewSessionTarget } from './preview-session.service';
 
 type PreviewFileRow = PreviewSessionTarget;
@@ -58,14 +63,6 @@ function conversionUnavailable(): BadRequestException {
     code: 'VALIDATION_FAILED',
     reason: 'PREVIEW_CONVERSION_UNAVAILABLE',
   });
-}
-
-async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-  }
-  return Buffer.concat(chunks);
 }
 
 function sha256(buffer: Buffer): string {
@@ -211,10 +208,16 @@ export class PreviewService {
     );
     if (cached) return cached;
 
-    const sourceObject = await this.storageService.getByStorageUri(tenantId, original.storage_uri);
-    const source = await streamToBuffer(sourceObject.body);
     let pdf: Buffer;
     try {
+      const expectedSize = Number(original.size_bytes);
+      if (!Number.isSafeInteger(expectedSize) || expectedSize < 1
+          || expectedSize > PREVIEW_MAX_INPUT_BYTES || !/^[a-f0-9]{64}$/u.test(original.sha256)) {
+        throw conversionUnavailable();
+      }
+      const sourceObject = await this.storageService.getByStorageUri(tenantId, original.storage_uri);
+      const source = await readPreviewBytes(sourceObject.body, PREVIEW_MAX_INPUT_BYTES, expectedSize);
+      if (sha256(source) !== original.sha256) throw conversionUnavailable();
       pdf = await this.previewConvertJob.convertOfficeToPdf({
         tenantId,
         filename: original.normalized_filename,
