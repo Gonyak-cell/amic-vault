@@ -3,6 +3,7 @@ import { BadRequestException, ForbiddenException, Inject, Injectable } from '@ne
 import type { SearchQueryDto, SearchResultDto } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { SearchService } from '../../search/search.service';
+import { ExternalService } from '../../external/external.service';
 import { TenantContextService } from '../../tenant/tenant-context';
 import { PreviewPrecreateQueueService } from '../../preview/preview-precreate-queue.service';
 import {
@@ -124,6 +125,7 @@ export class AmicOsVaultReadService {
     @Inject(PreviewSessionService) private readonly previewSessions: PreviewSessionService,
     @Inject(PreviewService) private readonly previews: PreviewService,
     @Inject(PreviewPrecreateQueueService) private readonly previewQueue: PreviewPrecreateQueueService,
+    @Inject(ExternalService) private readonly external: ExternalService,
   ) {}
 
   async list(
@@ -138,6 +140,38 @@ export class AmicOsVaultReadService {
     input: AmicOsVaultReadInput,
   ): Promise<AmicOsVaultReadResponse> {
     return this.read(principal, input);
+  }
+
+  async portalDocument(principal: AmicOsVaultProviderPrincipal, input: {
+    accountLedgerId: string; lawosMatterId: string; documentId: string;
+  }) {
+    this.assertPrincipal(principal, input.accountLedgerId);
+    const matterId = await this.resolveLawosMatter(principal.tenantId, input.lawosMatterId);
+    const authorization = await this.external.authorizePortalDocument(
+      { tenantId: principal.tenantId, userId: principal.actorUserId }, matterId, input.documentId,
+    );
+    const result = await this.auditService.transaction(principal.tenantId, tx => tx.query(
+      `SELECT v.document_id, v.version_id, v.file_object_id, v.file_hash AS sha256,
+              f.size_bytes::text, f.mime_type
+       FROM document_versions v
+       JOIN file_objects f ON f.tenant_id = v.tenant_id AND f.file_object_id = v.file_object_id
+       WHERE v.tenant_id = $1::uuid AND v.document_id = $2::uuid
+         AND v.version_id = $3::uuid AND v.version_status = 'current'`,
+      [principal.tenantId, input.documentId, authorization.versionId],
+    ));
+    const row = result.rows[0] as ExactProjectionRow | undefined;
+    const size = Number(row?.size_bytes);
+    if (result.rows.length !== 1 || !row || row.document_id !== input.documentId
+        || row.version_id !== authorization.versionId || !Number.isSafeInteger(size) || size < 1
+        || size > 25 * 1024 * 1024 || row.mime_type !== 'application/pdf'
+        || !/^[a-f0-9]{64}$/u.test(row.sha256)) throw permissionDenied();
+    return {
+      authority_kind: 'amic-vault-api' as const,
+      authority_ref: this.config.uploadAuthorityRef(), provider_revision: this.config.uploadProviderRevision(),
+      exact_version: { document_id: row.document_id, version_id: row.version_id, file_object_id: row.file_object_id,
+        sha256: row.sha256, byte_size: size, mime_type: row.mime_type },
+      policy_ref: authorization.policyRef,
+    };
   }
 
   async preparePreview(

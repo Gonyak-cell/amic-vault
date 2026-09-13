@@ -197,6 +197,20 @@ export class AmicOsVaultReadController {
     return this.service.search(principal(request), parseSearch(body));
   }
 
+  @Post('portal-document')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  portalDocument(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown) {
+    const value = object(body);
+    exactKeys(value, ['principal', 'lawos_matter_id', 'document_id']);
+    const mappedMatterId = matterId(value.lawos_matter_id);
+    if (!mappedMatterId) throw invalid();
+    return this.service.portalDocument(principal(request), {
+      accountLedgerId: principalAccountLedgerId(value.principal),
+      lawosMatterId: mappedMatterId, documentId: parseUuid(value.document_id),
+    });
+  }
+
   @Post('preview-prepare')
   @HttpCode(200)
   @Header('Cache-Control', 'private, no-store')

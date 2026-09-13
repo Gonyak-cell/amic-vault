@@ -9,6 +9,7 @@ import {
 } from './amic-os-vault-read.service';
 import type { PreviewSessionTarget } from '../../preview/preview-session.service';
 import { PREVIEW_CHUNK_BYTES, type PreparedPreview } from '../../preview/preview.service';
+import { ExternalService } from '../../external/external.service';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '22222222-2222-4222-8222-222222222222';
@@ -87,13 +88,17 @@ function result(overrides: Partial<SearchResultDto> = {}): SearchResultDto {
   };
 }
 
-function createHarness({ source: contextSource = 'amic-os-provider' } = {}) {
+function createHarness({ source: contextSource = 'amic-os-provider', external = {} as ExternalService } = {}) {
   const incompleteDocumentId = '77777777-7777-4777-8777-777777777777';
   const mismatchedDocumentId = '88888888-8888-4888-8888-888888888888';
   const query = vi.fn(async (sql: string) => {
     if (sql.includes('INSERT INTO document_preview_artifacts')) return { rowCount: 1, rows: [] };
     if (sql.includes('FROM matters')) {
       return { rowCount: 1, rows: [{ matter_id: vaultMatterId }] };
+    }
+    if (sql.includes('FROM document_versions v')) {
+      return { rowCount: 1, rows: [{ document_id: documentId, version_id: versionId,
+        file_object_id: fileObjectId, sha256, size_bytes: '4096', mime_type: 'application/pdf' }] };
     }
     if (sql.includes('FROM documents')) {
       return {
@@ -181,11 +186,78 @@ function createHarness({ source: contextSource = 'amic-os-provider' } = {}) {
     previewSessions as never,
     previews as never,
     previewQueue as never,
+    external,
   );
   return { auditService, query, searchService, service, previewSessions, previews, previewQueue };
 }
 
 describe('AmicOsVaultReadService', () => {
+  it('authorizes delegated Portal PDFs through current sharing, owner, hold and external DLP policy', async () => {
+    const actor = { role: 'matter_owner', status: 'active' };
+    const member = { matter_role: 'owner', access_level: 'edit' };
+    const policies = { count: '3' };
+    const target = { matter_id: vaultMatterId, document_id: documentId, version_id: versionId,
+      document_status: 'active', document_legal_hold: false, matter_legal_hold: false };
+    const edit = vi.fn(async () => ({ effect: 'ALLOW' }));
+    const read = vi.fn(async () => ({ effect: 'ALLOW' }));
+    const evaluate = vi.fn(async () => ({ allowed: true, findingCount: 0, resultHash: sha256 }));
+    const query = vi.fn(async (sql: string, params: unknown[]) => {
+      expect(params[0]).toBe(tenantId);
+      if (sql.includes('FROM users')) return { rows: [actor] };
+      if (sql.includes('FROM matter_members')) return { rows: [member] };
+      if (sql.includes('FROM sharing_policy_definitions')) return { rows: [policies] };
+      if (sql.includes('FROM documents d')) {
+        expect(params).toEqual([tenantId, documentId, null]);
+        expect(sql).toContain("version_status = 'current'");
+        return { rows: [target] };
+      }
+      throw new Error('unexpected external authority query');
+    });
+    const transaction = async (_tenant: string, work: (client: { query: typeof query }) => Promise<unknown>) => {
+      expect(_tenant).toBe(tenantId);
+      return work({ query });
+    };
+    const external = new ExternalService({ transaction } as never, { tenantTransaction: transaction } as never,
+      { canEditMatter: edit } as never, { canReadDocument: read } as never,
+      { evaluateDocumentEgress: evaluate } as never, {} as never);
+    const f = createHarness({ external });
+    const request = { accountLedgerId: principal.accountLedgerId, lawosMatterId, documentId };
+    const run = () => f.service.portalDocument(principal, request);
+    const allowed = await run();
+    expect(allowed).toEqual({ authority_kind: 'amic-vault-api', authority_ref: 'amic-vault-api:single-install',
+      provider_revision: 'single-install-upload-v1', policy_ref: sha256,
+      exact_version: { document_id: documentId, version_id: versionId, file_object_id: fileObjectId,
+        sha256, byte_size: 4096, mime_type: 'application/pdf' } });
+    expect(evaluate).toHaveBeenCalledWith(expect.anything(), {
+      tenantId, matterId: vaultMatterId, documentId, versionId, purpose: 'external_link',
+      authorization: { kind: 'internal', userId: actorUserId, sessionId: null },
+    });
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining("v.version_status = 'current'"), [tenantId, documentId, versionId]);
+    await expect(f.service.portalDocument(principal, { ...request, accountLedgerId: 'wrong-account' })).rejects.toMatchObject({ status: 403 });
+    await expect(f.service.portalDocument({ ...principal, tenantId: 'another-tenant' }, request)).rejects.toMatchObject({ status: 403 });
+    f.query.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+    await expect(run()).rejects.toMatchObject({ status: 403 });
+    edit.mockResolvedValueOnce({ effect: 'DENY' });
+    await expect(run()).rejects.toMatchObject({ status: 403 });
+    read.mockResolvedValueOnce({ effect: 'DENY' });
+    await expect(run()).rejects.toMatchObject({ status: 403 });
+    for (const [object, key, value] of [
+      [actor, 'status', 'disabled'], [member, 'matter_role', 'member'], [policies, 'count', '2'],
+      [target, 'matter_id', 'another-matter'], [target, 'document_status', 'deleted'],
+      [target, 'document_legal_hold', true], [target, 'matter_legal_hold', true],
+      [target, 'version_id', '77777777-7777-4777-8777-777777777777'],
+    ] as [Record<string, unknown>, string, unknown][]) {
+      const previous = object[key]; object[key] = value;
+      await expect(run()).rejects.toMatchObject({ status: 403 });
+      object[key] = previous;
+    }
+    evaluate.mockResolvedValueOnce({ allowed: false, findingCount: 0, resultHash: sha256 });
+    await expect(run()).rejects.toMatchObject({ status: 403 });
+    evaluate.mockResolvedValueOnce({ allowed: true, findingCount: 1, resultHash: sha256 });
+    await expect(run()).rejects.toMatchObject({ status: 403 });
+    await expect(run()).resolves.toEqual(allowed);
+  });
+
   it('polls without writes and explicitly enqueues the authorized exact source in one transaction', async () => {
     const f = createHarness();
     await expect(f.service.preparePreview(principal, previewInput, false)).resolves.toMatchObject({ status: 'pending', preview: null });

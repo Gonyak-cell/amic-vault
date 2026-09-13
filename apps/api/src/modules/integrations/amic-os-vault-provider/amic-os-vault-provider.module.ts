@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../../audit/audit.module';
 import { DlpModule } from '../../dlp/dlp.module';
+import { ExternalModule } from '../../external/external.module';
 import { FileSecurityModule } from '../../file-security/file-security.module';
 import { MatterAppModule } from '../matter-app/matter-app.module';
 import { PermissionModule } from '../../permission/permission.module';
@@ -27,6 +28,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
   imports: [
     AuditModule,
     DlpModule,
+    ExternalModule,
     FileSecurityModule,
     MatterAppModule,
     PermissionModule,
