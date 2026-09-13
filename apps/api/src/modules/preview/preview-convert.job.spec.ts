@@ -10,6 +10,7 @@ import {
 } from './preview-convert.job';
 
 const officeInput = {
+  converterProfileSha256: 'c'.repeat(64),
   tenantId: '11111111-1111-4111-8111-111111111111',
   filename: 'source.docx',
   contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -45,7 +46,7 @@ describe('PreviewConvertJob', () => {
   it('uses the preview conversion queue contract and accepts only pdf responses', async () => {
     const originalFetch = global.fetch;
     const fetchMock = vi.fn(async () => new Response('%PDF-1.7\npreview', {
-      headers: { 'content-type': 'application/pdf' },
+      headers: { 'content-type': 'application/pdf', 'x-amic-converter-profile': officeInput.converterProfileSha256 },
     }));
     global.fetch = fetchMock as never;
     try {
@@ -53,6 +54,7 @@ describe('PreviewConvertJob', () => {
       expect(job.queueName).toBe(previewConvertQueueName);
       await expect(
         job.convertOfficeToPdf({
+          converterProfileSha256: officeInput.converterProfileSha256,
           tenantId: '11111111-1111-4111-8111-111111111111',
           filename: 'source.xlsx',
           contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -61,7 +63,9 @@ describe('PreviewConvertJob', () => {
       ).resolves.toEqual(Buffer.from('%PDF-1.7\npreview'));
       expect(fetchMock).toHaveBeenCalledWith(
         'http://127.0.0.1:8000/convert/office-to-pdf',
-        expect.objectContaining({ method: 'POST' }),
+        expect.objectContaining({ method: 'POST', headers: expect.objectContaining({
+          'x-amic-converter-profile': officeInput.converterProfileSha256,
+        }) }),
       );
     } finally {
       global.fetch = originalFetch;
@@ -76,6 +80,7 @@ describe('PreviewConvertJob', () => {
     try {
       await expect(
         new PreviewConvertJob().convertOfficeToPdf({
+          converterProfileSha256: officeInput.converterProfileSha256,
           tenantId: '11111111-1111-4111-8111-111111111111',
           filename: 'source.pptx',
           contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -92,6 +97,7 @@ describe('PreviewConvertJob', () => {
     vi.stubEnv('INGESTION_WORKER_URL', 'http://127.0.0.1:8000');
     await expect(
       new PreviewConvertJob().convertOfficeToPdf({
+        converterProfileSha256: officeInput.converterProfileSha256,
         tenantId: '11111111-1111-4111-8111-111111111111',
         filename: 'source.docx',
         contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -108,7 +114,7 @@ describe('PreviewConvertJob', () => {
     { contentType: 'application/pdf', contentLength: '4', bytes: '%PDF-1.7\npreview' },
     { contentType: 'application/pdf', contentLength: null, bytes: '%PDFbad' },
   ])('rejects invalid worker MIME, length or PDF header: %#', async ({ contentType, contentLength, bytes }) => {
-    const headers = new Headers({ 'content-type': contentType });
+    const headers = new Headers({ 'content-type': contentType, 'x-amic-converter-profile': officeInput.converterProfileSha256 });
     if (contentLength !== null) headers.set('content-length', contentLength);
     vi.stubGlobal('fetch', vi.fn(async () => new Response(bytes, { headers })));
     await expect(new PreviewConvertJob().convertOfficeToPdf(officeInput))
@@ -131,13 +137,58 @@ describe('PreviewConvertJob', () => {
         start(controller) {
           signal.addEventListener('abort', () => controller.error(new Error('Worker body aborted')), { once: true });
         },
-      }), { headers: { 'content-type': 'application/pdf' } });
+      }), { headers: { 'content-type': 'application/pdf', 'x-amic-converter-profile': officeInput.converterProfileSha256 } });
     }));
     const rejected = expect(new PreviewConvertJob().convertOfficeToPdf(officeInput))
       .rejects.toBeInstanceOf(PreviewConversionUnavailableError);
     await vi.advanceTimersByTimeAsync(PREVIEW_CONVERT_TIMEOUT_MS);
     await rejected;
     expect(signals[0]?.aborted).toBe(true);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('gets the current profile through the authenticated fixed worker path before conversion', async () => {
+    const fetchMock = vi.fn(async (url: string) => url.endsWith('/profile')
+      ? Response.json({ profile_sha256: officeInput.converterProfileSha256 })
+      : new Response('%PDF-1.7\npreview', { headers: {
+        'content-type': 'application/pdf', 'x-amic-converter-profile': officeInput.converterProfileSha256,
+      } }));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(new PreviewConvertJob().convertOfficeToPdf({ ...officeInput, converterProfileSha256: undefined }))
+      .resolves.toEqual(Buffer.from('%PDF-1.7\npreview'));
+    expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://127.0.0.1:8000/convert/office-to-pdf/profile',
+      expect.objectContaining({ method: 'GET', headers: expect.objectContaining({
+        'x-amic-tenant-id': officeInput.tenantId, 'x-amic-ingestion-nonce': expect.any(String),
+      }) }));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    null, {}, { profile_sha256: 'invalid' }, { profile_sha256: 'C'.repeat(64) },
+    { profile_sha256: 'c'.repeat(64), extra: true }, { profile_sha256: 'x'.repeat(4096) },
+  ])('rejects missing, malformed or oversized converter profiles: %#', async profile => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(profile)));
+    await expect(new PreviewConvertJob().getProfileSha256(officeInput.tenantId))
+      .rejects.toBeInstanceOf(PreviewConversionUnavailableError);
+  });
+
+  it.each([null, 'd'.repeat(64)])('rejects a PDF with a missing or changed converter profile: %s', async profile => {
+    const headers = new Headers({ 'content-type': 'application/pdf' });
+    if (profile !== null) headers.set('x-amic-converter-profile', profile);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('%PDF-1.7\npreview', { headers })));
+    await expect(new PreviewConvertJob().convertOfficeToPdf(officeInput))
+      .rejects.toBeInstanceOf(PreviewConversionUnavailableError);
+  });
+
+  it('bounds a stalled converter profile request and clears the deadline', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+    })));
+    const rejected = expect(new PreviewConvertJob().getProfileSha256(officeInput.tenantId))
+      .rejects.toBeInstanceOf(PreviewConversionUnavailableError);
+    await vi.advanceTimersByTimeAsync(PREVIEW_CONVERT_TIMEOUT_MS);
+    await rejected;
     expect(vi.getTimerCount()).toBe(0);
   });
 });

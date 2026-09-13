@@ -184,6 +184,11 @@ function startPreviewWorker(): Promise<{
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
     });
     request.on('end', () => {
+      if (request.url === '/convert/office-to-pdf/profile' && request.method === 'GET') {
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ profile_sha256: 'c'.repeat(64) }));
+        return;
+      }
       calls.push({
         path: request.url ?? '',
         tenantHeader: Array.isArray(request.headers['x-amic-tenant-id'])
@@ -195,7 +200,8 @@ function startPreviewWorker(): Promise<{
         response.end(JSON.stringify({ code: 'NOT_FOUND' }));
         return;
       }
-      response.writeHead(200, { 'content-type': 'application/pdf' });
+      expect(request.headers['x-amic-converter-profile']).toBe('c'.repeat(64));
+      response.writeHead(200, { 'content-type': 'application/pdf', 'x-amic-converter-profile': 'c'.repeat(64) });
       response.end('%PDF-1.7\npreview');
     });
   });

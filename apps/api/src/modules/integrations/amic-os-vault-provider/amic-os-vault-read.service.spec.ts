@@ -162,7 +162,9 @@ function createHarness({ source: contextSource = 'amic-os-provider' } = {}) {
     issue: vi.fn(async () => session),
   };
   const previews = {
-    getPreparedPreview: vi.fn(async (): Promise<PreparedPreview> => ({ status: 'pending', file: null })),
+    getPreparedPreview: vi.fn(async (): Promise<PreparedPreview> => ({
+      status: 'pending', file: null, converterProfileSha256: 'c'.repeat(64),
+    })),
     readPreparedChunk: vi.fn(async () => pdfBytes),
   };
   const previewQueue = { enqueueVersionCreated: vi.fn(async () => null) };
@@ -196,11 +198,13 @@ describe('AmicOsVaultReadService', () => {
     expect(f.previewSessions.inspect).toHaveBeenCalledWith(actorUserId, documentId, previewInput.exact);
     expect(f.previewSessions.issue).not.toHaveBeenCalled();
     expect(f.query.mock.calls.some(([sql]) => sql.includes("WHERE document_preview_artifacts.status = 'failed'"))).toBe(true);
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('converter_profile_sha256 IS DISTINCT FROM'),
+      [tenantId, documentId, versionId, fileObjectId, source.sha256, 'c'.repeat(64)]);
   });
 
   it('exposes failed preparation until an explicit retry, without issuing an early view session', async () => {
     const f = createHarness();
-    f.previews.getPreparedPreview.mockResolvedValue({ status: 'failed', file: null });
+    f.previews.getPreparedPreview.mockResolvedValue({ status: 'failed', file: null, converterProfileSha256: 'c'.repeat(64) });
     await expect(f.service.preparePreview(principal, previewInput, false)).resolves.toMatchObject({ status: 'failed' });
     await expect(f.service.issuePreviewSession(principal, previewInput)).rejects.toMatchObject({ response: { reason: 'PREVIEW_CONVERSION_UNAVAILABLE' } });
     expect(f.previewSessions.issue).not.toHaveBeenCalled();

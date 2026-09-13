@@ -272,15 +272,25 @@ function fixture(overrides: { bytes?: Buffer; size?: string; hash?: string } = {
     size_bytes: overrides.size ?? String(source.byteLength),
     sha256: overrides.hash ?? digest(source),
   };
-  let persisted = false;
-  const query = vi.fn(async (sql: string) => {
+  const profileSha256 = 'c'.repeat(64);
+  let persisted: { file_object_id: string; source_sha256: string | null; converter_profile_sha256: string | null } | null = null;
+  const cache = (fileId = 'existing-derived', sourceHash: string | null = original.sha256,
+    profileHash: string | null = profileSha256) => {
+    persisted = { file_object_id: fileId, source_sha256: sourceHash, converter_profile_sha256: profileHash };
+  };
+  const query = vi.fn(async (sql: string, params?: readonly unknown[]) => {
     if (sql.includes('FROM documents d')) return { rows: [original], rowCount: 1 };
-    if (sql.includes('INSERT INTO document_preview_artifacts')) persisted = true;
-    return { rows: persisted ? [{ file_object_id: 'derived-file', sha256: digest(pdf) }] : [], rowCount: persisted ? 1 : 0 };
+    if (sql.includes('INSERT INTO document_preview_artifacts')) {
+      cache(String(params?.[3]), String(params?.[4]), String(params?.[5]));
+    }
+    const matches = sql.includes('FROM document_preview_artifacts a') && persisted
+      && persisted.source_sha256 === params?.[2] && persisted.converter_profile_sha256 === params?.[3];
+    return { rows: matches ? [{ ...persisted, sha256: digest(pdf) }] : [], rowCount: matches ? 1 : 0 };
   });
   const tx = { query };
   const transaction = async <T>(_tenantId: TenantId, callback: (client: typeof tx) => Promise<T>) => callback(tx);
   const convert = vi.fn(async () => pdf);
+  const getProfileSha256 = vi.fn(async () => profileSha256);
   const create = vi.fn(async () => undefined);
   const storage = {
     getByStorageUri: vi.fn(async () => ({ body: Readable.from([overrides.bytes ?? source]) })),
@@ -291,12 +301,12 @@ function fixture(overrides: { bytes?: Buffer; size?: string; hash?: string } = {
   const service = new PreviewService(
     { transaction } as never,
     { create } as never,
-    { convertOfficeToPdf: convert } as never,
+    { convertOfficeToPdf: convert, getProfileSha256 } as never,
     {} as never,
     storage as never,
     {} as never,
   );
-  return { service, original, query, convert, create, storage };
+  return { service, original, query, convert, create, storage, getProfileSha256, cache, profileSha256 };
 }
 
 describe('PreviewService original preservation', () => {
@@ -308,10 +318,14 @@ describe('PreviewService original preservation', () => {
 
   it('checks prepared state without invoking the converter and preserves source PDF identity', async () => {
     const f = fixture();
-    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toEqual({ status: 'pending', file: null });
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toEqual({
+      status: 'pending', file: null, converterProfileSha256: f.profileSha256,
+    });
+    f.getProfileSha256.mockClear();
     const originalPdf = { ...f.original, mime_type: 'application/pdf' };
     await expect(f.service.getPreparedPreview(tenantId, originalPdf)).resolves.toEqual({ status: 'ready', file: originalPdf });
     expect(f.convert).not.toHaveBeenCalled();
+    expect(f.getProfileSha256).not.toHaveBeenCalled();
     expect(f.storage.getByStorageUri).not.toHaveBeenCalled();
     await expect(f.service.getPreparedPreview('other-tenant' as TenantId, originalPdf)).rejects.toThrow();
   });
@@ -360,6 +374,65 @@ describe('PreviewService original preservation', () => {
     expect(f.create).not.toHaveBeenCalled();
     expect(f.storage.putTenantObject).not.toHaveBeenCalled();
     expect(f.storage.deleteByStorageUri).not.toHaveBeenCalled();
+  });
+
+  it('reuses only a derivative bound to both the source and the current converter profile', async () => {
+    const f = fixture();
+    await f.service.precreatePreview(payload);
+    await f.service.precreatePreview(payload);
+    expect(f.convert).toHaveBeenCalledTimes(1);
+    expect(f.create).toHaveBeenCalledTimes(1);
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toMatchObject({ status: 'ready' });
+    const nextProfile = 'd'.repeat(64);
+    f.getProfileSha256.mockResolvedValue(nextProfile);
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toEqual({
+      status: 'pending', file: null, converterProfileSha256: nextProfile,
+    });
+    await f.service.precreatePreview(payload);
+    expect(f.convert).toHaveBeenLastCalledWith(expect.objectContaining({
+      converterProfileSha256: nextProfile, body: source,
+    }));
+    expect(f.create).toHaveBeenCalledTimes(2);
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('AND a.converter_profile_sha256 = $4'),
+      [tenantId, versionId, digest(source), nextProfile]);
+  });
+
+  it.each(['legacy', 'source', 'converter'])('ignores an incompatible %s cache record', async binding => {
+    const f = fixture();
+    f.cache('old-derived', binding === 'legacy' ? null : binding === 'source' ? '0'.repeat(64) : digest(source),
+      binding === 'legacy' ? null : binding === 'converter' ? '0'.repeat(64) : f.profileSha256);
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toMatchObject({ status: 'pending' });
+    await f.service.precreatePreview(payload);
+    expect(f.convert).toHaveBeenCalledTimes(1);
+    expect(f.original.sha256).toBe(digest(source));
+  });
+
+  it('fails closed for Office when the current converter profile cannot be verified', async () => {
+    const f = fixture();
+    f.cache();
+    f.getProfileSha256.mockRejectedValue(new PreviewConversionUnavailableError());
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).rejects.toMatchObject({ status: 400 });
+    await expect(f.service.precreatePreview(payload)).rejects.toMatchObject({ status: 400 });
+    expect(f.storage.getByStorageUri).not.toHaveBeenCalled();
+    expect(f.convert).not.toHaveBeenCalled();
+    await expect(f.service.getPreparedPreview(tenantId, { ...f.original, mime_type: 'application/pdf' }))
+      .resolves.toMatchObject({ status: 'ready' });
+  });
+
+  it('rechecks under the queue lock and removes only the unreferenced concurrent output', async () => {
+    const f = fixture();
+    f.convert.mockImplementationOnce(async () => {
+      f.cache('concurrent-winner');
+      return pdf;
+    });
+    await expect(f.service.precreatePreview(payload)).resolves.toBe('ready');
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('pg_advisory_xact_lock'),
+      [`${previewConvertQueueName}:${tenantId}:${versionId}`]);
+    expect(f.create).not.toHaveBeenCalled();
+    expect(f.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO document_preview_artifacts'))).toBe(false);
+    expect(f.storage.deleteByStorageUri).toHaveBeenCalledTimes(1);
+    expect(f.storage.deleteByStorageUri).toHaveBeenCalledWith(tenantId, 's3://private/derived.pdf');
+    expect(f.original.sha256).toBe(digest(source));
   });
 
   it.each([

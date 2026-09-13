@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app import convert_router
@@ -10,6 +11,11 @@ from app.main import app
 TENANT_ID = "11111111-1111-4111-8111-111111111111"
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def converter_profile(monkeypatch):
+    monkeypatch.setattr(convert_router, "office_converter_profile_sha256", lambda: "c" * 64)
 
 
 def _loopback_identity_headers() -> dict[str, str]:
@@ -41,6 +47,7 @@ def test_office_to_pdf_accepts_supported_office_extensions(monkeypatch) -> None:
         assert response.status_code == 200, response.text
         assert response.headers["content-type"].startswith("application/pdf")
         assert response.content.startswith(b"%PDF")
+        assert response.headers["x-amic-converter-profile"] == "c" * 64
 
     assert [call[1] for call in calls] == [
         "source.doc",
@@ -86,3 +93,44 @@ def test_office_to_pdf_fails_closed_for_tenant_mismatch_and_bad_outputs(monkeypa
     )
     assert failed.status_code == 503
     assert "PREVIEW_CONVERSION_UNAVAILABLE" in failed.text
+
+
+def test_profile_requires_worker_identity_and_tenant_binding() -> None:
+    path = "/convert/office-to-pdf/profile"
+    assert client.get(path, headers={"x-amic-tenant-id": TENANT_ID}).status_code in (401, 403)
+    assert client.get(path, headers=_loopback_identity_headers()).status_code == 403
+    response = client.get(
+        path, headers={**_loopback_identity_headers(), "x-amic-tenant-id": TENANT_ID},
+    )
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {"profile_sha256": "c" * 64}
+
+
+def test_changed_profile_is_rejected_before_conversion(monkeypatch) -> None:
+    def unexpected_convert(*args):
+        pytest.fail("converter must not run after profile drift")
+
+    monkeypatch.setattr(convert_router, "convert_office_bytes_to_pdf", unexpected_convert)
+    response = client.post(
+        "/convert/office-to-pdf", data={"tenant_id": TENANT_ID},
+        files={"file": ("source.docx", b"PK input", "application/octet-stream")},
+        headers={**_loopback_identity_headers(), "x-amic-tenant-id": TENANT_ID,
+                 "x-amic-converter-profile": "d" * 64},
+    )
+    assert response.status_code == 503
+    assert "PREVIEW_CONVERSION_UNAVAILABLE" in response.text
+
+
+def test_profile_failure_returns_no_fallback_hash(monkeypatch) -> None:
+    def unavailable():
+        raise DocxToPdfConversionError("private installation detail")
+
+    monkeypatch.setattr(convert_router, "office_converter_profile_sha256", unavailable)
+    response = client.get(
+        "/convert/office-to-pdf/profile",
+        headers={**_loopback_identity_headers(), "x-amic-tenant-id": TENANT_ID},
+    )
+    assert response.status_code == 503
+    assert "profile_sha256" not in response.text
+    assert "private installation detail" not in response.text

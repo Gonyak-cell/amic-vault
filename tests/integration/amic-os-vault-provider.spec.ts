@@ -228,6 +228,7 @@ describe('AMIC OS exact-copy provider integration', () => {
   });
 
   it('queues exact Office preview, preserves its source, streams bounded PDF chunks and denies revoked sessions', async () => {
+    const profile = vi.spyOn(app.get(PreviewConvertJob), 'getProfileSha256').mockResolvedValue('c'.repeat(64));
     const marker = `WEB-PREVIEW-${randomUUID()}`;
     const clientId = await createClient(baseUrl, betaOwnerCookie, marker);
     const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, marker);
@@ -296,6 +297,35 @@ describe('AMIC OS exact-copy provider integration', () => {
     expect(ready.body).toMatchObject({ status: 'ready', exact_version: exact,
       preview: { byte_size: pdf.byteLength, mime_type: 'application/pdf', sha256: createHash('sha256').update(pdf).digest('hex') } });
     expect(ready.text).not.toMatch(/storage_uri|s3:\/\//);
+    const beforeProfileChange = ready.body.preview as { file_object_id: string };
+    profile.mockResolvedValue('d'.repeat(64));
+    const outdated = await request('preview-prepare', { enqueue: false });
+    expect(outdated.body).toMatchObject({ status: 'pending', preview: null, exact_version: exact });
+    expect((await request('preview-sessions')).response.status).toBe(400);
+    expect((await request('preview-prepare', { enqueue: true })).body).toMatchObject({ status: 'pending' });
+    const replacementJob = await withClient(createOwnerClient(), async client => (await client.query<{
+      id: string; data: PreviewPrecreateJobPayload;
+    }>(`SELECT id, data FROM pgboss.job WHERE name = $1 AND singleton_key = $2`,
+    [previewConvertQueueName, exact.version_id])).rows);
+    expect(replacementJob).toHaveLength(1);
+    if (!replacementJob[0]) throw new Error('Replacement preview job missing');
+    const changedConverter = vi.spyOn(app.get(PreviewConvertJob), 'convertOfficeToPdf').mockResolvedValue(pdf);
+    try {
+      await app.get(PreviewPrecreateQueueService).handle(replacementJob[0].data);
+      await app.get(PreviewPrecreateQueueService).handle(replacementJob[0].data);
+      expect(changedConverter).toHaveBeenCalledTimes(1);
+      expect(changedConverter).toHaveBeenCalledWith(expect.objectContaining({
+        body: sourceBytes, converterProfileSha256: 'd'.repeat(64),
+      }));
+    } finally {
+      changedConverter.mockRestore();
+      await withClient(createOwnerClient(), client => client.query(
+        `DELETE FROM pgboss.job WHERE name = $1 AND id = $2`, [previewConvertQueueName, replacementJob[0]?.id],
+      ));
+    }
+    const replaced = await request('preview-prepare', { enqueue: false });
+    expect(replaced.body).toMatchObject({ status: 'ready', exact_version: exact });
+    expect((replaced.body.preview as { file_object_id: string }).file_object_id).not.toBe(beforeProfileChange.file_object_id);
     const stale = await request('preview-sessions', { requested_exact_version: { ...exact, sha256: 'f'.repeat(64) } });
     expect(stale.response.status).toBe(404);
     const issued = await request('preview-sessions');
@@ -326,16 +356,19 @@ describe('AMIC OS exact-copy provider integration', () => {
     expect(await auditCount(uploaded.documentId, 'DOCUMENT_VIEWED')).toBe(1);
     const finalState = await withClient(createOwnerClient(), async client => {
       const versions = await client.query(`SELECT file_object_id FROM document_versions WHERE tenant_id = $1 AND document_id = $2`, [tenantBetaId, exact.document_id]);
-      const artifact = await client.query(`SELECT status, file_object_id FROM document_preview_artifacts WHERE tenant_id = $1 AND version_id = $2`, [tenantBetaId, exact.version_id]);
+      const artifact = await client.query(`SELECT status, file_object_id, source_sha256, converter_profile_sha256
+        FROM document_preview_artifacts WHERE tenant_id = $1 AND version_id = $2`, [tenantBetaId, exact.version_id]);
       await client.query(`UPDATE preview_access_sessions SET revoked_at = now() WHERE tenant_id = $1 AND preview_session_id = $2`, [tenantBetaId, session.previewSessionId]);
       return { versions: versions.rows, artifact: artifact.rows };
     });
     expect(finalState.versions).toEqual([{ file_object_id: exact.file_object_id }]);
-    expect(finalState.artifact).toEqual([{ status: 'ready', file_object_id: (issued.body.preview as { file_object_id: string }).file_object_id }]);
+    expect(finalState.artifact).toEqual([{ status: 'ready', file_object_id: (issued.body.preview as { file_object_id: string }).file_object_id,
+      source_sha256: exact.sha256, converter_profile_sha256: 'd'.repeat(64) }]);
     expect(finalState.artifact[0]?.file_object_id).not.toBe(exact.file_object_id);
     const denied = await request('preview-chunk', { ...chunkRequest, offset: 0 });
     expect(denied.response.status).toBe(404);
     expect(denied.text).not.toMatch(/content_base64|storage_uri/);
+    profile.mockRestore();
   });
 
   it('authorizes one exact promoted version, rejects binding drift before bytes, consumes once, and proves audit readback', async () => {

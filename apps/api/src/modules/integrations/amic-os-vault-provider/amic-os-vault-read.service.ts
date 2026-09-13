@@ -153,15 +153,6 @@ export class AmicOsVaultReadService {
     }
     if (enqueue) {
       await this.auditService.transaction(principal.tenantId, async (tx) => {
-        await tx.query(
-          `INSERT INTO document_preview_artifacts (
-             tenant_id, document_id, version_id, file_object_id, status, failure_reason_code
-           ) VALUES ($1, $2, $3, $4, 'pending', NULL)
-           ON CONFLICT (tenant_id, version_id) DO UPDATE
-             SET status = 'pending', failure_reason_code = NULL, updated_at = now()
-           WHERE document_preview_artifacts.status = 'failed'`,
-          [principal.tenantId, original.document_id, original.version_id, original.file_object_id],
-        );
         await this.previewQueue.enqueueVersionCreated({
           tenantId,
           actorUserId: principal.actorUserId,
@@ -169,6 +160,21 @@ export class AmicOsVaultReadService {
           versionId: original.version_id,
           fileObjectId: original.file_object_id,
         }, tx, true);
+        await tx.query(
+          `INSERT INTO document_preview_artifacts (
+             tenant_id, document_id, version_id, file_object_id, status, failure_reason_code,
+             source_sha256, converter_profile_sha256
+           ) VALUES ($1, $2, $3, $4, 'pending', NULL, $5, $6)
+           ON CONFLICT (tenant_id, version_id) DO UPDATE
+             SET status = 'pending', failure_reason_code = NULL, updated_at = now(),
+               source_sha256 = EXCLUDED.source_sha256,
+               converter_profile_sha256 = EXCLUDED.converter_profile_sha256
+           WHERE document_preview_artifacts.status = 'failed'
+             OR document_preview_artifacts.source_sha256 IS DISTINCT FROM EXCLUDED.source_sha256
+             OR document_preview_artifacts.converter_profile_sha256 IS DISTINCT FROM EXCLUDED.converter_profile_sha256`,
+          [principal.tenantId, original.document_id, original.version_id, original.file_object_id,
+            original.sha256, prepared.converterProfileSha256],
+        );
       });
     }
     return { ...this.previewAuthority(input), status: enqueue ? 'pending' as const : prepared.status, preview: null };

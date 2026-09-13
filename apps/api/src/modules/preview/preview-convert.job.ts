@@ -51,15 +51,44 @@ export async function readPreviewBytes(
 export class PreviewConvertJob {
   readonly queueName = previewConvertQueueName;
 
+  async getProfileSha256(tenantId: string): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PREVIEW_CONVERT_TIMEOUT_MS);
+    let response: Response | undefined;
+    try {
+      response = await fetchIngestionWorker('/convert/office-to-pdf/profile', {
+        method: 'GET', headers: { 'x-amic-tenant-id': tenantId }, signal: controller.signal,
+      });
+      if (!response.ok || response.headers.get('content-type')?.split(';', 1)[0]?.trim() !== 'application/json'
+          || !response.body) throw new PreviewConversionUnavailableError();
+      const bytes = await readPreviewBytes(
+        Readable.fromWeb(response.body as unknown as NodeReadableStream<Uint8Array>), 4096,
+      );
+      const profile: unknown = JSON.parse(bytes.toString('utf8'));
+      if (!profile || typeof profile !== 'object' || !('profile_sha256' in profile)
+          || Object.keys(profile).length !== 1 || typeof profile.profile_sha256 !== 'string'
+          || !/^[a-f0-9]{64}$/u.test(profile.profile_sha256)) throw new PreviewConversionUnavailableError();
+      return profile.profile_sha256;
+    } catch {
+      await response?.body?.cancel().catch(() => undefined);
+      throw new PreviewConversionUnavailableError();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
   async convertOfficeToPdf(input: {
     tenantId: string;
     filename: string;
     contentType: string;
     body: Buffer;
+    converterProfileSha256?: string;
   }): Promise<Buffer> {
     if (input.body.byteLength < 1 || input.body.byteLength > PREVIEW_MAX_INPUT_BYTES) {
       throw new PreviewConversionUnavailableError();
     }
+    const profile = input.converterProfileSha256 ?? await this.getProfileSha256(input.tenantId);
+    if (!/^[a-f0-9]{64}$/u.test(profile)) throw new PreviewConversionUnavailableError();
     const form = new FormData();
     form.append('tenant_id', input.tenantId);
     form.append(
@@ -74,13 +103,14 @@ export class PreviewConvertJob {
     try {
       response = await fetchIngestionWorker('/convert/office-to-pdf', {
         method: 'POST',
-        headers: { 'x-amic-tenant-id': input.tenantId },
+        headers: { 'x-amic-tenant-id': input.tenantId, 'x-amic-converter-profile': profile },
         body: form,
         signal: controller.signal,
       });
       const contentType = (response.headers.get('content-type') ?? '')
         .split(';', 1)[0]?.trim().toLowerCase();
-      if (!response.ok || contentType !== 'application/pdf' || !response.body) {
+      if (!response.ok || contentType !== 'application/pdf' || !response.body
+          || response.headers.get('x-amic-converter-profile') !== profile) {
         throw new PreviewConversionUnavailableError();
       }
       const declaredLength = response.headers.get('content-length');
