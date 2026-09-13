@@ -152,9 +152,10 @@ describe('PreviewConvertJob', () => {
       ? Response.json({ profile_sha256: officeInput.converterProfileSha256 })
       : new Response('%PDF-1.7\npreview', { headers: {
         'content-type': 'application/pdf', 'x-amic-converter-profile': officeInput.converterProfileSha256,
-      } }));
+    } }));
     vi.stubGlobal('fetch', fetchMock);
-    await expect(new PreviewConvertJob().convertOfficeToPdf({ ...officeInput, converterProfileSha256: undefined }))
+    const { tenantId, filename, contentType, body } = officeInput;
+    await expect(new PreviewConvertJob().convertOfficeToPdf({ tenantId, filename, contentType, body }))
       .resolves.toEqual(Buffer.from('%PDF-1.7\npreview'));
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://127.0.0.1:8000/convert/office-to-pdf/profile',
       expect.objectContaining({ method: 'GET', headers: expect.objectContaining({

@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/convert/office-to-pdf/profile")
-def office_to_pdf_profile(
+async def office_to_pdf_profile(
     response: Response,
     x_amic_tenant_id: Annotated[str | None, Header(alias="x-amic-tenant-id")] = None,
 ) -> dict[str, str]:
