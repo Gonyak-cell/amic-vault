@@ -25,6 +25,7 @@ const scanId = '88888888-8888-4888-8888-888888888888';
 const documentId = '99999999-9999-4999-8999-999999999999';
 const versionId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const fileObjectId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const liveClientId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const accountLedgerId = 'user_amic_jwsuh';
 const operationId = `vaultop_${'1'.repeat(32)}`;
 const correlationId = `vaultcorr_${'2'.repeat(32)}`;
@@ -62,7 +63,7 @@ async function uploadedFile(): Promise<UploadedDiskFile> {
   };
 }
 
-function createHarness() {
+function createHarness({ existingMatter = true } = {}) {
   let preflightAudit: {
     event_id: string;
     created_at: Date;
@@ -72,14 +73,35 @@ function createHarness() {
   let operationFingerprint: string | null = null;
   let idempotencyHash: string | null = null;
   let uploadState: 'quarantined' | 'scanning' | 'infected' | 'security_hold' | 'error' | 'promoted' = 'quarantined';
+  let matterProjected = existingMatter;
+  let clientProjected = existingMatter;
 
   const query = vi.fn(async (sql: string, parameters: unknown[] = []) => {
     if (sql.includes('pg_advisory_xact_lock')) return { rowCount: 1, rows: [{}] };
     if (sql.includes('FROM matters') && sql.includes('metadata_json')) {
+      return matterProjected ? {
+        rowCount: 1,
+        rows: [{ matter_id: matterId, client_id: liveClientId, status: 'active', legal_hold: false, metadata_json: {} }],
+      } : { rowCount: 0, rows: [] };
+    }
+    if (sql.includes('FROM clients') && sql.includes('metadata_json')) {
+      return clientProjected
+        ? { rowCount: 1, rows: [{ client_id: liveClientId }] }
+        : { rowCount: 0, rows: [] };
+    }
+    if (sql.includes('INSERT INTO clients')) {
+      clientProjected = true;
+      return { rowCount: 1, rows: [{ client_id: liveClientId }] };
+    }
+    if (sql.includes('INSERT INTO matters')) {
+      matterProjected = true;
       return {
         rowCount: 1,
-        rows: [{ matter_id: matterId, status: 'active', legal_hold: false }],
+        rows: [{ matter_id: matterId, client_id: liveClientId, status: 'active', legal_hold: false }],
       };
+    }
+    if (sql.includes('INSERT INTO matter_members')) {
+      return { rowCount: 1, rows: [{ matter_id: matterId }] };
     }
     if (sql.includes('FROM workspaces')) {
       return { rowCount: 1, rows: [{ workspace_id: workspaceId }] };
@@ -156,13 +178,15 @@ function createHarness() {
   const tx = { query };
   const auditService = {
     transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)),
-    log: vi.fn(async (entry: { metadata: Record<string, unknown> }) => {
-      preflightAudit = {
-        event_id: preflightAuditEventId,
-        created_at: new Date(),
-        correlation_id: String(entry.metadata.correlation_id),
-        metadata_json: entry.metadata,
-      };
+    log: vi.fn(async (entry: { action: string; targetType: string; metadata: Record<string, unknown> }) => {
+      if (entry.targetType === 'amic_os_vault_upload_preflight') {
+        preflightAudit = {
+          event_id: preflightAuditEventId,
+          created_at: new Date(),
+          correlation_id: String(entry.metadata.correlation_id),
+          metadata_json: entry.metadata,
+        };
+      }
       return { eventId: preflightAuditEventId };
     }),
   };
@@ -292,6 +316,50 @@ describe('AmicOsVaultUploadService', () => {
     })).rejects.toMatchObject({
       response: { reason: 'VAULT_UPLOAD_PREFLIGHT_CONFLICT' },
     });
+  });
+
+  it('reflects one authenticated live LawOS Matter and grants only its current actor edit access', async () => {
+    const { auditService, matterSourcePolicy, query, service } = createHarness({ existingMatter: false });
+    const input: AmicOsVaultUploadPreflightInput = {
+      ...preflightInput(),
+      matter_projection: {
+        lawos_client_id: 'lawos-client-live-1',
+        client_display_name: 'AMIC Web QA',
+        matter_code: null,
+        matter_name: 'Web upload verification',
+        matter_status: 'open',
+        source_revision: 'lawos-live-matter-projection-v1',
+        source_updated_at: new Date().toISOString(),
+      },
+    };
+
+    await expect(service.preflight(principal, input)).resolves.toMatchObject({
+      resolved: {
+        vault_matter_id: matterId,
+        vault_actor_id: actorUserId,
+      },
+    });
+    expect(query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO clients'))).toBe(true);
+    expect(query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO matters'))).toBe(true);
+    expect(query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO matter_members'))).toBe(true);
+    expect(auditService.log.mock.calls.map(([entry]) => entry.action)).toEqual([
+      'CLIENT_CREATED',
+      'MATTER_CREATED',
+      'MATTER_MEMBER_ADDED',
+      'PERMISSION_CHANGED',
+      'OUTLOOK_DOCUMENT_INSERT_REQUESTED',
+    ]);
+    expect(matterSourcePolicy.assertUploadMutationAllowed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId,
+        matterId,
+        authoritativeSource: {
+          mode: 'matter_app_api',
+          sourceRevision: 'lawos-live-matter-projection-v1',
+          sourceUpdatedAt: input.matter_projection?.source_updated_at,
+        },
+      }),
+    );
   });
 
   it('binds one multipart commit to the preflight, account, operation, bytes, and idempotency key', async () => {

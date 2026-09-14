@@ -17,7 +17,10 @@ import {
   QuarantineIntakeService,
   type BoundQuarantineIntakeResult,
 } from '../../file-security/quarantine-intake.service';
-import { MatterSourcePolicyService } from '../matter-app/matter-source-policy';
+import {
+  MatterSourcePolicyService,
+  type AuthoritativeMatterAppSource,
+} from '../matter-app/matter-source-policy';
 import { StorageService } from '../../storage/storage.service';
 import { TenantContextService } from '../../tenant/tenant-context';
 import type {
@@ -27,6 +30,7 @@ import type {
   AmicOsVaultUploadCompleteInput,
   AmicOsVaultUploadDecisions,
   AmicOsVaultUploadFingerprint,
+  AmicOsVaultLiveMatterProjection,
   AmicOsVaultUploadOperationKind,
   AmicOsVaultUploadPreflight,
   AmicOsVaultUploadPreflightInput,
@@ -50,6 +54,8 @@ const uuidNamespace = '89a6d751-46f5-5bd7-9309-17b23927c160';
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 interface MatterRow {
+  client_id?: string;
+  metadata_json?: Record<string, unknown>;
   matter_id: string;
   status: string;
   legal_hold: boolean;
@@ -199,12 +205,49 @@ function preflightRequestHash(
     principal.accountLedgerId,
     input.principal.tenant_id,
     input.lawos_matter_id,
+    input.matter_projection ?? null,
     input.requested_workspace_id,
     input.requested_folder_id,
     input.source ?? null,
     input.operation_id,
     input.correlation_id,
   ]);
+}
+
+function authoritativeSource(
+  projection: AmicOsVaultLiveMatterProjection | undefined,
+): AuthoritativeMatterAppSource | undefined {
+  return projection ? {
+    mode: 'matter_app_api',
+    sourceRevision: projection.source_revision,
+    sourceUpdatedAt: projection.source_updated_at,
+  } : undefined;
+}
+
+function auditedAuthoritativeSource(
+  value: unknown,
+  operationExpiresAt: string,
+): AuthoritativeMatterAppSource | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw stateConflict('VAULT_UPLOAD_SOURCE_AUTHORITY_INVALID');
+  }
+  const source = value as Record<string, unknown>;
+  const keys = Object.keys(source).sort();
+  if (
+    keys.join('\0') !== ['mode', 'sourceRevision', 'sourceUpdatedAt'].sort().join('\0')
+    || source.mode !== 'matter_app_api'
+    || typeof source.sourceRevision !== 'string'
+    || typeof source.sourceUpdatedAt !== 'string'
+  ) {
+    throw stateConflict('VAULT_UPLOAD_SOURCE_AUTHORITY_INVALID');
+  }
+  return {
+    mode: 'matter_app_api',
+    operationExpiresAt,
+    sourceRevision: source.sourceRevision,
+    sourceUpdatedAt: source.sourceUpdatedAt,
+  };
 }
 
 function preflightBindingHash(
@@ -322,8 +365,14 @@ export class AmicOsVaultUploadService {
         await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
           `${principal.tenantId}:${targetId}`,
         ]);
-        const matter = await this.resolveLawosMatter(tx, principal.tenantId, input.lawos_matter_id);
-        const decisions = await this.evaluateUploadPolicy(principal, matter);
+        const matter = await this.resolveLawosMatter(
+          tx,
+          principal,
+          input.lawos_matter_id,
+          input.matter_projection,
+        );
+        const sourceAuthority = authoritativeSource(input.matter_projection);
+        const decisions = await this.evaluateUploadPolicy(principal, matter, sourceAuthority);
         const resolved: AmicOsVaultUploadResolvedBinding = {
           vault_tenant_id: principal.tenantId,
           vault_actor_id: principal.actorUserId,
@@ -386,6 +435,7 @@ export class AmicOsVaultUploadService {
                 scope_id: resolved.vault_workspace_id,
                 folder_ref_hash: sha256(resolved.vault_folder_id ?? 'root'),
                 expires_at: expiresAt,
+                ...(sourceAuthority ? { matter_source_authority: sourceAuthority } : {}),
                 ...(input.source ? { message_hash: input.source.ref_sha256 } : {}),
               },
             },
@@ -658,7 +708,7 @@ export class AmicOsVaultUploadService {
       throw stateConflict('VAULT_UPLOAD_EXPECTED_MISMATCH');
     }
     this.assertCommitIdentity(principal, input);
-    await this.assertPreflightAudit(
+    const sourceAuthority = await this.assertPreflightAudit(
       principal,
       input.preflight,
       input.operation.operation_id,
@@ -715,7 +765,7 @@ export class AmicOsVaultUploadService {
         matter_id: state.matter_id,
         status: state.matter_status,
         legal_hold: state.matter_legal_hold,
-      });
+      }, sourceAuthority);
       if (state.state !== 'promoted') {
         return {
           authority_kind: 'amic-vault-api' as const,
@@ -801,12 +851,16 @@ export class AmicOsVaultUploadService {
 
   private async resolveLawosMatter(
     tx: QueryClient,
-    tenantId: string,
+    principal: AmicOsVaultProviderPrincipal,
     lawosMatterId: string,
+    projection: AmicOsVaultLiveMatterProjection | undefined,
   ): Promise<MatterRow> {
+    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+      `${principal.tenantId}:lawos-matter:${lawosMatterId}`,
+    ]);
     const result = await tx.query(
       `
-        SELECT matter_id, status, legal_hold
+        SELECT matter_id, client_id, status, legal_hold, metadata_json
         FROM matters
         WHERE tenant_id = $1::uuid
           AND (
@@ -816,19 +870,208 @@ export class AmicOsVaultUploadService {
         ORDER BY matter_id
         LIMIT 2
       `,
-      [tenantId, lawosMatterId],
+      [principal.tenantId, lawosMatterId],
     );
     const rows = result.rows as MatterRow[];
-    if (rows.length !== 1 || !rows[0]) throw permissionDenied();
-    return rows[0];
+    if (rows.length > 1) throw permissionDenied();
+    const existing = rows[0];
+    if (existing) {
+      const mappedClientId = existing.metadata_json?.lawosClientId
+        ?? existing.metadata_json?.matterAppClientId;
+      if (
+        projection
+        && typeof mappedClientId === 'string'
+        && mappedClientId !== projection.lawos_client_id
+      ) {
+        throw permissionDenied();
+      }
+      if (projection && existing.metadata_json?.source_ref === 'lawos_live_provider_projection') {
+        await this.ensureLiveMatterMember(tx, principal, existing.matter_id, false);
+      }
+      return existing;
+    }
+    if (!projection) throw permissionDenied();
+
+    const clientId = await this.resolveLiveLawosClient(tx, principal, projection);
+    const matterCode = `LAWOS-LIVE-${sha256(lawosMatterId).slice(0, 32)}`;
+    const metadata = {
+      lawosClientId: projection.lawos_client_id,
+      lawosMatterId,
+      matterAppClientId: projection.lawos_client_id,
+      matterAppMatterId: lawosMatterId,
+      matterAppSourceRevision: projection.source_revision,
+      matterAppSourceUpdatedAt: projection.source_updated_at,
+      sourceRevision: projection.source_revision,
+      source_ref: 'lawos_live_provider_projection',
+      ...(projection.matter_code ? { lawosMatterCode: projection.matter_code } : {}),
+    };
+    const inserted = await tx.query(
+      `
+        INSERT INTO matters (
+          tenant_id, client_id, matter_code, matter_name, matter_type, status,
+          opened_at, lead_lawyer_id, confidentiality_level, metadata_json,
+          created_by, access_scope
+        )
+        VALUES (
+          $1::uuid, $2::uuid, $3, $4, 'other', $5,
+          $6::timestamptz, $7::uuid, 'standard', $8::jsonb,
+          $7::uuid, 'restricted'
+        )
+        RETURNING matter_id, client_id, status, legal_hold, metadata_json
+      `,
+      [
+        principal.tenantId,
+        clientId,
+        matterCode,
+        projection.matter_name,
+        projection.matter_status === 'open' ? 'active' : 'proposed',
+        projection.matter_status === 'open' ? projection.source_updated_at : null,
+        principal.actorUserId,
+        JSON.stringify(metadata),
+      ],
+    );
+    const matter = inserted.rows[0] as MatterRow | undefined;
+    if (!matter) throw permissionDenied();
+    await this.auditService.log({
+      tenantId: principal.tenantId,
+      actorId: principal.actorUserId,
+      action: 'MATTER_CREATED',
+      targetType: 'matter',
+      targetId: matter.matter_id,
+      matterId: matter.matter_id,
+      metadata: {
+        source_ref: 'lawos_live_provider_projection',
+        lawos_matter_id_sha256: sha256(lawosMatterId),
+        lawos_client_id_sha256: sha256(projection.lawos_client_id),
+      },
+    }, tx);
+    await this.ensureLiveMatterMember(tx, principal, matter.matter_id, true);
+    return matter;
+  }
+
+  private async resolveLiveLawosClient(
+    tx: QueryClient,
+    principal: AmicOsVaultProviderPrincipal,
+    projection: AmicOsVaultLiveMatterProjection,
+  ): Promise<string> {
+    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+      `${principal.tenantId}:lawos-client:${projection.lawos_client_id}`,
+    ]);
+    const existing = await tx.query(
+      `
+        SELECT client_id
+        FROM clients
+        WHERE tenant_id = $1::uuid
+          AND (
+            metadata_json ->> 'lawosClientId' = $2
+            OR metadata_json ->> 'matterAppClientId' = $2
+          )
+        ORDER BY client_id
+        LIMIT 2
+      `,
+      [principal.tenantId, projection.lawos_client_id],
+    );
+    const rows = existing.rows as Array<{ client_id: string }>;
+    if (rows.length > 1) throw permissionDenied();
+    if (rows[0]?.client_id) return rows[0].client_id;
+
+    const metadata = {
+      lawosClientId: projection.lawos_client_id,
+      matterAppClientId: projection.lawos_client_id,
+      matterAppClientSourceRevision: projection.source_revision,
+      sourceRevision: projection.source_revision,
+      source_ref: 'lawos_live_provider_projection',
+    };
+    const inserted = await tx.query(
+      `
+        INSERT INTO clients (
+          tenant_id, name, client_type, confidentiality_level, status, metadata_json, created_by
+        )
+        VALUES ($1::uuid, $2, 'other', 'standard', 'active', $3::jsonb, $4::uuid)
+        RETURNING client_id
+      `,
+      [
+        principal.tenantId,
+        projection.client_display_name,
+        JSON.stringify(metadata),
+        principal.actorUserId,
+      ],
+    );
+    const clientId = (inserted.rows[0] as { client_id?: string } | undefined)?.client_id;
+    if (!clientId) throw permissionDenied();
+    await this.auditService.log({
+      tenantId: principal.tenantId,
+      actorId: principal.actorUserId,
+      action: 'CLIENT_CREATED',
+      targetType: 'client',
+      targetId: clientId,
+      metadata: {
+        source_ref: 'lawos_live_provider_projection',
+        lawos_client_id_sha256: sha256(projection.lawos_client_id),
+      },
+    }, tx);
+    return clientId;
+  }
+
+  private async ensureLiveMatterMember(
+    tx: QueryClient,
+    principal: AmicOsVaultProviderPrincipal,
+    matterId: string,
+    owner: boolean,
+  ): Promise<void> {
+    const role = owner ? 'owner' : 'member';
+    const inserted = await tx.query(
+      `
+        INSERT INTO matter_members (
+          tenant_id, matter_id, user_id, matter_role, access_level, added_by
+        )
+        VALUES ($1::uuid, $2::uuid, $3::uuid, $4, 'edit', $3::uuid)
+        ON CONFLICT (matter_id, user_id) DO NOTHING
+        RETURNING matter_id
+      `,
+      [principal.tenantId, matterId, principal.actorUserId, role],
+    );
+    if (!inserted.rows[0]) return;
+    await this.auditService.log({
+      tenantId: principal.tenantId,
+      actorId: principal.actorUserId,
+      action: 'MATTER_MEMBER_ADDED',
+      targetType: 'matter',
+      targetId: matterId,
+      matterId,
+      metadata: {
+        matter_id: matterId,
+        member_user_id: principal.actorUserId,
+        role_after: role,
+        source_ref: 'lawos_live_provider_projection',
+      },
+    }, tx);
+    await this.auditService.log({
+      tenantId: principal.tenantId,
+      actorId: principal.actorUserId,
+      action: 'PERMISSION_CHANGED',
+      targetType: 'matter',
+      targetId: matterId,
+      matterId,
+      metadata: {
+        matter_id: matterId,
+        member_user_id: principal.actorUserId,
+        before_ref: 'none',
+        after_ref: `${role}:edit`,
+        reason_code: 'lawos_live_provider_member_added',
+        source_ref: 'lawos_live_provider_projection',
+      },
+    }, tx);
   }
 
   private async evaluateUploadPolicy(
     principal: AmicOsVaultProviderPrincipal,
     matter: MatterRow,
+    sourceAuthority?: AuthoritativeMatterAppSource,
   ): Promise<AmicOsVaultUploadDecisions> {
     const source = await this.matterSourcePolicy.assertUploadMutationAllowed({
       actorUserId: principal.actorUserId,
+      ...(sourceAuthority ? { authoritativeSource: sourceAuthority } : {}),
       matterId: matter.matter_id,
       tenantId: principal.tenantId as TenantId,
       purpose: 'document_upload',
@@ -932,7 +1175,7 @@ export class AmicOsVaultUploadService {
     expectedRequestKind: string,
     sourceRefSha256: string | null,
     allowSourceOmission = false,
-  ): Promise<void> {
+  ): Promise<AuthoritativeMatterAppSource | undefined> {
     const targetId = preflightTargetId(principal.tenantId, operationId);
     const expectedPreflightRef = preflightRef(principal.tenantId, operationId);
     if (
@@ -947,7 +1190,7 @@ export class AmicOsVaultUploadService {
       throw stateConflict('VAULT_UPLOAD_PREFLIGHT_IDENTITY_MISMATCH');
     }
     const bindingHash = preflightBindingHash(preflight.resolved, preflight.decisions);
-    await this.auditService.transaction(principal.tenantId, async (tx) => {
+    return this.auditService.transaction(principal.tenantId, async (tx) => {
       const result = await tx.query(
         `
           SELECT correlation_id, metadata_json
@@ -987,6 +1230,7 @@ export class AmicOsVaultUploadService {
       ) {
         throw stateConflict('VAULT_UPLOAD_PREFLIGHT_AUDIT_MISMATCH');
       }
+      return auditedAuthoritativeSource(metadata?.matter_source_authority, preflight.expires_at);
     });
   }
 

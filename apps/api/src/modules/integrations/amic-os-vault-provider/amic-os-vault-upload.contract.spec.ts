@@ -76,6 +76,15 @@ describe('AMIC OS Vault upload contract', () => {
     expect(parseAmicOsVaultUploadPreflightInput({
       principal: { tenant_id: 'lawos-tenant', user_id: ' USER_AMIC_JWSUH ' },
       lawos_matter_id: 'lawos-matter-1',
+      matter_projection: {
+        lawos_client_id: 'lawos-client-1',
+        client_display_name: 'AMIC Web QA',
+        matter_code: null,
+        matter_name: 'Web upload verification',
+        matter_status: 'open',
+        source_revision: 'lawos-live-matter-projection-v1',
+        source_updated_at: '2026-09-14T06:00:00.000Z',
+      },
       requested_workspace_id: null,
       requested_folder_id: null,
       operation_id: operationId,
@@ -83,6 +92,10 @@ describe('AMIC OS Vault upload contract', () => {
       request_id: 'request-1',
     })).toMatchObject({
       principal: { tenant_id: 'lawos-tenant', user_id: 'user_amic_jwsuh' },
+      matter_projection: expect.objectContaining({
+        lawos_client_id: 'lawos-client-1',
+        matter_status: 'open',
+      }),
       requested_workspace_id: null,
       requested_folder_id: null,
     });
