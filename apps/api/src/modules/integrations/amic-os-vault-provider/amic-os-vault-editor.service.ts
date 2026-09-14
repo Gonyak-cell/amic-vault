@@ -310,7 +310,20 @@ export class AmicOsVaultEditorService {
     }
 
     if (!input.close) return state;
-    if (state.save?.state === 'committed') return state;
+    if (state.save?.state === 'committed' && state.save.subversion_id) {
+      await this.editingService.promote(
+        principal.actorUserId,
+        target.document_id,
+        state.save.subversion_id,
+        {
+          expectedBaseVersionId: input.requested_exact_version.version_id,
+          publishReasonCode: 'AMIC_OS_OFFICE_SAVE',
+          versionSignificance: 'internal_draft',
+          idempotencyKey: `office:${input.client_save_id}`,
+        },
+      );
+      return this.status(principal, { ...input, client_save_id: input.client_save_id });
+    }
     if (!state.save?.subversion_id) throw conflict('subversion_required');
     if (state.state === 'active') {
       await this.editingService.checkIn(

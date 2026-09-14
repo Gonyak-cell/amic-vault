@@ -7,6 +7,7 @@ import { TextDecoder } from 'node:util';
 import {
   BadRequestException,
   ForbiddenException,
+  forwardRef,
   Inject,
   Injectable,
   Logger,
@@ -62,6 +63,10 @@ import {
 } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
+import {
+  FileSecurityService,
+  type DocumentEditSecurityBinding,
+} from '../file-security/file-security.service';
 import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -525,6 +530,8 @@ export class DocumentEditingService {
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(VersionNumberResolver) private readonly versionNumberResolver: VersionNumberResolver,
+    @Inject(forwardRef(() => FileSecurityService))
+    private readonly fileSecurityService: FileSecurityService,
     @Optional()
     @Inject(ExtractionQueueService)
     private readonly extractionQueue?: ExtractionQueueService,
@@ -1754,6 +1761,20 @@ export class DocumentEditingService {
     input: PromoteDocumentSubversionDto,
   ): Promise<PromoteDocumentSubversionResponseDto> {
     const context = this.tenantContext.require();
+    await this.assertAllowed(
+      this.permissionService.canPromoteDocumentVersion.bind(this.permissionService),
+      context.tenantId,
+      actorUserId,
+      documentId,
+    );
+    const securityBinding: DocumentEditSecurityBinding =
+      await this.fileSecurityService.prepareDocumentEditPromotion({
+        tenantId: context.tenantId,
+        actorUserId,
+        documentId,
+        subversionId,
+        expectedBaseVersionId: input.expectedBaseVersionId,
+      });
     const result = await this.auditService.transaction(context.tenantId, async (tx) => {
       const subversion = await this.findSubversionForPromotion(
         context.tenantId,
@@ -1779,6 +1800,28 @@ export class DocumentEditingService {
           tx,
         );
         if (!promotedVersion) throw validationFailed('promotion_conflict');
+        const securityReceiptCreated = await this.fileSecurityService.bindDocumentEditPromotion(
+          {
+            binding: securityBinding,
+            documentId,
+            versionId: promotedVersion.version_id,
+            fileObjectId: promotedVersion.file_object_id,
+            sha256: promotedVersion.file_hash,
+            actorUserId,
+          },
+          tx as PoolClient,
+        );
+        if (securityReceiptCreated) {
+          await this.extractionQueue?.enqueueVersionCreated(
+            {
+              tenantId: context.tenantId,
+              documentId,
+              versionId: promotedVersion.version_id,
+              fileObjectId: promotedVersion.file_object_id,
+            },
+            tx,
+          );
+        }
         return {
           response: mapPromotionResponse(documentId, subversionId, promotedVersion),
         };
@@ -1865,6 +1908,17 @@ export class DocumentEditingService {
       );
       const version = inserted.rows[0] as PromotionVersionRow | undefined;
       if (!version) throw new Error('promoted document version insert returned no row');
+      await this.fileSecurityService.bindDocumentEditPromotion(
+        {
+          binding: securityBinding,
+          documentId,
+          versionId: version.version_id,
+          fileObjectId: version.file_object_id,
+          sha256: version.file_hash,
+          actorUserId,
+        },
+        tx as PoolClient,
+      );
       await this.extractionQueue?.enqueueVersionCreated(
         {
           tenantId: context.tenantId,
