@@ -471,7 +471,7 @@ export class AmicOsVaultUploadService {
   ): Promise<AmicOsVaultUploadCommit> {
     this.assertPrincipal(principal, input.principal.user_id);
     const file = this.assertUploadedFile(uploadedFile, input.file);
-    await this.assertPreflightAudit(
+    const sourceAuthority = await this.assertPreflightAudit(
       principal,
       input.preflight,
       input.operation.operation_id,
@@ -493,6 +493,7 @@ export class AmicOsVaultUploadService {
     const idempotencyHash = sha256(input.operation.idempotency_key);
     const accepted: BoundQuarantineIntakeResult = await this.quarantineIntake.intakeBound({
       actorUserId: principal.actorUserId,
+      ...(sourceAuthority ? { authoritativeMatterSource: sourceAuthority } : {}),
       matterId: input.preflight.resolved.vault_matter_id,
       fields: promotionFields(
         input.operation.operation_kind,
@@ -616,7 +617,7 @@ export class AmicOsVaultUploadService {
     if (input.transfer.transfer_ref !== transferRef(principal.tenantId, input.operation.operation_id)) {
       throw stateConflict('VAULT_UPLOAD_TRANSFER_MISMATCH');
     }
-    await this.assertPreflightAudit(
+    const sourceAuthority = await this.assertPreflightAudit(
       principal,
       input.preflight,
       input.operation.operation_id,
@@ -637,6 +638,7 @@ export class AmicOsVaultUploadService {
     );
     const accepted = await this.quarantineIntake.intakeBoundStored({
       actorUserId: principal.actorUserId,
+      ...(sourceAuthority ? { authoritativeMatterSource: sourceAuthority } : {}),
       matterId: input.preflight.resolved.vault_matter_id,
       fields: promotionFields('save_local_file', input.preflight.resolved.vault_folder_id),
       file: {

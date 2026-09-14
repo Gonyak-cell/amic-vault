@@ -18,7 +18,10 @@ import type {
   UploadDocumentFieldsDto,
 } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../audit/audit.service';
-import { MatterSourcePolicyService } from '../integrations/matter-app/matter-source-policy';
+import {
+  MatterSourcePolicyService,
+  type AuthoritativeMatterAppSource,
+} from '../integrations/matter-app/matter-source-policy';
 import { PermissionService } from '../permission/permission.service';
 import { StorageObjectAlreadyExistsError } from '../storage/storage-adapter.interface';
 import { StorageService } from '../storage/storage.service';
@@ -62,11 +65,13 @@ export interface BoundQuarantineBinding {
 }
 
 export interface BoundQuarantineIntakeInput extends QuarantineIntakeInput {
+  authoritativeMatterSource?: AuthoritativeMatterAppSource;
   binding: BoundQuarantineBinding;
 }
 
 export interface BoundStoredQuarantineIntakeInput {
   actorUserId: string;
+  authoritativeMatterSource?: AuthoritativeMatterAppSource;
   matterId: string;
   fields: UploadDocumentFieldsDto;
   sourceSystem?: 'upload' | 'email_ingest' | 'migration';
@@ -260,7 +265,12 @@ export class QuarantineIntakeService {
 
     let createdStorageUri: string | null = null;
     try {
-      const prepared = await this.prepareFile(context.tenantId, input, file);
+      const prepared = await this.prepareFile(
+        context.tenantId,
+        input,
+        file,
+        input.authoritativeMatterSource,
+      );
       if (prepared.expectedSha256 !== binding.expectedSha256) {
         throw validationFailed('BOUND_QUARANTINE_HASH_MISMATCH');
       }
@@ -429,6 +439,7 @@ export class QuarantineIntakeService {
       input.actorUserId,
       input.matterId,
       input.fields.uploadPreflightRef,
+      input.authoritativeMatterSource,
     );
     const originalFilename = normalizeTransportFilename(input.file.originalFilename);
     const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
@@ -585,6 +596,7 @@ export class QuarantineIntakeService {
     tenantId: TenantId,
     input: QuarantineIntakeInput,
     file: UploadedDiskFile,
+    authoritativeMatterSource?: AuthoritativeMatterAppSource,
   ): Promise<PreparedQuarantineFile> {
     const sourceSystem = input.sourceSystem ?? 'upload';
     this.fileSizeValidator.validate(file.size, { sourceSystem });
@@ -593,6 +605,7 @@ export class QuarantineIntakeService {
       input.actorUserId,
       input.matterId,
       input.fields.uploadPreflightRef,
+      authoritativeMatterSource,
     );
     const originalFilename = normalizeTransportFilename(file.originalname);
     const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
@@ -793,9 +806,13 @@ export class QuarantineIntakeService {
     actorUserId: string,
     matterId: string,
     uploadPreflightRef: string | undefined,
+    authoritativeMatterSource?: AuthoritativeMatterAppSource,
   ): Promise<void> {
     await this.matterSourcePolicy.assertUploadMutationAllowed({
       actorUserId,
+      ...(authoritativeMatterSource
+        ? { authoritativeSource: authoritativeMatterSource }
+        : {}),
       matterId,
       tenantId,
       purpose: 'document_upload',

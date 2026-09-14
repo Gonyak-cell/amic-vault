@@ -364,7 +364,19 @@ describe('AmicOsVaultUploadService', () => {
 
   it('binds one multipart commit to the preflight, account, operation, bytes, and idempotency key', async () => {
     const { quarantineIntake, service } = createHarness();
-    const preflight = await service.preflight(principal, preflightInput());
+    const sourceUpdatedAt = new Date().toISOString();
+    const preflight = await service.preflight(principal, {
+      ...preflightInput(),
+      matter_projection: {
+        lawos_client_id: 'lawos-client-live-1',
+        client_display_name: 'AMIC Web QA',
+        matter_code: null,
+        matter_name: 'Web upload verification',
+        matter_status: 'open',
+        source_revision: 'lawos-live-matter-projection-v1',
+        source_updated_at: sourceUpdatedAt,
+      },
+    });
     const file = await uploadedFile();
     const commit = await service.commit(principal, {
       principal: { tenant_id: 'lawos-tenant', user_id: accountLedgerId },
@@ -398,6 +410,12 @@ describe('AmicOsVaultUploadService', () => {
     expect(quarantineIntake.intakeBound).toHaveBeenCalledWith(
       expect.objectContaining({
         actorUserId,
+        authoritativeMatterSource: {
+          mode: 'matter_app_api',
+          operationExpiresAt: preflight.expires_at,
+          sourceRevision: 'lawos-live-matter-projection-v1',
+          sourceUpdatedAt,
+        },
         matterId,
         binding: expect.objectContaining({
           quarantineRef: amicOsVaultUploadDeterministicRefs.quarantineRef(tenantId, operationId),
@@ -412,7 +430,19 @@ describe('AmicOsVaultUploadService', () => {
 
   it('prepares direct quarantine ingress and completes from metadata without API file bytes', async () => {
     const { quarantineIntake, service, storageService } = createHarness();
-    const preflight = await service.preflight(principal, preflightInput());
+    const sourceUpdatedAt = new Date().toISOString();
+    const preflight = await service.preflight(principal, {
+      ...preflightInput(),
+      matter_projection: {
+        lawos_client_id: 'lawos-client-live-1',
+        client_display_name: 'AMIC Web QA',
+        matter_code: null,
+        matter_name: 'Web upload verification',
+        matter_status: 'open',
+        source_revision: 'lawos-live-matter-projection-v1',
+        source_updated_at: sourceUpdatedAt,
+      },
+    });
     const operation = {
       operation_id: operationId,
       correlation_id: correlationId,
@@ -469,6 +499,12 @@ describe('AmicOsVaultUploadService', () => {
     expect(quarantineIntake.intakeBoundStored).toHaveBeenCalledWith(
       expect.objectContaining({
         actorUserId,
+        authoritativeMatterSource: {
+          mode: 'matter_app_api',
+          operationExpiresAt: preflight.expires_at,
+          sourceRevision: 'lawos-live-matter-projection-v1',
+          sourceUpdatedAt,
+        },
         matterId,
         file: {
           originalFilename: 'contract.pdf',
