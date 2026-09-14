@@ -372,7 +372,13 @@ describe('QuarantineIntakeService', () => {
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'FILE_QUARANTINED',
-        metadata: expect.objectContaining({ hash: boundSha256 }),
+        metadata: expect.objectContaining({
+          hash: boundSha256,
+          expires_at: binding.expiresAt,
+          matter_source_mode: authoritativeMatterSource.mode,
+          matter_source_revision: authoritativeMatterSource.sourceRevision,
+          matter_source_updated_at: authoritativeMatterSource.sourceUpdatedAt,
+        }),
       }),
       expect.anything(),
     );
