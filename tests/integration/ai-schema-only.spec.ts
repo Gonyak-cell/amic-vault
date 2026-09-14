@@ -133,6 +133,8 @@ describe('ai policy boundary integration', () => {
       'apps/api/src/modules/litigation/litigation.controller.ts',
       'apps/api/src/modules/matter/matter.controller.ts',
       'apps/api/src/modules/scale/scale.controller.ts',
+      // The Office copy route contains `/retain`; it does not expose an AI operation.
+      'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.ts',
     ]);
     expect(controllerRefs.filter((file) => !allowedR6ControllerRefs.has(file))).toEqual([]);
 

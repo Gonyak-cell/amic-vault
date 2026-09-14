@@ -14,8 +14,8 @@ test('closes every discovered byte, ticket, internal-reference, and generated-do
   assert.equal(report.status, 'PASS');
   assert.equal(report.unknownCount, 0);
   assert.equal(report.staleCount, 0);
-  assert.ok(report.candidateCount >= 18);
-  assert.equal(report.routeContractCount, 10);
+  assert.ok(report.candidateCount >= 19);
+  assert.equal(report.routeContractCount, 11);
   assert.ok((report.categories.gated ?? 0) >= 6);
   assert.ok((report.categories.reviewed_exclusion ?? 0) >= 6);
 });

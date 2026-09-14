@@ -140,15 +140,13 @@ export const EGRESS_INVENTORY = Object.freeze({
     path: 'apps/api/src/modules/external/external.service.ts',
     category: 'gated',
     required: [
-      'assertCanReadDocument',
-      'evaluateExternalDlp',
-      'DLP_REVIEW_REQUIRED',
+      'documentShareTarget',
       'EXTERNAL_DLP_WARNING_REQUIRED',
       'newLinkToken',
     ],
     order: [
-      ['evaluateExternalDlp', 'newLinkToken'],
-      ['DLP_REVIEW_REQUIRED', 'newLinkToken'],
+      ['documentShareTarget', 'newLinkToken'],
+      ['EXTERNAL_DLP_WARNING_REQUIRED', 'newLinkToken'],
     ],
   },
   'ExternalService.downloadTicket': {
@@ -204,6 +202,25 @@ export const EGRESS_INVENTORY = Object.freeze({
       'this.storageService.getByStorageUri(tenantId, target.storage_uri)',
       'size !== target.size_bytes',
       "digest.digest('hex') !== target.sha256",
+    ],
+  },
+  'AmicOsVaultEditorService.createCopy': {
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.ts',
+    category: 'internal_processing',
+    rationale: 'copies one authorized exact version into a permission-scoped internal Vault draft and returns metadata only',
+    authorityControl: 'exact source binding, copy permissions, bounded bytes, and SHA-256 integrity checks',
+    auditControl: 'DocumentUploadService records the new internal document and its file version',
+    required: [
+      'this.assertCopyAllowed',
+      'this.storageService.getByStorageUri',
+      'readBounded',
+      'bytes.byteLength !== input.requested_exact_version.byte_size',
+      "createHash('sha256').update(bytes).digest('hex') !== input.requested_exact_version.sha256",
+      'this.uploadService.uploadBuffer',
+    ],
+    order: [
+      ['this.assertCopyAllowed', 'this.storageService.getByStorageUri'],
+      ['this.storageService.getByStorageUri', 'this.uploadService.uploadBuffer'],
     ],
   },
   'ClosingBinderService.downloadArchive': {
@@ -269,6 +286,17 @@ export const EGRESS_INVENTORY = Object.freeze({
 });
 
 const ROUTE_CONTRACTS = Object.freeze([
+  {
+    id: 'external_document_share_target',
+    path: 'apps/api/src/modules/external/external.service.ts',
+    className: 'ExternalService',
+    methodName: 'documentShareTarget',
+    required: ['assertCanReadDocument', 'findDocumentTarget', 'evaluateExternalDlp', 'DLP_REVIEW_REQUIRED'],
+    order: [
+      ['assertCanReadDocument', 'evaluateExternalDlp'],
+      ['evaluateExternalDlp', 'DLP_REVIEW_REQUIRED'],
+    ],
+  },
   {
     id: 'current_document_and_bulk_individual_download',
     path: 'apps/api/src/modules/document/document.controller.ts',
