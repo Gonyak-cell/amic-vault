@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
+import { AuditMetadataNormalizer } from '../../audit/audit-metadata.normalizer';
 import type { UploadedDiskFile } from '../../document/document-upload.service';
 import type {
   AmicOsVaultUploadPreflightInput,
@@ -64,6 +65,7 @@ async function uploadedFile(): Promise<UploadedDiskFile> {
 }
 
 function createHarness({ existingMatter = true } = {}) {
+  const auditMetadataNormalizer = new AuditMetadataNormalizer();
   let preflightAudit: {
     event_id: string;
     created_at: Date;
@@ -180,11 +182,12 @@ function createHarness({ existingMatter = true } = {}) {
     transaction: vi.fn(async (_tenant: string, work: (client: typeof tx) => Promise<unknown>) => work(tx)),
     log: vi.fn(async (entry: { action: string; targetType: string; metadata: Record<string, unknown> }) => {
       if (entry.targetType === 'amic_os_vault_upload_preflight') {
+        const metadata = auditMetadataNormalizer.normalize(entry.metadata);
         preflightAudit = {
           event_id: preflightAuditEventId,
           created_at: new Date(),
-          correlation_id: String(entry.metadata.correlation_id),
-          metadata_json: entry.metadata,
+          correlation_id: String(metadata.correlation_id),
+          metadata_json: metadata,
         };
       }
       return { eventId: preflightAuditEventId };

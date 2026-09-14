@@ -225,28 +225,25 @@ function authoritativeSource(
 }
 
 function auditedAuthoritativeSource(
-  value: unknown,
+  metadata: Record<string, unknown> | undefined,
   operationExpiresAt: string,
 ): AuthoritativeMatterAppSource | undefined {
-  if (value === undefined) return undefined;
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw stateConflict('VAULT_UPLOAD_SOURCE_AUTHORITY_INVALID');
-  }
-  const source = value as Record<string, unknown>;
-  const keys = Object.keys(source).sort();
+  const mode = metadata?.matter_source_mode;
+  const sourceRevision = metadata?.matter_source_revision;
+  const sourceUpdatedAt = metadata?.matter_source_updated_at;
+  if (mode === undefined && sourceRevision === undefined && sourceUpdatedAt === undefined) return undefined;
   if (
-    keys.join('\0') !== ['mode', 'sourceRevision', 'sourceUpdatedAt'].sort().join('\0')
-    || source.mode !== 'matter_app_api'
-    || typeof source.sourceRevision !== 'string'
-    || typeof source.sourceUpdatedAt !== 'string'
+    mode !== 'matter_app_api'
+    || typeof sourceRevision !== 'string'
+    || typeof sourceUpdatedAt !== 'string'
   ) {
     throw stateConflict('VAULT_UPLOAD_SOURCE_AUTHORITY_INVALID');
   }
   return {
     mode: 'matter_app_api',
     operationExpiresAt,
-    sourceRevision: source.sourceRevision,
-    sourceUpdatedAt: source.sourceUpdatedAt,
+    sourceRevision,
+    sourceUpdatedAt,
   };
 }
 
@@ -435,7 +432,11 @@ export class AmicOsVaultUploadService {
                 scope_id: resolved.vault_workspace_id,
                 folder_ref_hash: sha256(resolved.vault_folder_id ?? 'root'),
                 expires_at: expiresAt,
-                ...(sourceAuthority ? { matter_source_authority: sourceAuthority } : {}),
+                ...(sourceAuthority ? {
+                  matter_source_mode: sourceAuthority.mode,
+                  matter_source_revision: sourceAuthority.sourceRevision,
+                  matter_source_updated_at: sourceAuthority.sourceUpdatedAt,
+                } : {}),
                 ...(input.source ? { message_hash: input.source.ref_sha256 } : {}),
               },
             },
@@ -1232,7 +1233,7 @@ export class AmicOsVaultUploadService {
       ) {
         throw stateConflict('VAULT_UPLOAD_PREFLIGHT_AUDIT_MISMATCH');
       }
-      return auditedAuthoritativeSource(metadata?.matter_source_authority, preflight.expires_at);
+      return auditedAuthoritativeSource(metadata, preflight.expires_at);
     });
   }
 
