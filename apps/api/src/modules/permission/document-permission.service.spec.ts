@@ -233,6 +233,34 @@ describe('DocumentPermissionService', () => {
     });
   });
 
+  it('lets a firm admin edit only when they explicitly own the matter with edit access', async () => {
+    const { service } = createService();
+    service.actor = { userId, role: 'firm_admin', status: 'active' };
+
+    for (const check of [
+      service.canCheckoutDocument({ tenantId, userId }, documentId),
+      service.canSaveDocumentSubversion({ tenantId, userId }, documentId),
+      service.canReadDocumentSubversion({ tenantId, userId }, documentId),
+      service.canCheckInDocument({ tenantId, userId }, documentId),
+      service.canPromoteDocumentVersion({ tenantId, userId }, documentId),
+    ]) {
+      await expect(check).resolves.toMatchObject({
+        effect: 'ALLOW',
+        appliedRules: expect.arrayContaining([expect.stringContaining('firm_admin_matter_owner_edit')]),
+      });
+    }
+
+    service.member = { matterRole: 'member', accessLevel: 'edit' };
+    await expect(
+      service.canCheckoutDocument({ tenantId, userId }, documentId),
+    ).resolves.toMatchObject({ effect: 'DENY' });
+
+    service.member = { matterRole: 'owner', accessLevel: 'read' };
+    await expect(
+      service.canCheckoutDocument({ tenantId, userId }, documentId),
+    ).resolves.toMatchObject({ effect: 'DENY' });
+  });
+
   it('requires explicit allow for limited reviewers to read internal subversions', async () => {
     const { service } = createService();
     service.actor = { userId, role: 'limited_reviewer', status: 'active' };
