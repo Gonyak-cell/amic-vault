@@ -407,6 +407,13 @@ export class AmicOsVaultReadService {
           WHERE d.tenant_id = $1::uuid
             AND d.document_id = ANY($2::uuid[])
             AND d.status <> 'deleted'
+            AND NOT EXISTS (
+              SELECT 1
+              FROM amic_os_office_copies copy
+              WHERE copy.tenant_id = d.tenant_id
+                AND copy.working_document_id = d.document_id
+                AND copy.state <> 'saved'
+            )
           ORDER BY d.document_id
         `,
         [principal.tenantId, documentIds],

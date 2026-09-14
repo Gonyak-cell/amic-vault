@@ -84,6 +84,27 @@ export class AmicOsVaultProviderConfig {
       : 'single-install-upload-v1';
   }
 
+  officeEditBinding(fingerprint: string): { editSessionId: string; lockToken: string } {
+    const credential = this.credential();
+    if (!this.isEnabled() || !credential || !fingerprint || Buffer.byteLength(fingerprint, 'utf8') > 4096) {
+      throw authRequired();
+    }
+    const sessionBytes = createHmac('sha256', credential)
+      .update('amic-os-vault-office-session-v1\0', 'utf8')
+      .update(fingerprint, 'utf8')
+      .digest()
+      .subarray(0, 16);
+    sessionBytes[6] = (sessionBytes[6]! & 0x0f) | 0x40;
+    sessionBytes[8] = (sessionBytes[8]! & 0x3f) | 0x80;
+    const hex = sessionBytes.toString('hex');
+    const editSessionId = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    const lockToken = createHmac('sha256', credential)
+      .update('amic-os-vault-office-lock-v1\0', 'utf8')
+      .update(editSessionId, 'utf8')
+      .digest('hex');
+    return { editSessionId, lockToken };
+  }
+
   maxExportBytes(): number {
     const configured = Number(process.env.AMIC_OS_VAULT_PROVIDER_MAX_EXPORT_BYTES);
     return Number.isSafeInteger(configured) && configured > 0 && configured <= AMIC_OS_VAULT_MAX_EXPORT_BYTES

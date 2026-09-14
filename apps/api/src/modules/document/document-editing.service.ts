@@ -130,6 +130,11 @@ export interface ExpiredEditSessionSweepResult {
   expiredCount: number;
 }
 
+export interface DocumentEditCheckoutBinding {
+  editSessionId: string;
+  lockToken: string;
+}
+
 interface SubversionRow {
   subversion_id: string;
   document_id: string;
@@ -535,6 +540,7 @@ export class DocumentEditingService {
     actorUserId: string,
     documentId: string,
     input: CreateDocumentEditSessionDto,
+    binding?: DocumentEditCheckoutBinding,
   ): Promise<DocumentEditSessionDto> {
     const context = this.tenantContext.require();
     const result = await this.auditService.transaction(context.tenantId, async (tx) => {
@@ -577,6 +583,13 @@ export class DocumentEditingService {
           active.lock_owner_user_id === actorUserId &&
           active.base_version_id === current.version_id
         ) {
+          if (
+            binding &&
+            active.edit_session_id === binding.editSessionId &&
+            isValidLockToken(active, binding.lockToken)
+          ) {
+            return { session: mapSession(active, binding.lockToken) };
+          }
           return { session: mapSession(active) };
         } else {
           throw documentLocked('document_already_checked_out');
@@ -584,26 +597,28 @@ export class DocumentEditingService {
       }
 
       const expiresAt = ttlExpiry(input.requestedTtlSeconds);
-      const lockToken = randomLockToken();
+      const editSessionId = binding?.editSessionId ?? randomUUID();
+      const lockToken = binding?.lockToken ?? randomLockToken();
       const inserted = await tx.query(
         `
           WITH inserted AS (
             INSERT INTO document_edit_sessions (
-              tenant_id, document_id, base_version_id, lock_owner_user_id, status,
+              edit_session_id, tenant_id, document_id, base_version_id, lock_owner_user_id, status,
               client_kind, lock_token_hash, checkout_reason_code, expires_at
             )
-            VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8, $9)
             RETURNING edit_session_id, document_id, base_version_id, status, client_kind,
               lock_owner_user_id, checked_out_at, heartbeat_at, expires_at, checked_in_at,
               cancelled_at, expired_at, conflicted_at, lock_token_hash
           )
-          SELECT inserted.*, d.matter_id, $9::integer AS base_version_no
+          SELECT inserted.*, d.matter_id, $10::integer AS base_version_no
           FROM inserted
           JOIN documents d
-            ON d.tenant_id = $1
+            ON d.tenant_id = $2
             AND d.document_id = inserted.document_id
         `,
         [
+          editSessionId,
           context.tenantId,
           documentId,
           current.version_id,

@@ -10,6 +10,9 @@ import { SearchModule } from '../../search/search.module';
 import { StorageModule } from '../../storage/storage.module';
 import { TenantModule } from '../../tenant/tenant.module';
 import { UserModule } from '../../user/user.module';
+import { DocumentModule } from '../../document/document.module';
+import { AmicOsVaultEditorController } from './amic-os-vault-editor.controller';
+import { AmicOsVaultEditorService } from './amic-os-vault-editor.service';
 import { AmicOsVaultProviderController } from './amic-os-vault-provider.controller';
 import {
   AmicOsVaultProviderConfig,
@@ -28,6 +31,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
   imports: [
     AuditModule,
     DlpModule,
+    DocumentModule,
     ExternalModule,
     FileSecurityModule,
     MatterAppModule,
@@ -43,6 +47,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultUploadController,
     AmicOsVaultCapabilityController,
     AmicOsVaultReadController,
+    AmicOsVaultEditorController,
   ],
   providers: [
     AmicOsVaultProviderConfig,
@@ -50,12 +55,14 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultProviderService,
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
+    AmicOsVaultEditorService,
   ],
   exports: [
     AmicOsVaultProviderConfig,
     AmicOsVaultProviderService,
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
+    AmicOsVaultEditorService,
   ],
 })
 export class AmicOsVaultProviderModule {}

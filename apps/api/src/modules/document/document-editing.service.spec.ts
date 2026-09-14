@@ -295,13 +295,14 @@ describe('DocumentEditingService', () => {
       idempotencyKey: 'checkout-1',
       clientKind: 'web_upload',
       checkoutReasonCode: 'WEB_EDIT',
-    });
+    }, { editSessionId, lockToken });
 
     expect(response).toMatchObject({
       editSessionId,
       baseVersionId,
       status: 'active',
       lockOwnerUserId: actorUserId,
+      lockToken,
     });
     expect(auditLog).not.toHaveBeenCalled();
     expect(query).toHaveBeenCalledTimes(3);
