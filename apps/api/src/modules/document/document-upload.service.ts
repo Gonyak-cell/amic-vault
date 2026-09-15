@@ -24,6 +24,7 @@ import { documentUploadedAudit, documentVersionAddedAudit } from '../audit/event
 import { GraphSyncOutboxWorker } from '../graph/graph-sync-outbox.worker';
 import {
   MatterSourcePolicyService,
+  type AuthoritativeMatterAppSource,
   type MatterSourceMutationDecision,
 } from '../integrations/matter-app/matter-source-policy';
 import { PermissionService } from '../permission/permission.service';
@@ -50,6 +51,7 @@ export interface UploadedDiskFile {
 
 export interface UploadDocumentInput {
   actorUserId: string;
+  authoritativeMatterSource?: AuthoritativeMatterAppSource;
   matterId: string;
   fields: UploadDocumentFieldsDto;
   file: UploadedDiskFile | undefined;
@@ -194,6 +196,7 @@ export class DocumentUploadService {
         input.matterId,
         'document_upload',
         input.fields.uploadPreflightRef,
+        input.authoritativeMatterSource,
       );
       const originalFilename = normalizeTransportFilename(file.originalname);
       const { extension, normalizedFilename } = this.extensionValidator.validate(originalFilename);
@@ -559,10 +562,14 @@ export class DocumentUploadService {
     matterId: string,
     purpose: 'document_upload' | 'document_version',
     uploadPreflightRef: string | undefined,
+    authoritativeMatterSource?: AuthoritativeMatterAppSource,
   ): Promise<MatterSourceMutationDecision | undefined> {
     if (this.matterSourcePolicy) {
       return this.matterSourcePolicy.assertUploadMutationAllowed({
         actorUserId,
+        ...(authoritativeMatterSource
+          ? { authoritativeSource: authoritativeMatterSource }
+          : {}),
         matterId,
         tenantId,
         purpose,

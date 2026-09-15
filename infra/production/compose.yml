@@ -59,6 +59,7 @@
       "environment": {
         "NODE_ENV": "production",
         "PROCESS_ROLE": "api",
+        "FILE_SECURITY_MAX_SIGNATURE_AGE_SECONDS": "604800",
         "DATABASE_RUNTIME_URL_FILE": "/run/secrets/database_runtime_url",
         "DATABASE_RUNTIME_ROLE": "vault_app",
         "S3_ENDPOINT": "${S3_ENDPOINT:?set S3_ENDPOINT}",
@@ -135,6 +136,7 @@
       "environment": {
         "NODE_ENV": "production",
         "PROCESS_ROLE": "worker",
+        "FILE_SECURITY_MAX_SIGNATURE_AGE_SECONDS": "604800",
         "DATABASE_RUNTIME_URL_FILE": "/run/secrets/database_runtime_url",
         "DATABASE_RUNTIME_ROLE": "vault_app",
         "S3_ENDPOINT": "${S3_ENDPOINT:?set S3_ENDPOINT}",

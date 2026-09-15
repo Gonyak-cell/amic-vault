@@ -20,6 +20,7 @@ import { PermissionService } from '../../permission/permission.service';
 import { MatterAppRuntimeService } from './matter-app-runtime.service';
 
 const PREFLIGHT_TTL_MS = 1000 * 60 * 5;
+const MAX_OPERATION_SOURCE_PROOF_MS = 2 * 60 * 60 * 1000 + 60_000;
 
 const uploadPreflightReceipts = new Map<string, UploadPreflightReceipt>();
 
@@ -40,6 +41,13 @@ export interface MatterSourceMutationDecision {
   sourceMode: string;
   sourceRevision: string | null;
   sourceUpdatedAt: string | null;
+}
+
+export interface AuthoritativeMatterAppSource {
+  mode: 'matter_app_api';
+  operationExpiresAt?: string;
+  sourceRevision: string;
+  sourceUpdatedAt: string;
 }
 
 interface UploadPreflightReceipt {
@@ -138,6 +146,7 @@ export class MatterSourcePolicyService {
 
   async assertUploadMutationAllowed(input: {
     actorUserId: string;
+    authoritativeSource?: AuthoritativeMatterAppSource;
     matterId: string;
     tenantId: TenantId;
     purpose: Extract<UploadPreflightPurpose, 'document_upload' | 'document_version'>;
@@ -237,13 +246,21 @@ export class MatterSourcePolicyService {
   }
 
   async assertMatterSourceMutationAllowed(input: {
+    authoritativeSource?: AuthoritativeMatterAppSource;
     matterId: string;
     purpose: UploadPreflightPurpose;
     tenantId: TenantId;
     now?: Date;
   }): Promise<MatterSourceMutationDecision> {
-    const source = await this.matterAppRuntime.status(input.now ?? new Date());
-    if (!source.uploadAuthoritative || !source.sourceContractReady || source.sourceStale) {
+    const now = input.now ?? new Date();
+    const source = await this.matterAppRuntime.status(now);
+    const authoritativeSource = input.authoritativeSource
+      ? this.validateAuthoritativeSource(input.authoritativeSource, source, now)
+      : null;
+    if (
+      !authoritativeSource &&
+      (!source.uploadAuthoritative || !source.sourceContractReady || source.sourceStale)
+    ) {
       throw validationFailed(source.unavailableReason ?? 'MATTER_SOURCE_UNAVAILABLE');
     }
 
@@ -254,13 +271,16 @@ export class MatterSourcePolicyService {
       throw permissionDenied();
     }
 
-    const sourceRevision = matterSourceRevision(matter);
-    const sourceUpdatedAt = source.sourceUpdatedAt ?? matter.updated_at.toISOString();
+    const sourceRevision = authoritativeSource?.sourceRevision ?? matterSourceRevision(matter);
+    const sourceUpdatedAt = authoritativeSource?.sourceUpdatedAt
+      ?? source.sourceUpdatedAt
+      ?? matter.updated_at.toISOString();
+    const sourceMode = authoritativeSource?.mode ?? source.mode;
     const decisionRef = hashRef('matter-source-mutation', [
       input.tenantId,
       input.matterId,
       input.purpose,
-      source.mode,
+      sourceMode,
       sourceUpdatedAt,
       sourceRevision,
       matter.status,
@@ -270,10 +290,48 @@ export class MatterSourcePolicyService {
       decisionRef,
       matterId: matter.matter_id,
       permissionDecisionRef: decisionRef,
-      sourceMode: source.mode,
+      sourceMode,
       sourceRevision,
       sourceUpdatedAt,
     };
+  }
+
+  private validateAuthoritativeSource(
+    authority: AuthoritativeMatterAppSource,
+    source: Awaited<ReturnType<MatterAppRuntimeService['status']>>,
+    now: Date,
+  ): AuthoritativeMatterAppSource {
+    const updatedAtMs = Date.parse(authority.sourceUpdatedAt);
+    const operationExpiresAtMs = authority.operationExpiresAt
+      ? Date.parse(authority.operationExpiresAt)
+      : Number.NaN;
+    const operationBoundProofActive = authority.operationExpiresAt !== undefined
+      && Number.isFinite(operationExpiresAtMs)
+      && new Date(operationExpiresAtMs).toISOString() === authority.operationExpiresAt
+      && operationExpiresAtMs > now.getTime()
+      && operationExpiresAtMs - updatedAtMs <= MAX_OPERATION_SOURCE_PROOF_MS;
+    const validTimestamp = Number.isFinite(updatedAtMs)
+      && new Date(updatedAtMs).toISOString() === authority.sourceUpdatedAt
+      && updatedAtMs <= now.getTime() + 60_000
+      && (
+        now.getTime() - updatedAtMs <= source.stalenessMaxSeconds * 1_000
+        || operationBoundProofActive
+      );
+    const sourceFailureCanBeReplaced = source.unavailableReason === undefined
+      || source.unavailableReason === 'stale_projection';
+    if (
+      authority.mode !== 'matter_app_api'
+      || !authority.sourceRevision
+      || authority.sourceRevision.length > 256
+      || source.requestedMode !== 'matter_app_api'
+      || source.sourceConfigured !== true
+      || source.runtimeReady !== true
+      || !sourceFailureCanBeReplaced
+      || !validTimestamp
+    ) {
+      throw validationFailed('MATTER_SOURCE_PROOF_INVALID');
+    }
+    return authority;
   }
 
   private async canUploadToMatter(

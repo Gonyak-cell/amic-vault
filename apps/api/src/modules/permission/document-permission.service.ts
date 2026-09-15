@@ -82,6 +82,29 @@ function documentAuditTarget(
   };
 }
 
+function isFirmAdminOwnerEditAction(action: DocumentPermissionAction): boolean {
+  return (
+    action === 'checkout' ||
+    action === 'save_subversion' ||
+    action === 'read_subversion' ||
+    action === 'checkin' ||
+    action === 'promote_version'
+  );
+}
+
+function firmAdminOwnerCanEditDocument(
+  actor: DocumentActorSnapshot,
+  member: DocumentMatterMemberSnapshot,
+  action: DocumentPermissionAction,
+): boolean {
+  return (
+    actor.role === 'firm_admin' &&
+    member.matterRole === 'owner' &&
+    member.accessLevel === 'edit' &&
+    isFirmAdminOwnerEditAction(action)
+  );
+}
+
 @Injectable()
 export class DocumentPermissionService implements SharedDocumentPermissionService {
   constructor(
@@ -158,7 +181,9 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     if (!actor || actor.status !== 'active') {
       return denyPermission('PERMISSION_DENIED', ['actor:inactive_or_missing']);
     }
-    if (!roleAllowsDocumentAction(actor.role, action)) {
+    const roleAllowsAction = roleAllowsDocumentAction(actor.role, action);
+    const mayUseFirmAdminOwnerEdit = actor.role === 'firm_admin' && isFirmAdminOwnerEditAction(action);
+    if (!roleAllowsAction && !mayUseFirmAdminOwnerEdit) {
       return denyPermission('PERMISSION_DENIED', [`document.${action}:role_deny`]);
     }
 
@@ -179,6 +204,10 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       ctx.userId,
     );
     if (!member) return denyPermission('PERMISSION_DENIED', ['matter_members:missing']);
+    const firmAdminOwnerEdit = firmAdminOwnerCanEditDocument(actor, member, action);
+    if (!roleAllowsAction && !firmAdminOwnerEdit) {
+      return denyPermission('PERMISSION_DENIED', [`document.${action}:role_deny`]);
+    }
 
     const explicit = await this.evaluateExplicitDocumentPermissions(
       ctx.tenantId as TenantId,
@@ -206,7 +235,9 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     }
 
     return allowPermission([
-      `document.${action}:role_allow`,
+      firmAdminOwnerEdit
+        ? `document.${action}:firm_admin_matter_owner_edit`
+        : `document.${action}:role_allow`,
       'matter_members:present',
       `document.confidentiality:${effectiveLevel}`,
       ...explicit.appliedRules,

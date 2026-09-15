@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { Readable } from 'node:stream';
 import type { TenantId } from '@amic-vault/shared';
-import { previewConvertQueueName } from './preview-convert.job';
+import { PREVIEW_MAX_INPUT_BYTES, PreviewConversionUnavailableError, previewConvertQueueName } from './preview-convert.job';
 import {
   isPreviewConvertQueueWorkerEnabled,
   previewConvertDeadLetterQueueName,
@@ -8,7 +10,7 @@ import {
   PreviewPrecreateQueueService,
   type PreviewPrecreateJobPayload,
 } from './preview-precreate-queue.service';
-import { PreviewService } from './preview.service';
+import { PREVIEW_CHUNK_BYTES, PreviewService } from './preview.service';
 
 const tenantId = '11111111-1111-4111-8111-111111111111' as TenantId;
 const documentId = '11111111-1111-4111-8111-111111111133';
@@ -103,6 +105,7 @@ describe('PreviewPrecreateQueueService', () => {
     };
     const boss = {
       send: vi.fn(async () => 'preview-job-id'),
+      findJobs: vi.fn(async () => []),
       stop: vi.fn(async () => undefined),
     };
     const queueRegistry = {
@@ -135,6 +138,35 @@ describe('PreviewPrecreateQueueService', () => {
     expect(boss.send).toHaveBeenCalledTimes(1);
     expect(queueRegistry.register).toHaveBeenCalledTimes(2);
     expect(queueRegistry.producer).toHaveBeenCalledWith(previewConvertQueueName);
+  });
+
+  it.each(['created', 'retry', 'active'])('reuses an existing %s job for an explicit preview request', async state => {
+    const client = { query: vi.fn(async () => ({ rows: [{ mime_type: 'application/msword' }] })) };
+    const boss = {
+      send: vi.fn(),
+      findJobs: vi.fn(async () => [{ id: 'existing-preview', state, data: payload }]),
+    };
+    const service = new PreviewPrecreateQueueService({} as never,
+      { register: vi.fn(), producer: vi.fn(async () => boss) } as never);
+    await expect(service.enqueueVersionCreated(payload, client as never, true)).resolves.toBe('existing-preview');
+    expect(boss.send).not.toHaveBeenCalled();
+    expect(client.query).toHaveBeenNthCalledWith(2, expect.stringContaining('pg_advisory_xact_lock'),
+      [`${previewConvertQueueName}:${tenantId}:${versionId}`]);
+    expect(boss.findJobs).toHaveBeenCalledWith(previewConvertQueueName, expect.objectContaining({ key: versionId }));
+    await expect(service.enqueueVersionCreated({ ...payload, documentId: 'changed-document' }, client as never, true))
+      .rejects.toThrow('preview convert job binding conflict');
+  });
+
+  it('allows a new retry after a terminal job without deleting retained job history', async () => {
+    const client = { query: vi.fn(async () => ({ rows: [{ mime_type: 'application/msword' }] })) };
+    const boss = {
+      send: vi.fn(async () => 'new-preview'),
+      findJobs: vi.fn(async () => [{ id: 'failed-preview', state: 'failed', data: payload }]),
+    };
+    const service = new PreviewPrecreateQueueService({} as never,
+      { register: vi.fn(), producer: vi.fn(async () => boss) } as never);
+    await expect(service.enqueueVersionCreated(payload, client as never, true)).resolves.toBe('new-preview');
+    expect(boss.send).toHaveBeenCalledTimes(1);
   });
 
   it('routes worker jobs to precreate and dead letters to failed status marking', async () => {
@@ -219,5 +251,212 @@ describe('PreviewPrecreateQueueService', () => {
       fileObjectId,
       'PREVIEW_CONVERSION_UNAVAILABLE',
     ]);
+  });
+});
+
+const source = Buffer.from('PK synthetic Office document');
+const pdf = Buffer.from('%PDF-1.7\nsynthetic derivative');
+const digest = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
+
+function fixture(overrides: { bytes?: Buffer; size?: string; hash?: string } = {}) {
+  const original = {
+    document_id: payload.documentId,
+    tenant_id: payload.tenantId,
+    matter_id: '11111111-1111-4111-8111-111111111166',
+    status: 'draft',
+    version_id: payload.versionId,
+    file_object_id: payload.fileObjectId,
+    storage_uri: 's3://private/original.docx',
+    normalized_filename: '검증 계약서.docx',
+    mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    size_bytes: overrides.size ?? String(source.byteLength),
+    sha256: overrides.hash ?? digest(source),
+  };
+  const profileSha256 = 'c'.repeat(64);
+  let persisted: { file_object_id: string; source_sha256: string | null; converter_profile_sha256: string | null } | null = null;
+  const cache = (fileId = 'existing-derived', sourceHash: string | null = original.sha256,
+    profileHash: string | null = profileSha256) => {
+    persisted = { file_object_id: fileId, source_sha256: sourceHash, converter_profile_sha256: profileHash };
+  };
+  const query = vi.fn(async (sql: string, params?: readonly unknown[]) => {
+    if (sql.includes('FROM documents d')) return { rows: [original], rowCount: 1 };
+    if (sql.includes('INSERT INTO document_preview_artifacts')) {
+      cache(String(params?.[3]), String(params?.[4]), String(params?.[5]));
+    }
+    const matches = sql.includes('FROM document_preview_artifacts a') && persisted
+      && persisted.source_sha256 === params?.[2] && persisted.converter_profile_sha256 === params?.[3];
+    return { rows: matches ? [{ ...persisted, sha256: digest(pdf) }] : [], rowCount: matches ? 1 : 0 };
+  });
+  const tx = { query };
+  const transaction = async <T>(_tenantId: TenantId, callback: (client: typeof tx) => Promise<T>) => callback(tx);
+  const convert = vi.fn(async () => pdf);
+  const getProfileSha256 = vi.fn(async () => profileSha256);
+  const create = vi.fn(async () => undefined);
+  const storage = {
+    getByStorageUri: vi.fn(async () => ({ body: Readable.from([overrides.bytes ?? source]) })),
+    getRangeByStorageUri: vi.fn(async () => ({ body: Readable.from([pdf]) })),
+    putTenantObject: vi.fn(async () => ({ storageUri: 's3://private/derived.pdf', encryptionKeyId: 'test-key' })),
+    deleteByStorageUri: vi.fn(async () => undefined),
+  };
+  const service = new PreviewService(
+    { transaction } as never,
+    { create } as never,
+    { convertOfficeToPdf: convert, getProfileSha256 } as never,
+    {} as never,
+    storage as never,
+    {} as never,
+  );
+  return { service, original, query, convert, create, storage, getProfileSha256, cache, profileSha256 };
+}
+
+describe('PreviewService original preservation', () => {
+  const preparedFile = {
+    file_object_id: '11111111-1111-4111-8111-111111111188',
+    storage_uri: 's3://private/derived.pdf', normalized_filename: 'preview.pdf',
+    mime_type: 'application/pdf', size_bytes: String(pdf.byteLength), sha256: digest(pdf),
+  };
+
+  it('checks prepared state without invoking the converter and preserves source PDF identity', async () => {
+    const f = fixture();
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toEqual({
+      status: 'pending', file: null, converterProfileSha256: f.profileSha256,
+    });
+    f.getProfileSha256.mockClear();
+    const originalPdf = { ...f.original, mime_type: 'application/pdf' };
+    await expect(f.service.getPreparedPreview(tenantId, originalPdf)).resolves.toEqual({ status: 'ready', file: originalPdf });
+    expect(f.convert).not.toHaveBeenCalled();
+    expect(f.getProfileSha256).not.toHaveBeenCalled();
+    expect(f.storage.getByStorageUri).not.toHaveBeenCalled();
+    await expect(f.service.getPreparedPreview('other-tenant' as TenantId, originalPdf)).rejects.toThrow();
+  });
+
+  it('reads a bounded PDF range and rejects truncated or oversized range bodies', async () => {
+    const f = fixture();
+    await expect(f.service.readPreparedChunk(tenantId, preparedFile, 0)).resolves.toEqual(pdf);
+    expect(f.storage.getRangeByStorageUri).toHaveBeenCalledWith(tenantId, preparedFile.storage_uri, 0, pdf.byteLength - 1);
+    for (const bytes of [pdf.subarray(0, -1), Buffer.concat([pdf, Buffer.from('extra')])]) {
+      const body = Readable.from([bytes]);
+      f.storage.getRangeByStorageUri.mockResolvedValueOnce({ body });
+      await expect(f.service.readPreparedChunk(tenantId, preparedFile, 0)).rejects.toBeInstanceOf(PreviewConversionUnavailableError);
+      expect(body.destroyed).toBe(true);
+    }
+  });
+
+  it.each([-1, 1, PREVIEW_CHUNK_BYTES, Number.MAX_SAFE_INTEGER + 1])('rejects invalid or out-of-bounds offset %s before storage access', async offset => {
+    const f = fixture();
+    await expect(f.service.readPreparedChunk(tenantId, preparedFile, offset)).rejects.toThrow();
+    expect(f.storage.getRangeByStorageUri).not.toHaveBeenCalled();
+  });
+
+  it('converts the verified bytes and stores only a separate PDF file object', async () => {
+    const f = fixture();
+    const original = structuredClone(f.original);
+    await expect(f.service.precreatePreview(payload)).resolves.toBe('ready');
+    expect(f.convert).toHaveBeenCalledWith(expect.objectContaining({ body: source, filename: '검증 계약서.docx' }));
+    expect(f.storage.putTenantObject).toHaveBeenCalledWith(expect.objectContaining({
+      documentId: payload.documentId, body: pdf, contentLength: pdf.byteLength, contentType: 'application/pdf',
+    }));
+    expect(f.create).toHaveBeenCalledWith(expect.objectContaining({
+      sha256: digest(pdf), sourceSystem: 'preview_derived', normalizedFilename: '검증 계약서.preview.pdf',
+    }), expect.anything());
+    expect(f.storage.putTenantObject).not.toHaveBeenCalledWith(expect.objectContaining({ fileObjectId: payload.fileObjectId }));
+    expect(f.original).toEqual(original);
+    expect(f.storage.deleteByStorageUri).not.toHaveBeenCalled();
+    expect(f.query.mock.calls.some(([sql]) => /(?:UPDATE|INSERT INTO) document_versions/u.test(sql))).toBe(false);
+  });
+
+  it('leaves the source and storage unchanged when conversion fails', async () => {
+    const f = fixture();
+    f.convert.mockRejectedValueOnce(new PreviewConversionUnavailableError());
+    await expect(f.service.precreatePreview(payload)).rejects.toMatchObject({
+      response: { code: 'VALIDATION_FAILED', reason: 'PREVIEW_CONVERSION_UNAVAILABLE' },
+    });
+    expect(f.create).not.toHaveBeenCalled();
+    expect(f.storage.putTenantObject).not.toHaveBeenCalled();
+    expect(f.storage.deleteByStorageUri).not.toHaveBeenCalled();
+  });
+
+  it('reuses only a derivative bound to both the source and the current converter profile', async () => {
+    const f = fixture();
+    await f.service.precreatePreview(payload);
+    await f.service.precreatePreview(payload);
+    expect(f.convert).toHaveBeenCalledTimes(1);
+    expect(f.create).toHaveBeenCalledTimes(1);
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toMatchObject({ status: 'ready' });
+    const nextProfile = 'd'.repeat(64);
+    f.getProfileSha256.mockResolvedValue(nextProfile);
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toEqual({
+      status: 'pending', file: null, converterProfileSha256: nextProfile,
+    });
+    await f.service.precreatePreview(payload);
+    expect(f.convert).toHaveBeenLastCalledWith(expect.objectContaining({
+      converterProfileSha256: nextProfile, body: source,
+    }));
+    expect(f.create).toHaveBeenCalledTimes(2);
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('AND a.converter_profile_sha256 = $4'),
+      [tenantId, versionId, digest(source), nextProfile]);
+  });
+
+  it.each(['legacy', 'source', 'converter'])('ignores an incompatible %s cache record', async binding => {
+    const f = fixture();
+    f.cache('old-derived', binding === 'legacy' ? null : binding === 'source' ? '0'.repeat(64) : digest(source),
+      binding === 'legacy' ? null : binding === 'converter' ? '0'.repeat(64) : f.profileSha256);
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).resolves.toMatchObject({ status: 'pending' });
+    await f.service.precreatePreview(payload);
+    expect(f.convert).toHaveBeenCalledTimes(1);
+    expect(f.original.sha256).toBe(digest(source));
+  });
+
+  it('fails closed for Office when the current converter profile cannot be verified', async () => {
+    const f = fixture();
+    f.cache();
+    f.getProfileSha256.mockRejectedValue(new PreviewConversionUnavailableError());
+    await expect(f.service.getPreparedPreview(tenantId, f.original)).rejects.toMatchObject({ status: 400 });
+    await expect(f.service.precreatePreview(payload)).rejects.toMatchObject({ status: 400 });
+    expect(f.storage.getByStorageUri).not.toHaveBeenCalled();
+    expect(f.convert).not.toHaveBeenCalled();
+    await expect(f.service.getPreparedPreview(tenantId, { ...f.original, mime_type: 'application/pdf' }))
+      .resolves.toMatchObject({ status: 'ready' });
+  });
+
+  it('rechecks under the queue lock and removes only the unreferenced concurrent output', async () => {
+    const f = fixture();
+    f.convert.mockImplementationOnce(async () => {
+      f.cache('concurrent-winner');
+      return pdf;
+    });
+    await expect(f.service.precreatePreview(payload)).resolves.toBe('ready');
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('pg_advisory_xact_lock'),
+      [`${previewConvertQueueName}:${tenantId}:${versionId}`]);
+    expect(f.create).not.toHaveBeenCalled();
+    expect(f.query.mock.calls.some(([sql]) => sql.includes('INSERT INTO document_preview_artifacts'))).toBe(false);
+    expect(f.storage.deleteByStorageUri).toHaveBeenCalledTimes(1);
+    expect(f.storage.deleteByStorageUri).toHaveBeenCalledWith(tenantId, 's3://private/derived.pdf');
+    expect(f.original.sha256).toBe(digest(source));
+  });
+
+  it.each([
+    { hash: '0'.repeat(64) },
+    { bytes: source.subarray(0, source.byteLength - 1) },
+    { bytes: Buffer.concat([source, Buffer.from('extra')]) },
+  ])('rejects source corruption or length mismatch before conversion and storage writes: %#', async overrides => {
+    const f = fixture(overrides);
+    await expect(f.service.precreatePreview(payload)).rejects.toMatchObject({
+      response: { code: 'VALIDATION_FAILED', reason: 'PREVIEW_CONVERSION_UNAVAILABLE' },
+    });
+    expect(f.convert).not.toHaveBeenCalled();
+    expect(f.create).not.toHaveBeenCalled();
+    expect(f.storage.putTenantObject).not.toHaveBeenCalled();
+    expect(f.storage.deleteByStorageUri).not.toHaveBeenCalled();
+  });
+
+  it.each(['0', '-1', 'invalid', String(PREVIEW_MAX_INPUT_BYTES + 1)])('rejects invalid recorded size %s before reading the source object', async size => {
+    const f = fixture({ size });
+    await expect(f.service.precreatePreview(payload)).rejects.toMatchObject({
+      response: { code: 'VALIDATION_FAILED', reason: 'PREVIEW_CONVERSION_UNAVAILABLE' },
+    });
+    expect(f.storage.getByStorageUri).not.toHaveBeenCalled();
+    expect(f.convert).not.toHaveBeenCalled();
+    expect(f.create).not.toHaveBeenCalled();
   });
 });

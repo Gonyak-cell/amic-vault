@@ -140,15 +140,13 @@ export const EGRESS_INVENTORY = Object.freeze({
     path: 'apps/api/src/modules/external/external.service.ts',
     category: 'gated',
     required: [
-      'assertCanReadDocument',
-      'evaluateExternalDlp',
-      'DLP_REVIEW_REQUIRED',
+      'documentShareTarget',
       'EXTERNAL_DLP_WARNING_REQUIRED',
       'newLinkToken',
     ],
     order: [
-      ['evaluateExternalDlp', 'newLinkToken'],
-      ['DLP_REVIEW_REQUIRED', 'newLinkToken'],
+      ['documentShareTarget', 'newLinkToken'],
+      ['EXTERNAL_DLP_WARNING_REQUIRED', 'newLinkToken'],
     ],
   },
   'ExternalService.downloadTicket': {
@@ -192,6 +190,26 @@ export const EGRESS_INVENTORY = Object.freeze({
       "fetchIngestionWorker('/security/scan'",
     ],
   },
+  'FileSecurityService.ensureDocumentEditQuarantine': {
+    path: 'apps/api/src/modules/file-security/file-security.service.ts',
+    category: 'internal_processing',
+    rationale: 'copies one exact edit subversion into the private quarantine boundary before its mandatory security scan',
+    authorityControl: 'source and quarantine objects are bound to the expected size, MIME type and SHA-256',
+    auditControl: 'the caller records FILE_QUARANTINED and completes the file-security scan before promotion',
+    required: [
+      'this.storageService.sha256ByStorageUri(',
+      'this.storageService.getByStorageUri(',
+      'sourceHash !== input.sha256',
+      'source.contentLength !== input.sizeBytes',
+      'this.storageService.putQuarantineObject(',
+      'source.body.destroy()',
+      'FILE_SECURITY_EDIT_QUARANTINE_MISMATCH',
+    ],
+    order: [
+      ['this.storageService.sha256ByStorageUri(', 'this.storageService.getByStorageUri('],
+      ['this.storageService.getByStorageUri(', 'this.storageService.putQuarantineObject('],
+    ],
+  },
   'AmicOsVaultProviderService.readExactBytes': {
     path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.service.ts',
     category: 'internal_processing',
@@ -204,6 +222,25 @@ export const EGRESS_INVENTORY = Object.freeze({
       'this.storageService.getByStorageUri(tenantId, target.storage_uri)',
       'size !== target.size_bytes',
       "digest.digest('hex') !== target.sha256",
+    ],
+  },
+  'AmicOsVaultEditorService.createCopy': {
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.ts',
+    category: 'internal_processing',
+    rationale: 'copies one authorized exact version into a permission-scoped internal Vault draft and returns metadata only',
+    authorityControl: 'exact source binding, copy permissions, bounded bytes, and SHA-256 integrity checks',
+    auditControl: 'DocumentUploadService records the new internal document and its file version',
+    required: [
+      'this.assertCopyAllowed',
+      'this.storageService.getByStorageUri',
+      'readBounded',
+      'bytes.byteLength !== input.requested_exact_version.byte_size',
+      "createHash('sha256').update(bytes).digest('hex') !== input.requested_exact_version.sha256",
+      'this.uploadService.uploadBuffer',
+    ],
+    order: [
+      ['this.assertCopyAllowed', 'this.storageService.getByStorageUri'],
+      ['this.storageService.getByStorageUri', 'this.uploadService.uploadBuffer'],
     ],
   },
   'ClosingBinderService.downloadArchive': {
@@ -250,6 +287,14 @@ export const EGRESS_INVENTORY = Object.freeze({
     auditControl: 'audited preview access session',
     required: ['previewSessionService.authorizeStream', 'parseRange', 'getRangeByStorageUri'],
   },
+  'PreviewService.readPreparedChunk': {
+    path: 'apps/api/src/modules/preview/preview.service.ts',
+    category: 'reviewed_exclusion',
+    rationale: 'bounded in-app preview using the same audited preview-session policy as openPreview',
+    permissionControl: 'AmicOsVaultReadService.previewTarget authorizes the exact session before and after storage',
+    auditControl: 'PreviewSessionService.issue records DOCUMENT_VIEWED before any chunk is requested',
+    required: ['PREVIEW_CHUNK_BYTES', 'getRangeByStorageUri', 'readPreviewBytes'],
+  },
   'StorageService.sha256ByStorageUri': {
     path: 'apps/api/src/modules/storage/storage.service.ts',
     category: 'internal_processing',
@@ -261,6 +306,17 @@ export const EGRESS_INVENTORY = Object.freeze({
 });
 
 const ROUTE_CONTRACTS = Object.freeze([
+  {
+    id: 'external_document_share_target',
+    path: 'apps/api/src/modules/external/external.service.ts',
+    className: 'ExternalService',
+    methodName: 'documentShareTarget',
+    required: ['assertCanReadDocument', 'findDocumentTarget', 'evaluateExternalDlp', 'DLP_REVIEW_REQUIRED'],
+    order: [
+      ['assertCanReadDocument', 'evaluateExternalDlp'],
+      ['evaluateExternalDlp', 'DLP_REVIEW_REQUIRED'],
+    ],
+  },
   {
     id: 'current_document_and_bulk_individual_download',
     path: 'apps/api/src/modules/document/document.controller.ts',
@@ -313,6 +369,32 @@ const ROUTE_CONTRACTS = Object.freeze([
       ['inspectAuthorizedGrant', 'readExactBytes'],
       ['readExactBytes', 'consumeAuthorizedGrant'],
     ],
+  },
+  {
+    id: 'amic_os_preview_authority',
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.ts',
+    className: 'AmicOsVaultReadService',
+    methodName: 'previewTarget',
+    required: ['assertPrincipal', 'resolveLawosMatter', 'previewSessions.authorizeStream', 'input.exact', 'original.matter_id !== vaultMatterId'],
+  },
+  {
+    id: 'amic_os_preview_chunk',
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.ts',
+    className: 'AmicOsVaultReadService',
+    methodName: 'previewChunk',
+    required: ['getPreparedPreview', 'file.sha256 !== input.preview.sha256', 'readPreparedChunk', 'await this.previewTarget(principal, input);'],
+    order: [
+      ['const original = await this.previewTarget', 'readPreparedChunk'],
+      ['readPreparedChunk', 'await this.previewTarget(principal, input);\n    return'],
+    ],
+  },
+  {
+    id: 'amic_os_preview_session',
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.ts',
+    className: 'AmicOsVaultReadService',
+    methodName: 'issuePreviewSession',
+    required: ['previewTarget', 'getPreparedPreview', 'previewSessions.issue', 'input.exact'],
+    order: [['previewTarget', 'previewSessions.issue']],
   },
 ]);
 

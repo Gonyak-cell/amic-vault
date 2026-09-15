@@ -9,6 +9,7 @@ const operationIdPattern = /^vaultop_[a-f0-9]{32}$/u;
 const correlationIdPattern = /^vaultcorr_[a-f0-9]{32}$/u;
 const maxUploadBytes = 1024 * 1024 * 1024;
 const maxBufferedUploadBytes = 16 * 1024 * 1024;
+export const AMIC_OS_LIVE_MATTER_PROJECTION_REVISION = 'lawos-live-matter-projection-v1';
 
 export interface AmicOsVaultUploadPrincipalInput {
   tenant_id: string;
@@ -92,12 +93,23 @@ export interface AmicOsVaultUploadCommit {
 export interface AmicOsVaultUploadPreflightInput {
   principal: AmicOsVaultUploadPrincipalInput;
   lawos_matter_id: string;
+  matter_projection?: AmicOsVaultLiveMatterProjection;
   requested_workspace_id: string | null;
   requested_folder_id: string | null;
   source?: AmicOsVaultUploadSource;
   operation_id: string;
   correlation_id: string;
   request_id: string;
+}
+
+export interface AmicOsVaultLiveMatterProjection {
+  lawos_client_id: string;
+  client_display_name: string;
+  matter_code: string | null;
+  matter_name: string;
+  matter_status: 'opening' | 'open';
+  source_revision: typeof AMIC_OS_LIVE_MATTER_PROJECTION_REVISION;
+  source_updated_at: string;
 }
 
 export interface AmicOsVaultUploadCommitInput {
@@ -205,6 +217,42 @@ function instant(value: unknown): string {
     throw validationFailed();
   }
   return value;
+}
+
+function displayText(value: unknown, maximumLength: number): string {
+  const normalized = typeof value === 'string' ? value.normalize('NFC').trim() : '';
+  if (!normalized || normalized.length > maximumLength || hasControl(normalized)) {
+    throw validationFailed();
+  }
+  return normalized;
+}
+
+function liveMatterProjection(value: unknown): AmicOsVaultLiveMatterProjection {
+  const input = record(value);
+  exactKeys(input, [
+    'lawos_client_id',
+    'client_display_name',
+    'matter_code',
+    'matter_name',
+    'matter_status',
+    'source_revision',
+    'source_updated_at',
+  ]);
+  if (
+    !['opening', 'open'].includes(String(input.matter_status)) ||
+    input.source_revision !== AMIC_OS_LIVE_MATTER_PROJECTION_REVISION
+  ) {
+    throw validationFailed();
+  }
+  return {
+    lawos_client_id: safeId(input.lawos_client_id),
+    client_display_name: displayText(input.client_display_name, 1_000),
+    matter_code: input.matter_code === null ? null : displayText(input.matter_code, 120),
+    matter_name: displayText(input.matter_name, 1_000),
+    matter_status: input.matter_status as 'opening' | 'open',
+    source_revision: AMIC_OS_LIVE_MATTER_PROJECTION_REVISION,
+    source_updated_at: instant(input.source_updated_at),
+  };
 }
 
 function principal(value: unknown): AmicOsVaultUploadPrincipalInput {
@@ -451,9 +499,11 @@ export function parseAmicOsVaultUploadPreflightInput(
 ): AmicOsVaultUploadPreflightInput {
   const input = record(value);
   const hasSource = Object.hasOwn(input, 'source');
+  const hasMatterProjection = Object.hasOwn(input, 'matter_projection');
   exactKeys(input, [
     'principal',
     'lawos_matter_id',
+    ...(hasMatterProjection ? ['matter_projection'] : []),
     'requested_workspace_id',
     'requested_folder_id',
     ...(hasSource ? ['source'] : []),
@@ -464,6 +514,7 @@ export function parseAmicOsVaultUploadPreflightInput(
   return {
     principal: principal(input.principal),
     lawos_matter_id: safeId(input.lawos_matter_id),
+    ...(hasMatterProjection ? { matter_projection: liveMatterProjection(input.matter_projection) } : {}),
     requested_workspace_id: nullableSafeId(input.requested_workspace_id),
     requested_folder_id: nullableSafeId(input.requested_folder_id),
     ...(hasSource ? { source: source(input.source) } : {}),

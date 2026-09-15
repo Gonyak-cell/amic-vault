@@ -122,10 +122,13 @@ function createBoundService(options: {
   const sha256ByStorageUri = vi.fn(async () => boundSha256);
   const deleteByStorageUri = vi.fn(async () => undefined);
   const enqueue = vi.fn(async () => 'scan-job');
+  const matterSourcePolicy = {
+    assertUploadMutationAllowed: vi.fn(async () => undefined),
+  };
   const service = new QuarantineIntakeService(
     audit as never,
     { enqueue } as never,
-    { assertUploadMutationAllowed: vi.fn(async () => undefined) } as never,
+    matterSourcePolicy as never,
     { canUploadToMatter: vi.fn(async () => allowPermission()) } as never,
     {
       quarantineStorageUri: vi.fn(() => boundStorageUri),
@@ -142,6 +145,7 @@ function createBoundService(options: {
     deleteByStorageUri,
     enqueue,
     headByStorageUri,
+    matterSourcePolicy,
     putQuarantineObject,
     query,
     service,
@@ -319,13 +323,22 @@ describe('QuarantineIntakeService', () => {
       binding,
       enqueue,
       headByStorageUri,
+      matterSourcePolicy,
       putQuarantineObject,
       service,
       sha256ByStorageUri,
     } = createBoundService();
 
+    const authoritativeMatterSource = {
+      mode: 'matter_app_api' as const,
+      operationExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      sourceRevision: 'lawos-live-matter-projection-v1',
+      sourceUpdatedAt: new Date().toISOString(),
+    };
+
     await expect(service.intakeBoundStored({
       actorUserId,
+      authoritativeMatterSource,
       matterId,
       fields: {},
       sourceSystem: 'upload',
@@ -345,13 +358,27 @@ describe('QuarantineIntakeService', () => {
     });
 
     expect(headByStorageUri).toHaveBeenCalledWith(tenantId, boundStorageUri);
+    expect(matterSourcePolicy.assertUploadMutationAllowed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId,
+        authoritativeSource: authoritativeMatterSource,
+        matterId,
+        tenantId,
+      }),
+    );
     expect(putQuarantineObject).not.toHaveBeenCalled();
     expect(sha256ByStorageUri).not.toHaveBeenCalled();
     expect(enqueue).toHaveBeenCalledOnce();
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'FILE_QUARANTINED',
-        metadata: expect.objectContaining({ hash: boundSha256 }),
+        metadata: expect.objectContaining({
+          hash: boundSha256,
+          expires_at: binding.expiresAt,
+          matter_source_mode: authoritativeMatterSource.mode,
+          matter_source_revision: authoritativeMatterSource.sourceRevision,
+          matter_source_updated_at: authoritativeMatterSource.sourceUpdatedAt,
+        }),
       }),
       expect.anything(),
     );

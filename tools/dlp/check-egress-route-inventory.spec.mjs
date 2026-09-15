@@ -14,8 +14,8 @@ test('closes every discovered byte, ticket, internal-reference, and generated-do
   assert.equal(report.status, 'PASS');
   assert.equal(report.unknownCount, 0);
   assert.equal(report.staleCount, 0);
-  assert.ok(report.candidateCount >= 18);
-  assert.equal(report.routeContractCount, 7);
+  assert.ok(report.candidateCount >= 19);
+  assert.equal(report.routeContractCount, 11);
   assert.ok((report.categories.gated ?? 0) >= 6);
   assert.ok((report.categories.reviewed_exclusion ?? 0) >= 6);
 });
@@ -59,6 +59,14 @@ test('fails when an explicit preview exclusion loses its named authorization con
     () => validateEgressInventory({ sources: mutated }),
     /PreviewService\.openPreview.*previewSessionService\.authorizeStream/u,
   );
+});
+
+test('fails when delegated preview loses session authorization or the post-storage check', () => {
+  const path = 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.ts';
+  for (const token of ['previewSessions.authorizeStream', 'await this.previewTarget(principal, input);\n    return']) {
+    const mutated = { ...sources, [path]: sources[path].replace(token, 'removedPreviewControl') };
+    assert.throws(() => validateEgressInventory({ sources: mutated }), /amic_os_preview_/u);
+  }
 });
 
 test('fails when DLP evaluation moves after a storage read', () => {

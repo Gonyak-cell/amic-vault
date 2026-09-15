@@ -32,6 +32,7 @@ export const ingestionWorkerPaths = [
   '/ocr',
   '/convert/docx-to-pdf',
   '/convert/office-to-pdf',
+  '/convert/office-to-pdf/profile',
   '/email/parse',
   '/security/scan',
   '/zip/inspect',

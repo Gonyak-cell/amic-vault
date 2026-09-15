@@ -10,6 +10,12 @@
     "REJECTED": "cannot be used by a downstream implementation"
   },
   "l0IneligiblePaths": [
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.contract.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.ts",
+    "db/migrations/0215_create_amic_os_office_copies.sql",
+    "db/migrations/0214_bind_document_preview_converter.sql",
+    "db/migrations/0213_allow_pending_document_previews.sql",
     "apps/api/src/common/db/runtime-role.assertion.ts",
     "apps/api/src/common/db/runtime-role.assertion.spec.ts",
     "apps/api/src/common/db/database.module.ts",

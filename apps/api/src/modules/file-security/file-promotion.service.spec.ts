@@ -43,7 +43,11 @@ function createService(
     metadata_json: { hash: expectedSha256 },
   },
 ) {
-  const lookupQuery = vi.fn(async () => ({ rows: [sourceRow] }));
+  const lookupQuery = vi.fn(async (sql: string) => (
+    sql.includes("action = 'FILE_QUARANTINED'")
+      ? { rows: [intakeAudit] }
+      : { rows: [sourceRow] }
+  ));
   const database = {
     tenantTransaction: vi.fn(async (_tenant: string, work: (client: { query: typeof lookupQuery }) => Promise<unknown>) => work({ query: lookupQuery })),
   };
@@ -52,12 +56,6 @@ function createService(
       return { rows: [{ state: 'clean', result_code: 'clean', expected_sha256: expectedSha256, observed_sha256: expectedSha256, signature_at: new Date() }], rowCount: 1 };
     }
     if (sql.includes('SELECT storage_uri')) return { rows: [{ storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/matters/${matterId}/documents/a/files/b` }], rowCount: 1 };
-    if (sql.includes("action = 'FILE_QUARANTINED'")) {
-      return {
-        rows: [intakeAudit],
-        rowCount: 1,
-      };
-    }
     if (sql.includes('UPDATE file_security_scans')) return { rows: [], rowCount: 1 };
     return { rows: [], rowCount: 1 };
   });
@@ -118,17 +116,31 @@ describe('FilePromotionService', () => {
     const correlationId = `vaultcorr_${'2'.repeat(32)}`;
     const requestId = 'a'.repeat(64);
     const idempotencyHash = 'b'.repeat(64);
-    const { audit, service } = createService(row(), {
+    const sourceUpdatedAt = new Date().toISOString();
+    const operationExpiresAt = new Date(Date.now() + 60_000).toISOString();
+    const { audit, service, upload } = createService(row(), {
       correlation_id: correlationId,
       metadata_json: {
         hash: expectedSha256,
         request_id: requestId,
         idempotency_hash: idempotencyHash,
+        expires_at: operationExpiresAt,
+        matter_source_mode: 'matter_app_api',
+        matter_source_revision: 'lawos-live-matter-projection-v1',
+        matter_source_updated_at: sourceUpdatedAt,
       },
     });
 
     await service.promote({ tenantId, quarantineRef, expectedSha256 });
 
+    expect(upload).toHaveBeenCalledWith(expect.objectContaining({
+      authoritativeMatterSource: {
+        mode: 'matter_app_api',
+        operationExpiresAt,
+        sourceRevision: 'lawos-live-matter-projection-v1',
+        sourceUpdatedAt,
+      },
+    }));
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'FILE_PROMOTED',
@@ -141,6 +153,21 @@ describe('FilePromotionService', () => {
       }),
       expect.anything(),
     );
+  });
+
+  it('fails closed when a persisted AMIC OS source proof is incomplete', async () => {
+    const { service, storage, upload } = createService(row(), {
+      correlation_id: null,
+      metadata_json: {
+        hash: expectedSha256,
+        matter_source_mode: 'matter_app_api',
+      },
+    });
+
+    await expect(service.promote({ tenantId, quarantineRef, expectedSha256 }))
+      .rejects.toThrow('FILE_SECURITY_PROMOTION_SOURCE_PROOF_INVALID');
+    expect(storage.getByStorageUri).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
   });
 
   it('fails closed for an expired scanner signature before reading quarantine bytes', async () => {

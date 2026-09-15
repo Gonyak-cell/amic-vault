@@ -510,16 +510,9 @@ export class ExternalService {
     await this.assertCanManageExternalMatter(ctx, workspace.matter_id);
     await this.assertActiveWorkspace(ctx.tenantId, workspace.workspace_id);
     await this.assertWorkspaceMember(ctx.tenantId, input.workspaceId, input.externalUserId);
-    await this.assertCanReadDocument(ctx, input.documentId);
-    const target = await this.findDocumentTarget(ctx.tenantId, input.documentId, input.versionId);
-    if (!target || target.matter_id !== workspace.matter_id) throw permissionDenied();
-    if (target.document_status === 'deleted' || target.document_legal_hold || target.matter_legal_hold) {
-      throw validationFailed('EXTERNAL_LINK_DOCUMENT_LOCKED');
-    }
-    const dlpEvaluation = await this.evaluateExternalDlp(ctx, target);
-    if (!dlpEvaluation.allowed) {
-      throw validationFailed('DLP_REVIEW_REQUIRED');
-    }
+    const { target, dlpEvaluation } = await this.documentShareTarget(
+      ctx, workspace.matter_id, input.documentId, input.versionId,
+    );
     if (dlpEvaluation.findingCount > 0 && !input.dlpWarningAccepted) {
       await this.auditDlpWarningBlocked(ctx, workspace, input, target, dlpEvaluation);
       throw validationFailed('EXTERNAL_DLP_WARNING_REQUIRED');
@@ -621,6 +614,33 @@ export class ExternalService {
       );
       return externalLinkCreatedResponseSchema.parse({ link, linkToken });
     });
+  }
+
+  async authorizePortalDocument(ctx: PermissionContext, matterId: string, documentId: string) {
+    await this.assertCanManageExternalMatter(ctx, matterId);
+    await this.assertSharingPoliciesEnabled(ctx.tenantId);
+    try {
+      const { target, dlpEvaluation } = await this.documentShareTarget(ctx, matterId, documentId);
+      // The AMIC OS portal has no DLP-warning acknowledgement contract yet.
+      if (dlpEvaluation.findingCount > 0) throw permissionDenied();
+      return { versionId: target.version_id, policyRef: requiredDlpHash(dlpEvaluation) };
+    } catch (error) {
+      // Keep document restrictions out of the provider's permission-trimmed inventory.
+      if (error instanceof BadRequestException) throw permissionDenied();
+      throw error;
+    }
+  }
+
+  private async documentShareTarget(ctx: PermissionContext, matterId: string, documentId: string, versionId?: string) {
+    await this.assertCanReadDocument(ctx, documentId);
+    const target = await this.findDocumentTarget(ctx.tenantId, documentId, versionId);
+    if (!target || target.matter_id !== matterId) throw permissionDenied();
+    if (target.document_status === 'deleted' || target.document_legal_hold || target.matter_legal_hold) {
+      throw validationFailed('EXTERNAL_LINK_DOCUMENT_LOCKED');
+    }
+    const dlpEvaluation = await this.evaluateExternalDlp(ctx, target);
+    if (!dlpEvaluation.allowed) throw validationFailed('DLP_REVIEW_REQUIRED');
+    return { target, dlpEvaluation };
   }
 
   async revokeLink(ctx: PermissionContext, linkId: string): Promise<ExternalLinkDto> {

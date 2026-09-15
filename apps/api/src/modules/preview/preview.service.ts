@@ -7,12 +7,18 @@ import { FileObjectService } from '../storage/file-object.service';
 import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
-import { PreviewConversionUnavailableError, PreviewConvertJob } from './preview-convert.job';
+import {
+  PREVIEW_MAX_INPUT_BYTES,
+  PreviewConversionUnavailableError,
+  PreviewConvertJob,
+  previewConvertQueueName,
+  readPreviewBytes,
+} from './preview-convert.job';
 import { PreviewSessionService, type PreviewSessionTarget } from './preview-session.service';
 
 type PreviewFileRow = PreviewSessionTarget;
 
-interface PreviewArtifactRow {
+export interface PreviewArtifactRow {
   file_object_id: string;
   storage_uri: string;
   normalized_filename: string;
@@ -20,6 +26,12 @@ interface PreviewArtifactRow {
   size_bytes: string;
   sha256: string;
 }
+
+export const PREVIEW_CHUNK_BYTES = 3 * 1024 * 1024;
+
+export type PreparedPreview =
+  | { status: 'ready'; file: PreviewArtifactRow }
+  | { status: 'pending' | 'failed'; file: null; converterProfileSha256: string };
 
 export interface PreviewPrecreateInput {
   tenantId: TenantId;
@@ -58,14 +70,6 @@ function conversionUnavailable(): BadRequestException {
     code: 'VALIDATION_FAILED',
     reason: 'PREVIEW_CONVERSION_UNAVAILABLE',
   });
-}
-
-async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-  }
-  return Buffer.concat(chunks);
 }
 
 function sha256(buffer: Buffer): string {
@@ -168,6 +172,43 @@ export class PreviewService {
     return 'ready';
   }
 
+  async getPreparedPreview(tenantId: TenantId, original: PreviewSessionTarget): Promise<PreparedPreview> {
+    if (original.tenant_id !== tenantId) throw conversionUnavailable();
+    if (original.mime_type === 'application/pdf') return { status: 'ready', file: original };
+    if (!isOfficePreviewMimeType(original.mime_type)) throw conversionUnavailable();
+    const profile = await this.converterProfile(tenantId);
+    return this.auditService.transaction<PreparedPreview>(tenantId, async (tx) => {
+      const file = await this.findReadyArtifact(tx, tenantId, original.version_id, original.sha256, profile);
+      if (file) return { status: 'ready', file };
+      const state = await tx.query<{ status: string }>(
+        `SELECT status FROM document_preview_artifacts
+         WHERE tenant_id = $1 AND version_id = $2
+           AND ((source_sha256 = $3 AND converter_profile_sha256 = $4)
+             OR (source_sha256 IS NULL AND converter_profile_sha256 IS NULL)) LIMIT 1`,
+        [tenantId, original.version_id, original.sha256, profile],
+      );
+      return { status: state.rows[0]?.status === 'failed' ? 'failed' : 'pending', file: null,
+        converterProfileSha256: profile };
+    });
+  }
+
+  async readPreparedChunk(
+    tenantId: TenantId,
+    file: PreviewArtifactRow,
+    offset: number,
+  ): Promise<Buffer> {
+    const size = Number(file.size_bytes);
+    if (file.mime_type !== 'application/pdf' || !/^[a-f0-9]{64}$/u.test(file.sha256)
+        || !Number.isSafeInteger(size) || size < 1
+        || !Number.isSafeInteger(offset) || offset < 0 || offset >= size
+        || offset % PREVIEW_CHUNK_BYTES !== 0) throw conversionUnavailable();
+    const length = Math.min(PREVIEW_CHUNK_BYTES, size - offset);
+    const object = await this.storageService.getRangeByStorageUri(
+      tenantId, file.storage_uri, offset, offset + length - 1,
+    );
+    return readPreviewBytes(object.body, PREVIEW_CHUNK_BYTES, length);
+  }
+
   async markPrecreateFailed(
     input: PreviewPrecreateInput,
     failureReasonCode = 'PREVIEW_CONVERSION_UNAVAILABLE',
@@ -206,20 +247,28 @@ export class PreviewService {
     original: PreviewFileRow,
   ): Promise<PreviewArtifactRow> {
     if (!isOfficePreviewMimeType(original.mime_type)) throw conversionUnavailable();
+    const profile = await this.converterProfile(tenantId);
     const cached = await this.auditService.transaction(tenantId, (tx) =>
-      this.findReadyArtifact(tx, tenantId, original.version_id),
+      this.findReadyArtifact(tx, tenantId, original.version_id, original.sha256, profile),
     );
     if (cached) return cached;
 
-    const sourceObject = await this.storageService.getByStorageUri(tenantId, original.storage_uri);
-    const source = await streamToBuffer(sourceObject.body);
     let pdf: Buffer;
     try {
+      const expectedSize = Number(original.size_bytes);
+      if (!Number.isSafeInteger(expectedSize) || expectedSize < 1
+          || expectedSize > PREVIEW_MAX_INPUT_BYTES || !/^[a-f0-9]{64}$/u.test(original.sha256)) {
+        throw conversionUnavailable();
+      }
+      const sourceObject = await this.storageService.getByStorageUri(tenantId, original.storage_uri);
+      const source = await readPreviewBytes(sourceObject.body, PREVIEW_MAX_INPUT_BYTES, expectedSize);
+      if (sha256(source) !== original.sha256) throw conversionUnavailable();
       pdf = await this.previewConvertJob.convertOfficeToPdf({
         tenantId,
         filename: original.normalized_filename,
         contentType: original.mime_type,
         body: source,
+        converterProfileSha256: profile,
       });
     } catch (error) {
       if (error instanceof PreviewConversionUnavailableError) throw conversionUnavailable();
@@ -243,7 +292,11 @@ export class PreviewService {
       contentType: 'application/pdf',
     });
     try {
-      return await this.auditService.transaction(tenantId, async (tx) => {
+      const artifact = await this.auditService.transaction(tenantId, async (tx) => {
+        await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+          [`${previewConvertQueueName}:${tenantId}:${original.version_id}`]);
+        const winner = await this.findReadyArtifact(tx, tenantId, original.version_id, original.sha256, profile);
+        if (winner) return winner;
         await this.fileObjectService.create(
           {
             fileObjectId,
@@ -263,23 +316,29 @@ export class PreviewService {
         await tx.query(
           `
             INSERT INTO document_preview_artifacts (
-              tenant_id, document_id, version_id, file_object_id, status, failure_reason_code
+              tenant_id, document_id, version_id, file_object_id, status, failure_reason_code,
+              source_sha256, converter_profile_sha256
             )
-            VALUES ($1, $2, $3, $4, 'ready', NULL)
+            VALUES ($1, $2, $3, $4, 'ready', NULL, $5, $6)
             ON CONFLICT (tenant_id, version_id)
             DO UPDATE SET
               file_object_id = EXCLUDED.file_object_id,
+              source_sha256 = EXCLUDED.source_sha256,
+              converter_profile_sha256 = EXCLUDED.converter_profile_sha256,
               status = 'ready',
               failure_reason_code = NULL,
               updated_at = now()
-            WHERE document_preview_artifacts.status <> 'ready'
           `,
-          [tenantId, original.document_id, original.version_id, fileObjectId],
+          [tenantId, original.document_id, original.version_id, fileObjectId, original.sha256, profile],
         );
-        const artifact = await this.findReadyArtifact(tx, tenantId, original.version_id);
+        const artifact = await this.findReadyArtifact(tx, tenantId, original.version_id, original.sha256, profile);
         if (!artifact) throw conversionUnavailable();
         return artifact;
       });
+      if (artifact.file_object_id !== fileObjectId) {
+        await this.storageService.deleteByStorageUri(tenantId, stored.storageUri).catch(() => undefined);
+      }
+      return artifact;
     } catch (error) {
       await this.storageService
         .deleteByStorageUri(tenantId, stored.storageUri)
@@ -323,6 +382,8 @@ export class PreviewService {
     client: QueryClient,
     tenantId: TenantId,
     versionId: string,
+    sourceSha256: string,
+    converterProfileSha256: string,
   ): Promise<PreviewArtifactRow | null> {
     const result = await client.query(
       `
@@ -335,10 +396,20 @@ export class PreviewService {
         WHERE a.tenant_id = $1
           AND a.version_id = $2
           AND a.status = 'ready'
+          AND a.source_sha256 = $3
+          AND a.converter_profile_sha256 = $4
         LIMIT 1
       `,
-      [tenantId, versionId],
+      [tenantId, versionId, sourceSha256, converterProfileSha256],
     );
     return (result.rows[0] as PreviewArtifactRow | undefined) ?? null;
+  }
+
+  private async converterProfile(tenantId: TenantId): Promise<string> {
+    try {
+      return await this.previewConvertJob.getProfileSha256(tenantId);
+    } catch {
+      throw conversionUnavailable();
+    }
   }
 }

@@ -111,6 +111,72 @@ describe('MatterSourcePolicyService', () => {
     expect(tenantQuery).not.toHaveBeenCalled();
   });
 
+  it('accepts only a fresh authenticated Matter app source proof when the bulk projection is stale', async () => {
+    const service = createService({
+      source: {
+        mode: 'unconfigured',
+        requestedMode: 'matter_app_api',
+        sourceContractReady: false,
+        sourceAvailable: false,
+        sourceStale: true,
+        uploadAuthoritative: false,
+        unavailableReason: 'stale_projection',
+      },
+    });
+    vi.mocked(tenantQuery).mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [matterRow()],
+    } as never);
+
+    await expect(service.assertUploadMutationAllowed({
+      actorUserId,
+      authoritativeSource: {
+        mode: 'matter_app_api',
+        sourceRevision: 'lawos-live-matter-projection-v1',
+        sourceUpdatedAt: '2026-06-20T00:00:30.000Z',
+      },
+      matterId,
+      tenantId,
+      purpose: 'document_upload',
+      now: new Date('2026-06-20T00:01:00.000Z'),
+    })).resolves.toMatchObject({
+      sourceMode: 'matter_app_api',
+      sourceRevision: 'lawos-live-matter-projection-v1',
+      sourceUpdatedAt: '2026-06-20T00:00:30.000Z',
+    });
+
+    await expect(service.assertUploadMutationAllowed({
+      actorUserId,
+      authoritativeSource: {
+        mode: 'matter_app_api',
+        sourceRevision: 'lawos-live-matter-projection-v1',
+        sourceUpdatedAt: '2026-06-19T23:00:00.000Z',
+      },
+      matterId,
+      tenantId,
+      purpose: 'document_upload',
+      now: new Date('2026-06-20T00:01:00.000Z'),
+    })).rejects.toBeInstanceOf(BadRequestException);
+
+    vi.mocked(tenantQuery).mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [matterRow()],
+    } as never);
+    await expect(service.assertUploadMutationAllowed({
+      actorUserId,
+      authoritativeSource: {
+        mode: 'matter_app_api',
+        operationExpiresAt: '2026-06-20T01:59:30.000Z',
+        sourceRevision: 'lawos-live-matter-projection-v1',
+        sourceUpdatedAt: '2026-06-20T00:00:30.000Z',
+      },
+      matterId,
+      tenantId,
+      purpose: 'document_upload',
+      now: new Date('2026-06-20T01:00:00.000Z'),
+    })).resolves.toMatchObject({ sourceMode: 'matter_app_api' });
+  });
+
   it('blocks closed, archived, and disposal state matters with safe denied output', async () => {
     vi.mocked(tenantQuery).mockResolvedValueOnce({
       rowCount: 1,

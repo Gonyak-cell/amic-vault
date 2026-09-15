@@ -12,6 +12,7 @@ import { AuditService } from '../audit/audit.service';
 import { DatabaseService } from '../../common/db/database.service';
 import { tenantQuery } from '../../common/db/tenant-query';
 import { DocumentUploadService } from '../document/document-upload.service';
+import type { AuthoritativeMatterAppSource } from '../integrations/matter-app/matter-source-policy';
 import { StorageService } from '../storage/storage.service';
 import { TenantContextService } from '../tenant/tenant-context';
 import type { FileSecurityScanJobPayload } from './file-security.types';
@@ -42,6 +43,11 @@ type PromotionRow = {
   file_object_id: string | null;
 };
 
+type QuarantineAuditBinding = {
+  correlation_id: string | null;
+  metadata_json: Record<string, unknown>;
+};
+
 export interface FilePromotionResult {
   documentId: string;
   versionId: string;
@@ -65,6 +71,41 @@ function promotionFailure(code: string): Error {
 function parseFields(value: unknown) {
   const parsed = typeof value === 'string' ? JSON.parse(value) : value;
   return uploadDocumentFieldsSchema.parse(parsed);
+}
+
+function isCanonicalInstant(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && new Date(timestamp).toISOString() === value;
+}
+
+function authoritativeMatterSource(
+  metadata: Record<string, unknown>,
+): AuthoritativeMatterAppSource | undefined {
+  const mode = metadata.matter_source_mode;
+  const sourceRevision = metadata.matter_source_revision;
+  const sourceUpdatedAt = metadata.matter_source_updated_at;
+  const operationExpiresAt = metadata.expires_at;
+  if (mode === undefined && sourceRevision === undefined && sourceUpdatedAt === undefined) {
+    return undefined;
+  }
+  if (
+    mode !== 'matter_app_api' ||
+    typeof sourceRevision !== 'string' ||
+    !sourceRevision.trim() ||
+    sourceRevision.length > 256 ||
+    !isCanonicalInstant(sourceUpdatedAt) ||
+    !isCanonicalInstant(operationExpiresAt) ||
+    Date.parse(operationExpiresAt) <= Date.now()
+  ) {
+    throw promotionFailure('FILE_SECURITY_PROMOTION_SOURCE_PROOF_INVALID');
+  }
+  return {
+    mode,
+    operationExpiresAt,
+    sourceRevision,
+    sourceUpdatedAt,
+  };
 }
 
 @Injectable()
@@ -93,6 +134,8 @@ export class FilePromotionService {
       throw promotionFailure('FILE_SECURITY_PROMOTION_INPUT_MISSING');
     }
 
+    const intakeBinding = await this.findQuarantineAudit(payload.tenantId, row.scan_id);
+    const sourceAuthority = authoritativeMatterSource(intakeBinding.metadata_json);
     const fields = parseFields(row.fields_json);
     const dir = await mkdtemp(join(tmpdir(), 'amic-vault-file-promotion-'));
     const path = join(dir, 'quarantine-promotion');
@@ -119,6 +162,7 @@ export class FilePromotionService {
               size: Number(row.size_bytes),
             },
             sourceSystem: row.source_system as 'upload' | 'email_ingest' | 'migration',
+            ...(sourceAuthority ? { authoritativeMatterSource: sourceAuthority } : {}),
             afterUploadAudit: async (tx, uploaded) => {
               const current = await tx.query(`
                 SELECT state, result_code, expected_sha256, observed_sha256, signature_at
@@ -161,30 +205,8 @@ export class FilePromotionService {
                 [payload.tenantId, row.scan_id],
               );
               if (updated.rowCount !== 1) throw promotionFailure('FILE_SECURITY_PROMOTION_RACE');
-              const intakeAudit = await tx.query(
-                `
-                  SELECT correlation_id, metadata_json
-                  FROM audit_events
-                  WHERE tenant_id = $1
-                    AND action = 'FILE_QUARANTINED'
-                    AND target_type = 'file_security_scan'
-                    AND target_id = $2
-                  ORDER BY seq
-                  LIMIT 2
-                `,
-                [payload.tenantId, row.scan_id],
-              ) as {
-                rows: Array<{
-                  correlation_id: string | null;
-                  metadata_json: Record<string, unknown>;
-                }>;
-              };
-              if (intakeAudit.rows.length !== 1) {
-                throw promotionFailure('FILE_SECURITY_QUARANTINE_AUDIT_MISSING');
-              }
-              const intakeBinding = intakeAudit.rows[0];
-              const requestId = intakeBinding?.metadata_json.request_id;
-              const idempotencyHash = intakeBinding?.metadata_json.idempotency_hash;
+              const requestId = intakeBinding.metadata_json.request_id;
+              const idempotencyHash = intakeBinding.metadata_json.idempotency_hash;
               await this.auditService.log(
                 {
                   tenantId: payload.tenantId,
@@ -196,7 +218,7 @@ export class FilePromotionService {
                   result: 'success',
                   metadata: {
                     hash: uploaded.sha256,
-                    ...(typeof intakeBinding?.correlation_id === 'string'
+                    ...(typeof intakeBinding.correlation_id === 'string'
                       ? { correlation_id: intakeBinding.correlation_id }
                       : {}),
                     ...(typeof requestId === 'string' ? { request_id: requestId } : {}),
@@ -245,6 +267,32 @@ export class FilePromotionService {
       [payload.tenantId, payload.quarantineRef, payload.expectedSha256],
     );
     return result.rows[0] ?? null;
+  }
+
+  private async findQuarantineAudit(
+    tenantId: string,
+    scanId: string,
+  ): Promise<QuarantineAuditBinding> {
+    const result = await tenantQuery<QuarantineAuditBinding>(
+      this.databaseService,
+      tenantId,
+      `
+        SELECT correlation_id, metadata_json
+        FROM audit_events
+        WHERE tenant_id = $1
+          AND action = 'FILE_QUARANTINED'
+          AND target_type = 'file_security_scan'
+          AND target_id = $2
+        ORDER BY seq
+        LIMIT 2
+      `,
+      [tenantId, scanId],
+    );
+    const binding = result.rows[0];
+    if (result.rows.length !== 1 || !binding) {
+      throw promotionFailure('FILE_SECURITY_QUARANTINE_AUDIT_MISSING');
+    }
+    return binding;
   }
 
   private existingPromotion(row: PromotionRow): FilePromotionResult {

@@ -211,6 +211,19 @@ function createService() {
   const enqueueVersionCreated = vi.fn(async () => 'extraction-job-id');
   const enqueueVersion = vi.fn(async () => undefined);
   const extractRevisionsForTarget = vi.fn(async () => undefined);
+  const prepareDocumentEditPromotion = vi.fn(async () => ({
+    tenantId,
+    scanId: '11111111-1111-4111-8111-1111111111f5',
+    quarantineRef: subversionId,
+    matterId,
+    subversionId,
+    fileObjectId,
+    sourceStorageUri: `s3://amic-vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`,
+    sha256: hash,
+    sizeBytes: 32,
+    actorUserId,
+  }));
+  const bindDocumentEditPromotion = vi.fn(async () => true);
   const permissionService = {
     canCheckoutDocument: vi.fn(async () => allowPermission()),
     canReadDocumentSubversion: vi.fn(async () => allowPermission()),
@@ -225,6 +238,7 @@ function createService() {
     { putTenantObject, getByStorageUri, deleteByStorageUri } as never,
     { require: () => ({ tenantId, slug: 'tenant-alpha', status: 'active', source: 'session' }) } as never,
     new VersionNumberResolver(),
+    { prepareDocumentEditPromotion, bindDocumentEditPromotion } as never,
     { enqueueVersionCreated } as never,
     { extractRevisionsForTarget } as never,
     { enqueueVersion } as never,
@@ -238,9 +252,11 @@ function createService() {
     extractRevisionsForTarget,
     permissionService,
     getByStorageUri,
+    prepareDocumentEditPromotion,
     putTenantObject,
     query,
     service,
+    bindDocumentEditPromotion,
   };
 }
 
@@ -295,13 +311,14 @@ describe('DocumentEditingService', () => {
       idempotencyKey: 'checkout-1',
       clientKind: 'web_upload',
       checkoutReasonCode: 'WEB_EDIT',
-    });
+    }, { editSessionId, lockToken });
 
     expect(response).toMatchObject({
       editSessionId,
       baseVersionId,
       status: 'active',
       lockOwnerUserId: actorUserId,
+      lockToken,
     });
     expect(auditLog).not.toHaveBeenCalled();
     expect(query).toHaveBeenCalledTimes(3);
@@ -1116,7 +1133,15 @@ describe('DocumentEditingService', () => {
   });
 
   it('promotes a submitted subversion into the next official version', async () => {
-    const { auditLog, enqueueVersion, enqueueVersionCreated, query, service } = createService();
+    const {
+      auditLog,
+      bindDocumentEditPromotion,
+      enqueueVersion,
+      enqueueVersionCreated,
+      prepareDocumentEditPromotion,
+      query,
+      service,
+    } = createService();
     const submittedAt = new Date('2026-06-22T00:05:00.000Z');
     query
       .mockResolvedValueOnce({
@@ -1174,6 +1199,26 @@ describe('DocumentEditingService', () => {
       { tenantId, documentId, versionId: promotedVersionId, fileObjectId },
       expect.anything(),
     );
+    expect(prepareDocumentEditPromotion).toHaveBeenCalledWith({
+      tenantId,
+      actorUserId,
+      documentId,
+      subversionId,
+      expectedBaseVersionId: baseVersionId,
+    });
+    expect(bindDocumentEditPromotion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId,
+        versionId: promotedVersionId,
+        fileObjectId,
+        sha256: hash,
+        actorUserId,
+      }),
+      expect.anything(),
+    );
+    expect(bindDocumentEditPromotion.mock.invocationCallOrder[0]).toBeLessThan(
+      enqueueVersionCreated.mock.invocationCallOrder[0]!,
+    );
     expect(auditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'DOCUMENT_VERSION_PROMOTED',
@@ -1189,7 +1234,15 @@ describe('DocumentEditingService', () => {
   });
 
   it('returns the existing official version when a promoted subversion is retried', async () => {
-    const { auditLog, enqueueVersion, enqueueVersionCreated, query, service } = createService();
+    const {
+      auditLog,
+      bindDocumentEditPromotion,
+      enqueueVersion,
+      enqueueVersionCreated,
+      query,
+      service,
+    } = createService();
+    bindDocumentEditPromotion.mockResolvedValueOnce(false);
     const publishedAt = new Date('2026-06-22T00:06:00.000Z');
     query
       .mockResolvedValueOnce({

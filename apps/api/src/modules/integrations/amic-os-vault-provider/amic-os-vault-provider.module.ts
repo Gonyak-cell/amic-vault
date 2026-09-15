@@ -1,13 +1,18 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../../audit/audit.module';
 import { DlpModule } from '../../dlp/dlp.module';
+import { ExternalModule } from '../../external/external.module';
 import { FileSecurityModule } from '../../file-security/file-security.module';
 import { MatterAppModule } from '../matter-app/matter-app.module';
 import { PermissionModule } from '../../permission/permission.module';
+import { PreviewModule } from '../../preview/preview.module';
 import { SearchModule } from '../../search/search.module';
 import { StorageModule } from '../../storage/storage.module';
 import { TenantModule } from '../../tenant/tenant.module';
 import { UserModule } from '../../user/user.module';
+import { DocumentModule } from '../../document/document.module';
+import { AmicOsVaultEditorController } from './amic-os-vault-editor.controller';
+import { AmicOsVaultEditorService } from './amic-os-vault-editor.service';
 import { AmicOsVaultProviderController } from './amic-os-vault-provider.controller';
 import {
   AmicOsVaultProviderConfig,
@@ -26,9 +31,12 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
   imports: [
     AuditModule,
     DlpModule,
+    DocumentModule,
+    ExternalModule,
     FileSecurityModule,
     MatterAppModule,
     PermissionModule,
+    PreviewModule,
     SearchModule,
     StorageModule,
     TenantModule,
@@ -39,6 +47,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultUploadController,
     AmicOsVaultCapabilityController,
     AmicOsVaultReadController,
+    AmicOsVaultEditorController,
   ],
   providers: [
     AmicOsVaultProviderConfig,
@@ -46,12 +55,14 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultProviderService,
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
+    AmicOsVaultEditorService,
   ],
   exports: [
     AmicOsVaultProviderConfig,
     AmicOsVaultProviderService,
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
+    AmicOsVaultEditorService,
   ],
 })
 export class AmicOsVaultProviderModule {}

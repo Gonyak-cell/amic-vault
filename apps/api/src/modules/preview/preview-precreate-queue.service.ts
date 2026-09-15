@@ -53,15 +53,29 @@ export class PreviewPrecreateQueueService implements OnModuleInit {
   async enqueueVersionCreated(
     input: PreviewPrecreateJobPayload,
     client: PoolClient,
+    allowExistingJob = false,
   ): Promise<string | null> {
     if (!(await this.isOfficeVersion(input.tenantId, input.fileObjectId, client))) return null;
     const boss = await this.ensureStarted();
+    // Standard queues do not deduplicate singletonKey; serialize producers in the caller's transaction.
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [
+      `${previewConvertQueueName}:${input.tenantId}:${input.versionId}`,
+    ]);
+    const existing = (await boss.findJobs<PreviewPrecreateJobPayload>(previewConvertQueueName, {
+      key: input.versionId, db: pgBossDbFromPoolClient(client),
+    })).find(job => ['created', 'retry', 'active'].includes(job.state));
+    if (existing) {
+      if (!allowExistingJob || existing.data.tenantId !== input.tenantId
+          || existing.data.documentId !== input.documentId || existing.data.fileObjectId !== input.fileObjectId
+          || existing.data.versionId !== input.versionId) throw new Error('preview convert job binding conflict');
+      return existing.id;
+    }
     const jobId = await boss.send(
       previewConvertQueueName,
       input,
       previewConvertQueueSendOptions(input, client),
     );
-    if (!jobId) throw new Error('preview convert job enqueue returned no id');
+    if (!jobId && !allowExistingJob) throw new Error('preview convert job enqueue returned no id');
     return jobId;
   }
 

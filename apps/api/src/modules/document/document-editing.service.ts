@@ -7,6 +7,7 @@ import { TextDecoder } from 'node:util';
 import {
   BadRequestException,
   ForbiddenException,
+  forwardRef,
   Inject,
   Injectable,
   Logger,
@@ -62,6 +63,10 @@ import {
 } from '../audit/events/document-events';
 import { PermissionService } from '../permission/permission.service';
 import { promotedDocumentExistsSql } from '../file-security/promoted-file.guard';
+import {
+  FileSecurityService,
+  type DocumentEditSecurityBinding,
+} from '../file-security/file-security.service';
 import { SearchIndexSyncHook } from '../search/index/index-sync.hook';
 import { FileObjectService } from '../storage/file-object.service';
 import { StorageService } from '../storage/storage.service';
@@ -128,6 +133,11 @@ interface ForceReleasePermissionRow {
 export interface ExpiredEditSessionSweepResult {
   tenantId: TenantId;
   expiredCount: number;
+}
+
+export interface DocumentEditCheckoutBinding {
+  editSessionId: string;
+  lockToken: string;
 }
 
 interface SubversionRow {
@@ -520,6 +530,8 @@ export class DocumentEditingService {
     @Inject(StorageService) private readonly storageService: StorageService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(VersionNumberResolver) private readonly versionNumberResolver: VersionNumberResolver,
+    @Inject(forwardRef(() => FileSecurityService))
+    private readonly fileSecurityService: FileSecurityService,
     @Optional()
     @Inject(ExtractionQueueService)
     private readonly extractionQueue?: ExtractionQueueService,
@@ -535,6 +547,7 @@ export class DocumentEditingService {
     actorUserId: string,
     documentId: string,
     input: CreateDocumentEditSessionDto,
+    binding?: DocumentEditCheckoutBinding,
   ): Promise<DocumentEditSessionDto> {
     const context = this.tenantContext.require();
     const result = await this.auditService.transaction(context.tenantId, async (tx) => {
@@ -577,6 +590,13 @@ export class DocumentEditingService {
           active.lock_owner_user_id === actorUserId &&
           active.base_version_id === current.version_id
         ) {
+          if (
+            binding &&
+            active.edit_session_id === binding.editSessionId &&
+            isValidLockToken(active, binding.lockToken)
+          ) {
+            return { session: mapSession(active, binding.lockToken) };
+          }
           return { session: mapSession(active) };
         } else {
           throw documentLocked('document_already_checked_out');
@@ -584,26 +604,28 @@ export class DocumentEditingService {
       }
 
       const expiresAt = ttlExpiry(input.requestedTtlSeconds);
-      const lockToken = randomLockToken();
+      const editSessionId = binding?.editSessionId ?? randomUUID();
+      const lockToken = binding?.lockToken ?? randomLockToken();
       const inserted = await tx.query(
         `
           WITH inserted AS (
             INSERT INTO document_edit_sessions (
-              tenant_id, document_id, base_version_id, lock_owner_user_id, status,
+              edit_session_id, tenant_id, document_id, base_version_id, lock_owner_user_id, status,
               client_kind, lock_token_hash, checkout_reason_code, expires_at
             )
-            VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8)
+            VALUES ($1, $2, $3, $4, $5, 'active', $6, $7, $8, $9)
             RETURNING edit_session_id, document_id, base_version_id, status, client_kind,
               lock_owner_user_id, checked_out_at, heartbeat_at, expires_at, checked_in_at,
               cancelled_at, expired_at, conflicted_at, lock_token_hash
           )
-          SELECT inserted.*, d.matter_id, $9::integer AS base_version_no
+          SELECT inserted.*, d.matter_id, $10::integer AS base_version_no
           FROM inserted
           JOIN documents d
-            ON d.tenant_id = $1
+            ON d.tenant_id = $2
             AND d.document_id = inserted.document_id
         `,
         [
+          editSessionId,
           context.tenantId,
           documentId,
           current.version_id,
@@ -1739,6 +1761,20 @@ export class DocumentEditingService {
     input: PromoteDocumentSubversionDto,
   ): Promise<PromoteDocumentSubversionResponseDto> {
     const context = this.tenantContext.require();
+    await this.assertAllowed(
+      this.permissionService.canPromoteDocumentVersion.bind(this.permissionService),
+      context.tenantId,
+      actorUserId,
+      documentId,
+    );
+    const securityBinding: DocumentEditSecurityBinding =
+      await this.fileSecurityService.prepareDocumentEditPromotion({
+        tenantId: context.tenantId,
+        actorUserId,
+        documentId,
+        subversionId,
+        expectedBaseVersionId: input.expectedBaseVersionId,
+      });
     const result = await this.auditService.transaction(context.tenantId, async (tx) => {
       const subversion = await this.findSubversionForPromotion(
         context.tenantId,
@@ -1764,6 +1800,28 @@ export class DocumentEditingService {
           tx,
         );
         if (!promotedVersion) throw validationFailed('promotion_conflict');
+        const securityReceiptCreated = await this.fileSecurityService.bindDocumentEditPromotion(
+          {
+            binding: securityBinding,
+            documentId,
+            versionId: promotedVersion.version_id,
+            fileObjectId: promotedVersion.file_object_id,
+            sha256: promotedVersion.file_hash,
+            actorUserId,
+          },
+          tx as PoolClient,
+        );
+        if (securityReceiptCreated) {
+          await this.extractionQueue?.enqueueVersionCreated(
+            {
+              tenantId: context.tenantId,
+              documentId,
+              versionId: promotedVersion.version_id,
+              fileObjectId: promotedVersion.file_object_id,
+            },
+            tx,
+          );
+        }
         return {
           response: mapPromotionResponse(documentId, subversionId, promotedVersion),
         };
@@ -1850,6 +1908,17 @@ export class DocumentEditingService {
       );
       const version = inserted.rows[0] as PromotionVersionRow | undefined;
       if (!version) throw new Error('promoted document version insert returned no row');
+      await this.fileSecurityService.bindDocumentEditPromotion(
+        {
+          binding: securityBinding,
+          documentId,
+          versionId: version.version_id,
+          fileObjectId: version.file_object_id,
+          sha256: version.file_hash,
+          actorUserId,
+        },
+        tx as PoolClient,
+      );
       await this.extractionQueue?.enqueueVersionCreated(
         {
           tenantId: context.tenantId,

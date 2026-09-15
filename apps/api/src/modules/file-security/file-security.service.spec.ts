@@ -26,6 +26,78 @@ beforeEach(() => {
 });
 
 describe('FileSecurityService', () => {
+  it('binds a clean edit scan to the exact promoted version before release', async () => {
+    const scanId = '33333333-3333-4333-8333-333333333333';
+    const matterId = '44444444-4444-4444-8444-444444444444';
+    const documentId = '55555555-5555-4555-8555-555555555555';
+    const versionId = '66666666-6666-4666-8666-666666666666';
+    const fileObjectId = '77777777-7777-4777-8777-777777777777';
+    const actorUserId = '88888888-8888-4888-8888-888888888888';
+    const storageUri = `s3://amic-vault-dev/tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('FROM file_objects')) {
+        return { rowCount: 1, rows: [{ storage_uri: storageUri, size_bytes: '4', sha256: expectedSha256 }] };
+      }
+      if (sql.includes('FROM file_security_scans s')) {
+        return { rowCount: 1, rows: [{
+          scan_id: scanId,
+          matter_id: matterId,
+          quarantine_ref: quarantineRef,
+          quarantine_storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`,
+          expected_sha256: expectedSha256,
+          observed_sha256: expectedSha256,
+          size_bytes: '4',
+          state: 'clean',
+          result_code: 'clean',
+          signature_at: new Date(),
+          created_by: actorUserId,
+          promoted_document_id: null,
+          promoted_version_id: null,
+          promoted_file_object_id: null,
+          primary_sha256: null,
+          promoted_by: null,
+        }] };
+      }
+      if (sql.includes('UPDATE file_security_scans')) return { rowCount: 1, rows: [] };
+      return { rowCount: 1, rows: [] };
+    });
+    const tx = { query };
+    const audit = { transaction: vi.fn(), log: vi.fn().mockResolvedValue({}) };
+    const service = new FileSecurityService(audit as never, { promote: vi.fn() } as never, {} as never);
+
+    await expect(service.bindDocumentEditPromotion({
+      binding: {
+        tenantId,
+        scanId,
+        quarantineRef,
+        matterId,
+        subversionId: quarantineRef,
+        fileObjectId,
+        sourceStorageUri: storageUri,
+        sha256: expectedSha256,
+        sizeBytes: 4,
+        actorUserId,
+      },
+      documentId,
+      versionId,
+      fileObjectId,
+      sha256: expectedSha256,
+      actorUserId,
+    }, tx as never)).resolves.toBe(true);
+
+    expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO file_security_promotions'))).toBe(true);
+    expect(query.mock.calls.some(([sql]) => sql.includes("SET state = 'promoted'"))).toBe(true);
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'FILE_PROMOTED',
+      targetId: scanId,
+      metadata: expect.objectContaining({
+        source: 'document_edit',
+        subversion_id: quarantineRef,
+        version_id: versionId,
+      }),
+    }), tx);
+  });
+
   it('claims an opaque reference, records clean result and audit in one completion transaction', async () => {
     const query = vi.fn(async (sql: string) => {
       if (sql.includes('FROM file_security_scans')) return { rows: [{ scan_id: '33333333-3333-4333-8333-333333333333', matter_id: '44444444-4444-4444-8444-444444444444', quarantine_storage_uri: `s3://amic-vault-dev/tenants/${tenantId}/quarantine/${quarantineRef}`, size_bytes: '4', state: 'quarantined' }] };
