@@ -19,6 +19,8 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
 import type {
   AmicOsVaultReadInput,
   AmicOsVaultReadResponse,
+  AmicOsVaultVersionReadInput,
+  AmicOsVaultVersionReadResponse,
   AmicOsVaultPreviewInput,
   AmicOsVaultPreviewFile,
 } from './amic-os-vault-read.service';
@@ -126,6 +128,20 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
   };
 }
 
+function parseVersions(value: unknown): AmicOsVaultVersionReadInput {
+  const input = object(value);
+  exactKeys(input, ['principal', 'lawos_matter_id', 'document_id', 'page', 'page_size']);
+  const mappedMatterId = matterId(input.lawos_matter_id);
+  if (!mappedMatterId) throw invalid();
+  return {
+    accountLedgerId: principalAccountLedgerId(input.principal),
+    lawosMatterId: mappedMatterId,
+    documentId: parseUuid(input.document_id),
+    page: page(input.page, 1_000),
+    pageSize: page(input.page_size, 50),
+  };
+}
+
 function principal(request: RequestWithAmicOsVaultProvider): AmicOsVaultProviderPrincipal {
   if (!request.amicOsVaultPrincipal) throw invalid();
   return request.amicOsVaultPrincipal;
@@ -195,6 +211,16 @@ export class AmicOsVaultReadController {
     @Body() body: unknown,
   ): Promise<AmicOsVaultReadResponse> {
     return this.service.search(principal(request), parseSearch(body));
+  }
+
+  @Post('versions')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  versions(
+    @Req() request: RequestWithAmicOsVaultProvider,
+    @Body() body: unknown,
+  ): Promise<AmicOsVaultVersionReadResponse> {
+    return this.service.versions(principal(request), parseVersions(body));
   }
 
   @Post('portal-document')

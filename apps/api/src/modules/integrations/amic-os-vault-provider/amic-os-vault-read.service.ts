@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import type { SearchQueryDto, SearchResultDto } from '@amic-vault/shared';
+import type { SearchQueryDto, SearchResultDto, TenantId } from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { SearchService } from '../../search/search.service';
 import { ExternalService } from '../../external/external.service';
+import { DocumentVersionService } from '../../document/document-version.service';
 import { TenantContextService } from '../../tenant/tenant-context';
 import { PreviewPrecreateQueueService } from '../../preview/preview-precreate-queue.service';
 import {
@@ -25,6 +26,47 @@ export interface AmicOsVaultReadInput {
   query: string | null;
   dateFrom: string | null;
   dateTo: string | null;
+}
+
+export interface AmicOsVaultVersionReadInput {
+  accountLedgerId: string;
+  lawosMatterId: string;
+  documentId: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface AmicOsVaultVersionProjection {
+  document_id: string;
+  matter_id: string;
+  version_id: string;
+  version_no: number;
+  version_status: 'current' | 'superseded';
+  file_object_id: string;
+  sha256: string;
+  byte_size: number;
+  mime_type: string;
+  created_at: string;
+  version_label: string | null;
+  version_significance: string;
+  rendition_type: string;
+  supersedes_version_id: string | null;
+}
+
+export interface AmicOsVaultVersionReadResponse {
+  authority_kind: 'amic-vault-api';
+  authority_ref: string;
+  provider_revision: string;
+  items: AmicOsVaultVersionProjection[];
+  page_info: {
+    page: number;
+    page_size: number;
+    returned_count: number;
+    has_more: boolean;
+  };
+  count_leak_prevented: true;
+  raw_bytes_included: false;
+  storage_locator_returned: false;
 }
 
 export interface AmicOsVaultPreviewInput {
@@ -56,6 +98,12 @@ interface ExactProjectionRow {
   mime_type: string;
   normalized_filename: string;
   lawos_matter_id: string | null;
+}
+
+interface VersionFileRow {
+  file_object_id: string;
+  size_bytes: string;
+  mime_type: string;
 }
 
 export interface AmicOsVaultExactProjection {
@@ -126,6 +174,7 @@ export class AmicOsVaultReadService {
     @Inject(PreviewService) private readonly previews: PreviewService,
     @Inject(PreviewPrecreateQueueService) private readonly previewQueue: PreviewPrecreateQueueService,
     @Inject(ExternalService) private readonly external: ExternalService,
+    @Inject(DocumentVersionService) private readonly documentVersions: DocumentVersionService,
   ) {}
 
   async list(
@@ -140,6 +189,70 @@ export class AmicOsVaultReadService {
     input: AmicOsVaultReadInput,
   ): Promise<AmicOsVaultReadResponse> {
     return this.read(principal, input);
+  }
+
+  async versions(
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultVersionReadInput,
+  ): Promise<AmicOsVaultVersionReadResponse> {
+    this.assertPrincipal(principal, input.accountLedgerId);
+    const matterId = await this.resolveLawosMatter(principal.tenantId, input.lawosMatterId);
+    const target = await this.documentVersions.findVersionTarget(principal.tenantId as TenantId, input.documentId);
+    if (!target || target.matter_id !== matterId) throw permissionDenied();
+
+    const versions = await this.documentVersions.listVersions(
+      principal.actorUserId,
+      input.documentId,
+      {},
+    );
+    const offset = (input.page - 1) * input.pageSize;
+    const pageItems = versions.items.slice(offset, offset + input.pageSize);
+    const fileIds = pageItems.map((item) => item.fileObjectId);
+    const files = fileIds.length === 0
+      ? []
+      : (await this.auditService.transaction(principal.tenantId, (tx: QueryClient) => tx.query(
+          `SELECT file_object_id, size_bytes::text, mime_type
+           FROM file_objects
+           WHERE tenant_id = $1::uuid AND file_object_id = ANY($2::uuid[])`,
+          [principal.tenantId, fileIds],
+        ))).rows as VersionFileRow[];
+    const fileById = new Map(files.map((file) => [file.file_object_id, file]));
+    const items = pageItems.map((version): AmicOsVaultVersionProjection => {
+      const file = fileById.get(version.fileObjectId);
+      const size = Number(file?.size_bytes);
+      if (!file || !Number.isSafeInteger(size) || size < 1) throw permissionDenied();
+      return {
+        document_id: version.documentId,
+        matter_id: input.lawosMatterId,
+        version_id: version.versionId,
+        version_no: version.versionNo,
+        version_status: version.versionStatus,
+        file_object_id: version.fileObjectId,
+        sha256: version.fileHash,
+        byte_size: size,
+        mime_type: file.mime_type,
+        created_at: version.createdAt,
+        version_label: version.versionLabel,
+        version_significance: version.versionSignificance,
+        rendition_type: version.renditionType,
+        supersedes_version_id: version.supersedesVersionId,
+      };
+    });
+    return {
+      authority_kind: 'amic-vault-api',
+      authority_ref: this.config.uploadAuthorityRef(),
+      provider_revision: this.config.uploadProviderRevision(),
+      items,
+      page_info: {
+        page: input.page,
+        page_size: input.pageSize,
+        returned_count: items.length,
+        has_more: offset + items.length < versions.items.length,
+      },
+      count_leak_prevented: true,
+      raw_bytes_included: false,
+      storage_locator_returned: false,
+    };
   }
 
   async portalDocument(principal: AmicOsVaultProviderPrincipal, input: {

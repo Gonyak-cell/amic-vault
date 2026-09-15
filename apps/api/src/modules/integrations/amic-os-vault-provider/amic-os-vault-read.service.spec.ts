@@ -100,6 +100,9 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
       return { rowCount: 1, rows: [{ document_id: documentId, version_id: versionId,
         file_object_id: fileObjectId, sha256, size_bytes: '4096', mime_type: 'application/pdf' }] };
     }
+    if (sql.includes('FROM file_objects')) {
+      return { rowCount: 1, rows: [{ file_object_id: fileObjectId, size_bytes: '4096', mime_type: 'application/pdf' }] };
+    }
     if (sql.includes('FROM documents')) {
       return {
         rowCount: 3,
@@ -173,6 +176,25 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
     readPreparedChunk: vi.fn(async () => pdfBytes),
   };
   const previewQueue = { enqueueVersionCreated: vi.fn(async () => null) };
+  const documentVersions = {
+    findVersionTarget: vi.fn(async () => ({ matter_id: vaultMatterId })),
+    listVersions: vi.fn(async () => ({ items: [{
+      versionId,
+      documentId,
+      versionNo: 2,
+      versionStatus: 'current',
+      fileObjectId,
+      fileHash: sha256,
+      createdBy: actorUserId,
+      createdAt: '2026-09-15T09:00:00.000Z',
+      supersedesVersionId: null,
+      promotedFromSubversionId: null,
+      versionLabel: 'v2',
+      versionSignificance: 'internal_draft',
+      renditionType: 'clean',
+      baseCleanVersionId: null,
+    }] })),
+  };
   const service = new AmicOsVaultReadService(
     auditService as never,
     searchService as never,
@@ -187,8 +209,9 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
     previews as never,
     previewQueue as never,
     external,
+    documentVersions as never,
   );
-  return { auditService, query, searchService, service, previewSessions, previews, previewQueue };
+  return { auditService, query, searchService, service, previewSessions, previews, previewQueue, documentVersions };
 }
 
 describe('AmicOsVaultReadService', () => {
@@ -414,6 +437,25 @@ describe('AmicOsVaultReadService', () => {
         }),
       }),
     );
+  });
+
+  it('reuses the permission-scoped document version service and returns exact file metadata', async () => {
+    const { documentVersions, service } = createHarness();
+    await expect(service.versions(principal, {
+      accountLedgerId: principal.accountLedgerId,
+      lawosMatterId,
+      documentId,
+      page: 1,
+      pageSize: 50,
+    })).resolves.toMatchObject({
+      authority_kind: 'amic-vault-api',
+      items: [{ document_id: documentId, matter_id: lawosMatterId, version_id: versionId,
+        version_no: 2, file_object_id: fileObjectId, sha256, byte_size: 4096, mime_type: 'application/pdf' }],
+      page_info: { page: 1, page_size: 50, returned_count: 1, has_more: false },
+      raw_bytes_included: false,
+      storage_locator_returned: false,
+    });
+    expect(documentVersions.listVersions).toHaveBeenCalledWith(actorUserId, documentId, {});
   });
 
   it('fails before search when the provider tenant context or account binding disagrees', async () => {
