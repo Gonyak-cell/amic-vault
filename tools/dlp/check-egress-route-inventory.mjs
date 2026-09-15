@@ -190,6 +190,26 @@ export const EGRESS_INVENTORY = Object.freeze({
       "fetchIngestionWorker('/security/scan'",
     ],
   },
+  'FileSecurityService.ensureDocumentEditQuarantine': {
+    path: 'apps/api/src/modules/file-security/file-security.service.ts',
+    category: 'internal_processing',
+    rationale: 'copies one exact edit subversion into the private quarantine boundary before its mandatory security scan',
+    authorityControl: 'source and quarantine objects are bound to the expected size, MIME type and SHA-256',
+    auditControl: 'the caller records FILE_QUARANTINED and completes the file-security scan before promotion',
+    required: [
+      'this.storageService.sha256ByStorageUri(',
+      'this.storageService.getByStorageUri(',
+      'sourceHash !== input.sha256',
+      'source.contentLength !== input.sizeBytes',
+      'this.storageService.putQuarantineObject(',
+      'source.body.destroy()',
+      'FILE_SECURITY_EDIT_QUARANTINE_MISMATCH',
+    ],
+    order: [
+      ['this.storageService.sha256ByStorageUri(', 'this.storageService.getByStorageUri('],
+      ['this.storageService.getByStorageUri(', 'this.storageService.putQuarantineObject('],
+    ],
+  },
   'AmicOsVaultProviderService.readExactBytes': {
     path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.service.ts',
     category: 'internal_processing',
