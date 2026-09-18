@@ -18,6 +18,16 @@ import {
   type AmicOsVaultProviderPrincipal,
 } from './amic-os-vault-provider.guard';
 
+const portalDocumentMimeTypes = new Set([
+  'application/pdf', 'image/png', 'image/jpeg', 'text/plain', 'text/csv', 'application/rtf',
+  'application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.oasis.opendocument.presentation',
+]);
+
 export interface AmicOsVaultReadInput {
   accountLedgerId: string;
   lawosMatterId: string | null;
@@ -276,7 +286,7 @@ export class AmicOsVaultReadService {
     const size = Number(row?.size_bytes);
     if (result.rows.length !== 1 || !row || row.document_id !== input.documentId
         || row.version_id !== authorization.versionId || !Number.isSafeInteger(size) || size < 1
-        || size > 25 * 1024 * 1024 || row.mime_type !== 'application/pdf'
+        || size > 256 * 1024 * 1024 || !portalDocumentMimeTypes.has(row.mime_type)
         || !/^[a-f0-9]{64}$/u.test(row.sha256)) throw permissionDenied();
     return {
       authority_kind: 'amic-vault-api' as const,

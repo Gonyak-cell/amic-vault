@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Inject,
@@ -23,6 +24,7 @@ import { AmicOsVaultProviderService } from './amic-os-vault-provider.service';
 
 interface HeaderResponse {
   setHeader(name: string, value: string): void;
+  status?(code: number): void;
 }
 
 function principal(request: RequestWithAmicOsVaultProvider): AmicOsVaultProviderPrincipal {
@@ -63,10 +65,22 @@ export class AmicOsVaultProviderController {
     @Body() body: unknown,
     @Res({ passthrough: true }) response: HeaderResponse,
   ) {
-    const result = await this.service.download(
-      principal(request),
-      parseAmicOsVaultExportDownloadInput(body),
-    );
+    const input = parseAmicOsVaultExportDownloadInput(body);
+    const range = request.headers.range;
+    let result;
+    if (range !== undefined) {
+      if (typeof range !== 'string' || !/^bytes=(0|[1-9][0-9]*)-(0|[1-9][0-9]*)$/u.test(range)) {
+        throw new BadRequestException({ code: 'VALIDATION_FAILED' });
+      }
+      const match = /^bytes=([0-9]+)-([0-9]+)$/u.exec(range)!;
+      const start = Number(match[1]);
+      const end = Number(match[2]);
+      result = await this.service.downloadChunk(principal(request), input, start, end - start + 1);
+      if (!response.status) throw new Error('AMIC Vault range response is unavailable');
+      response.status(206);
+      response.setHeader('content-range', `bytes ${start}-${end}/${result.metadata.exact_version.byte_size}`);
+      response.setHeader('x-amic-vault-chunk-sha256', result.sha256);
+    } else result = await this.service.download(principal(request), input);
     const metadata = result.metadata;
     response.setHeader('cache-control', 'no-store');
     response.setHeader('content-type', metadata.exact_version.mime_type);

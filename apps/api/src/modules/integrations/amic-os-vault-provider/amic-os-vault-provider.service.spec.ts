@@ -255,6 +255,13 @@ function createHarness() {
         body: Readable.from([state.storageBytes]),
       };
     }),
+    getRangeByStorageUri: vi.fn(async (_tenantId: string, _storageUri: string, start: number, end: number) => ({
+      key: 'not-returned',
+      contentLength: end - start + 1,
+      contentType: 'application/pdf',
+      etag: null,
+      body: Readable.from([state.storageBytes.subarray(start, end + 1)]),
+    })),
   } as unknown as StorageService;
   const tenantContext = new TenantContextService();
   const service = new AmicOsVaultProviderService(
@@ -281,6 +288,21 @@ describe('AmicOsVaultProviderService', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it('range-downloads an authorized exact export without reading the whole object', async () => {
+    const harness = createHarness();
+    const request = { ...authorizeInput(), operation_kind: 'export_exact_version' as const };
+    const authorization = await harness.run(() => harness.service.authorize(principal, request));
+    const input = { ...downloadInput(authorization), operation: {
+      ...downloadInput(authorization).operation, operation_kind: 'export_exact_version' as const,
+    } };
+    const chunk = await harness.run(() => harness.service.downloadChunk(principal, input, 0, bytes.length));
+    expect(chunk.body).toEqual(bytes);
+    expect(chunk.sha256).toBe(sha256);
+    expect(harness.storageService.getRangeByStorageUri).toHaveBeenCalledOnce();
+    expect(harness.storageService.getByStorageUri).not.toHaveBeenCalled();
+    expect(harness.state.grant?.revoked_at).toBeInstanceOf(Date);
   });
 
   it('authorizes, verifies exact bytes, consumes once, and returns audit readback', async () => {
