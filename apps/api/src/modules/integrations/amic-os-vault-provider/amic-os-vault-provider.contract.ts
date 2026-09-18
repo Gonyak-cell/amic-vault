@@ -7,7 +7,8 @@ const sha256Pattern = /^[a-f0-9]{64}$/u;
 const mimeTypePattern = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/u;
 const operationIdPattern = /^vaultop_[a-f0-9]{32}$/u;
 const correlationIdPattern = /^vaultcorr_[a-f0-9]{32}$/u;
-const maxExportBytes = 25 * 1024 * 1024;
+const maxExportBytes = 256 * 1024 * 1024;
+const maxOutlookAttachmentBytes = 25 * 1024 * 1024;
 
 export interface AmicOsVaultProviderPrincipalInput {
   tenant_id: string;
@@ -346,15 +347,18 @@ export function parseAmicOsVaultExportAuthorizeInput(
     'operation_kind',
     'idempotency_key',
   ]);
+  const kind = operationKind(input.operation_kind);
+  const requested = exactVersion(input.requested_exact_version);
+  if (kind === 'attach_outlook' && requested.byte_size > maxOutlookAttachmentBytes) throw validationFailed();
   return {
     principal: principal(input.principal),
     lawos_matter_id: safeId(input.lawos_matter_id),
-    requested_exact_version: exactVersion(input.requested_exact_version),
+    requested_exact_version: requested,
     installation_ref_sha256: nullableSha256(input.installation_ref_sha256),
     compose_target_sha256: nullableSha256(input.compose_target_sha256),
     operation_id: operationId(input.operation_id),
     correlation_id: correlationId(input.correlation_id),
-    operation_kind: operationKind(input.operation_kind),
+    operation_kind: kind,
     idempotency_key: safeId(input.idempotency_key),
   };
 }
@@ -371,13 +375,17 @@ export function parseAmicOsVaultExportDownloadInput(
     'operation',
     'authorization',
   ]);
+  const parsedOperation = operation(input.operation, true) as Required<AmicOsVaultExportOperation>;
+  const parsedAuthorization = authorization(input.authorization);
+  if (parsedOperation.operation_kind === 'attach_outlook'
+    && parsedAuthorization.exact_version.byte_size > maxOutlookAttachmentBytes) throw validationFailed();
   return {
     principal: principal(input.principal),
     lawos_matter_id: safeId(input.lawos_matter_id),
     installation_ref_sha256: nullableSha256(input.installation_ref_sha256),
     compose_target_sha256: nullableSha256(input.compose_target_sha256),
-    operation: operation(input.operation, true) as Required<AmicOsVaultExportOperation>,
-    authorization: authorization(input.authorization),
+    operation: parsedOperation,
+    authorization: parsedAuthorization,
   };
 }
 
@@ -394,18 +402,22 @@ export function parseAmicOsVaultExportReadbackInput(
     'authorization',
     'download',
   ]);
+  const parsedOperation = operation(input.operation, false) as Omit<
+    Required<AmicOsVaultExportOperation>, 'idempotency_key'
+  >;
+  const parsedAuthorization = authorization(input.authorization);
+  if (parsedOperation.operation_kind === 'attach_outlook'
+    && parsedAuthorization.exact_version.byte_size > maxOutlookAttachmentBytes) throw validationFailed();
   return {
     principal: principal(input.principal),
     lawos_matter_id: safeId(input.lawos_matter_id),
     installation_ref_sha256: nullableSha256(input.installation_ref_sha256),
     compose_target_sha256: nullableSha256(input.compose_target_sha256),
-    operation: operation(input.operation, false) as Omit<
-      Required<AmicOsVaultExportOperation>,
-      'idempotency_key'
-    >,
-    authorization: authorization(input.authorization),
+    operation: parsedOperation,
+    authorization: parsedAuthorization,
     download: downloadMetadata(input.download),
   };
 }
 
 export const AMIC_OS_VAULT_MAX_EXPORT_BYTES = maxExportBytes;
+export const AMIC_OS_VAULT_MAX_OUTLOOK_ATTACHMENT_BYTES = maxOutlookAttachmentBytes;

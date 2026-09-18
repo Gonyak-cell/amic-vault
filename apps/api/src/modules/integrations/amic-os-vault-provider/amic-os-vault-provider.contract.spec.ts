@@ -44,6 +44,14 @@ const authorization = {
 };
 
 describe('AMIC OS Vault provider closed contract', () => {
+  it('accepts a large exact export but keeps Outlook attachments within 25 MiB', () => {
+    const requested_exact_version = { ...exact, byte_size: 26 * 1024 * 1024 };
+    const input = { principal, lawos_matter_id: 'matter-lawos-1', requested_exact_version,
+      installation_ref_sha256: null, compose_target_sha256: null, ...operation };
+    expect(parseAmicOsVaultExportAuthorizeInput({ ...input, operation_kind: 'export_exact_version' })
+      .requested_exact_version.byte_size).toBe(requested_exact_version.byte_size);
+    expect(() => parseAmicOsVaultExportAuthorizeInput(input)).toThrow();
+  });
   it('parses the exact authorize, download, and readback shapes', () => {
     const authorize = parseAmicOsVaultExportAuthorizeInput({
       principal,

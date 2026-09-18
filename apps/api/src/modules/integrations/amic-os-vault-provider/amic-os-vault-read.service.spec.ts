@@ -215,7 +215,7 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
 }
 
 describe('AmicOsVaultReadService', () => {
-  it('authorizes delegated Portal PDFs through current sharing, owner, hold and external DLP policy', async () => {
+  it('authorizes delegated Portal documents through current sharing, owner, hold and external DLP policy', async () => {
     const actor = { role: 'matter_owner', status: 'active' };
     const member = { matter_role: 'owner', access_level: 'edit' };
     const policies = { count: '3' };
@@ -256,6 +256,14 @@ describe('AmicOsVaultReadService', () => {
       authorization: { kind: 'internal', userId: actorUserId, sessionId: null },
     });
     expect(f.query).toHaveBeenCalledWith(expect.stringContaining("v.version_status = 'current'"), [tenantId, documentId, versionId]);
+    f.query.mockImplementationOnce(async () => ({ rowCount: 1, rows: [{ matter_id: vaultMatterId }] }))
+      .mockImplementationOnce(async () => ({ rowCount: 1, rows: [{ document_id: documentId, version_id: versionId,
+        file_object_id: fileObjectId, sha256, size_bytes: String(256 * 1024 * 1024),
+        mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }] }));
+    await expect(run()).resolves.toMatchObject({ exact_version: {
+      byte_size: 256 * 1024 * 1024,
+      mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    } });
     await expect(f.service.portalDocument(principal, { ...request, accountLedgerId: 'wrong-account' })).rejects.toMatchObject({ status: 403 });
     await expect(f.service.portalDocument({ ...principal, tenantId: 'another-tenant' }, request)).rejects.toMatchObject({ status: 403 });
     f.query.mockResolvedValueOnce({ rowCount: 0, rows: [] });

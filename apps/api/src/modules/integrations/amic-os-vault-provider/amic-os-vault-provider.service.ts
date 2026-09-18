@@ -25,14 +25,17 @@ import type {
   AmicOsVaultProviderAudit,
   AmicOsVaultProviderDecisions,
 } from './amic-os-vault-provider.contract';
+import { AMIC_OS_VAULT_MAX_OUTLOOK_ATTACHMENT_BYTES } from './amic-os-vault-provider.contract';
 import {
   AmicOsVaultProviderConfig,
   type AmicOsVaultProviderPrincipal,
 } from './amic-os-vault-provider.guard';
 
 const grantLifetimeSeconds = 45;
+const chunkedExportGrantLifetimeSeconds = 600;
 const downloadReasonCode = 'amic_os_exact_copy';
 const replayDownloadReasonCode = 'amic_os_exact_copy_replay';
+const exportChunkBytes = 3 * 1024 * 1024;
 
 type DenialReason =
   | 'permission_denied'
@@ -305,6 +308,10 @@ export class AmicOsVaultProviderService {
           input.requested_exact_version,
         );
         if (policy.kind === 'denied') return policy;
+        if (policy.target.size_bytes > (input.operation_kind === 'attach_outlook'
+          ? AMIC_OS_VAULT_MAX_OUTLOOK_ATTACHMENT_BYTES : this.config.maxExportBytes())) {
+          return { kind: 'denied' as const, reason: 'oversize' as const, target: policy.target };
+        }
 
         const fingerprint = this.grantFingerprint(principal, {
           principalTenantId: input.principal.tenant_id,
@@ -323,6 +330,8 @@ export class AmicOsVaultProviderService {
           input.operation_id,
           policy.target,
           this.config.grantTokenHash(fingerprint),
+          input.operation_kind === 'export_exact_version' && policy.target.size_bytes > AMIC_OS_VAULT_MAX_OUTLOOK_ATTACHMENT_BYTES
+            ? chunkedExportGrantLifetimeSeconds : grantLifetimeSeconds,
         );
         if (grant.kind === 'denied') return { ...grant, target: policy.target };
 
@@ -426,6 +435,11 @@ export class AmicOsVaultProviderService {
       authorized = first;
     }
 
+    if (authorized.target.size_bytes > AMIC_OS_VAULT_MAX_OUTLOOK_ATTACHMENT_BYTES) {
+      await this.recordDenied(principal, { ...auditContext, reason: 'oversize', target: authorized.target });
+      throw denialException('oversize');
+    }
+
     let bytes: Buffer;
     try {
       bytes = await this.readExactBytes(principal.tenantId, authorized.target);
@@ -453,6 +467,57 @@ export class AmicOsVaultProviderService {
     }
 
     return this.downloadResult(input, completed.target, completed.audit, bytes);
+  }
+
+  async downloadChunk(
+    principal: AmicOsVaultProviderPrincipal,
+    input: AmicOsVaultExportDownloadInput,
+    offset: number,
+    byteSize: number,
+  ): Promise<DownloadResult & { offset: number; sha256: string }> {
+    this.assertPrincipal(principal, input.principal.user_id);
+    if (input.operation.operation_kind !== 'export_exact_version'
+      || !Number.isSafeInteger(offset) || offset < 0 || offset % exportChunkBytes !== 0
+      || !Number.isSafeInteger(byteSize) || byteSize < 1 || byteSize > exportChunkBytes
+      || byteSize !== Math.min(exportChunkBytes, input.authorization.exact_version.byte_size - offset)) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED' });
+    }
+    const finalChunk = offset + byteSize === input.authorization.exact_version.byte_size;
+    const first = await this.inspectAuthorizedGrant(principal, input, false);
+    let authorized: AllowedPolicy;
+    let replay = false;
+    if (first.kind === 'denied') {
+      if (!finalChunk || first.reason !== 'consumed') throw denialException(first.reason);
+      const inspectedReplay = await this.inspectConsumedReplay(principal, input, false);
+      if (inspectedReplay.kind === 'denied') throw denialException(inspectedReplay.reason);
+      authorized = inspectedReplay;
+      replay = true;
+    } else authorized = first;
+    if (authorized.target.size_bytes > this.config.maxExportBytes()) throw denialException('oversize');
+    const bytes = await this.readExactRange(principal.tenantId, authorized.target, offset, byteSize);
+    let audit: AmicOsVaultProviderAudit;
+    if (finalChunk) {
+      let completed = replay
+        ? await this.recordConsumedReplay(principal, input, authorized.target)
+        : await this.consumeAuthorizedGrant(principal, input, authorized.target);
+      if (!replay && completed.kind === 'denied' && completed.reason === 'consumed') {
+        completed = await this.recordConsumedReplay(principal, input, authorized.target);
+      }
+      if (completed.kind === 'denied') {
+        bytes.fill(0);
+        throw denialException(completed.reason);
+      }
+      audit = completed.audit;
+    } else {
+      const current = await this.inspectAuthorizedGrant(principal, input, false);
+      if (current.kind === 'denied' || !sameExactVersion(exactVersion(current.target), exactVersion(authorized.target))) {
+        bytes.fill(0);
+        throw denialException(current.kind === 'denied' ? current.reason : 'integrity_failed');
+      }
+      audit = input.authorization.audit;
+    }
+    return { ...this.downloadResult(input, authorized.target, audit, bytes), offset,
+      sha256: createHash('sha256').update(bytes).digest('hex') };
   }
 
   private downloadResult(
@@ -797,6 +862,7 @@ export class AmicOsVaultProviderService {
     operationId: string,
     target: ExactTarget,
     tokenHash: string,
+    lifetimeSeconds: number,
   ): Promise<{ kind: 'allowed'; row: GrantRow; duplicate: boolean } | DeniedOutcome> {
     const id = grantId(operationId);
     const inserted = await tx.query(
@@ -806,7 +872,7 @@ export class AmicOsVaultProviderService {
           token_hash, expires_at
         )
         VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6,
-          now() + interval '${grantLifetimeSeconds} seconds')
+          now() + ($7::integer * interval '1 second'))
         ON CONFLICT DO NOTHING
         RETURNING preview_session_id, tenant_id, user_id, document_id, version_id,
           token_hash, expires_at, revoked_at, created_at
@@ -818,6 +884,7 @@ export class AmicOsVaultProviderService {
         target.document_id,
         target.version_id,
         tokenHash,
+        lifetimeSeconds,
       ],
     );
     const insertedRow = inserted.rows[0] as GrantRow | undefined;
@@ -1249,7 +1316,7 @@ export class AmicOsVaultProviderService {
   }
 
   private async readExactBytes(tenantId: string, target: ExactTarget): Promise<Buffer> {
-    const maxBytes = this.config.maxExportBytes();
+    const maxBytes = Math.min(this.config.maxExportBytes(), AMIC_OS_VAULT_MAX_OUTLOOK_ATTACHMENT_BYTES);
     if (target.size_bytes > maxBytes) throw denialException('oversize');
     const object = await this.storageService.getByStorageUri(tenantId, target.storage_uri);
     const chunks: Buffer[] = [];
@@ -1271,6 +1338,27 @@ export class AmicOsVaultProviderService {
     if (size !== target.size_bytes || digest.digest('hex') !== target.sha256) {
       throw denialException('integrity_failed');
     }
+    return Buffer.concat(chunks, size);
+  }
+
+  private async readExactRange(tenantId: string, target: ExactTarget, offset: number, byteSize: number): Promise<Buffer> {
+    const object = await this.storageService.getRangeByStorageUri(
+      tenantId, target.storage_uri, offset, offset + byteSize - 1,
+    );
+    const chunks: Buffer[] = [];
+    let size = 0;
+    try {
+      for await (const value of object.body) {
+        const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+        size += chunk.byteLength;
+        if (size > byteSize) throw denialException('integrity_failed');
+        chunks.push(chunk);
+      }
+    } catch (error) {
+      object.body.destroy();
+      throw error;
+    }
+    if (size !== byteSize) throw denialException('integrity_failed');
     return Buffer.concat(chunks, size);
   }
 
