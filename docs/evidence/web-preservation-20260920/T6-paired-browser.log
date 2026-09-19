@@ -1,0 +1,19 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+ RUN  v2.1.9 /Users/jws/.codex/worktrees/amic-vault-web-preservation-20260920/apps/api
+
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts (23 tests | 22 skipped) 9788ms
+   ✓ generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > paired browser: OS cookie API to companion HTTP with durable remote copy recovery 9147ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 22 skipped (23)
+   Start at  05:18:38
+   Duration  10.58s (transform 1.75s, setup 0ms, collect 646ms, tests 9.79s, environment 0ms, prepare 23ms)
+
+{
+  "resource_guard": "complete",
+  "kind": "focused-test",
+  "exit_code": 0,
+  "duration_seconds": 11.34,
+  "temp_root_removed": true
+}

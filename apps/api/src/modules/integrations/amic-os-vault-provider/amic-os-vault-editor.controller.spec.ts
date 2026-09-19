@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { promisify } from 'node:util';
+import { pathToFileURL } from 'node:url';
 import { Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { Pool, type PoolClient } from 'pg';
@@ -185,8 +186,8 @@ describe('generic copies: actual HTTP, disposable PostgreSQL, production upload/
     copies=new AmicOsVaultDocumentCopyService(audit,editor,uploads,promotion,queue as never,store as never,config as never);
     security=new FileSecurityService(audit,promotion,store as never);
     const users={findLoginCandidateByAccountLedgerId:async(id:string)=>{
-      if(!['synthetic-user','synthetic-other'].includes(id))return null;
-      const actor=id==='synthetic-user'?userId:otherUserId;
+      if(!['synthetic-user','synthetic-other','copy-owner'].includes(id))return null;
+      const actor=id==='synthetic-other'?otherUserId:userId;
       return {tenant:{tenantId,slug:'synthetic',status:'active'},user:{tenantId,userId:actor,status:'active'}};
     }};
     @Module({controllers:[AmicOsVaultEditorController],providers:[
@@ -262,6 +263,51 @@ describe('generic copies: actual HTTP, disposable PostgreSQL, production upload/
       expect(provenance.rows[0]).toEqual({source_document_id:input.requested_exact_version.document_id,source_version_id:input.requested_exact_version.version_id,final_snapshot_id:next.snapshot_id});
     },30000);
   }
+  it('paginates more than fifty generic snapshots without overlaps and rejects malformed or cross-source cursors',async()=>{
+    const input=await source('txt','text/plain',Buffer.from('paginated recovery source'));
+    await jsonOk('prepare',{...input,title:'Paginated recovery',mode:'clone',file:null});
+    const base={principal:input.principal,lawos_matter_id:input.lawos_matter_id,requested_exact_version:input.requested_exact_version,limit:50};
+    const timestamp='2026-09-20T00:00:00.123456Z';
+    await admin.query('UPDATE amic_os_document_copy_snapshots SET created_at=$2 WHERE snapshot_id=$1',[input.snapshot_id,timestamp]);
+    const added=Array.from({length:105},()=>`document-copy-snapshot:${randomUUID()}`);
+    const addSnapshot=async(snapshotId:string,createdAt:string)=>admin.query(`INSERT INTO amic_os_document_copy_snapshots
+      (tenant_id,snapshot_id,copy_id,quarantine_ref,source_exact,file_json,mode,preflight_json,request_hash,created_at)
+      SELECT tenant_id,$2,copy_id,$3,source_exact,file_json,mode,preflight_json,request_hash,$4::timestamptz
+      FROM amic_os_document_copy_snapshots WHERE tenant_id=$5 AND snapshot_id=$1`,
+    [input.snapshot_id,snapshotId,randomUUID(),createdAt,tenantId]);
+    for(const id of added)await addSnapshot(id,timestamp);
+    const foreign=await source('txt','text/plain',Buffer.from('another recovery source'));
+    await jsonOk('prepare',{...foreign,title:'Other source',mode:'clone',file:null});
+    const other={...input,copy_id:`document-copy:${randomUUID()}`,snapshot_id:`document-copy-snapshot:${randomUUID()}`,
+      principal:{...input.principal,user_id:'synthetic-other'}};
+    expect((await post('prepare',{...other,title:'Other actor',mode:'clone',file:null},'synthetic-other')).status).toBe(200);
+    const first=await jsonOk('list',base);
+    expect(first.items).toHaveLength(50);expect(first.next_cursor).toMatch(/^dcp1\.[A-Za-z0-9_-]+$/u);
+    const decoded=JSON.parse(Buffer.from(first.next_cursor.slice(5),'base64url').toString('utf8'));
+    expect(decoded.created_at).toBe(timestamp);
+    const insertedLater=`document-copy-snapshot:${randomUUID()}`;
+    await addSnapshot(insertedLater,'2026-09-20T00:00:00.123457Z');
+    const second=await jsonOk('list',{...base,cursor:first.next_cursor});
+    const third=await jsonOk('list',{...base,cursor:second.next_cursor});
+    expect(second.items).toHaveLength(50);expect(third.items).toHaveLength(6);expect(third.next_cursor).toBeNull();
+    const ids=[...first.items,...second.items,...third.items].map((item:{snapshot_id:string})=>item.snapshot_id);
+    expect(new Set(ids).size).toBe(106);
+    expect(ids).toEqual([input.snapshot_id,...added].sort());
+    expect(ids).not.toContain(insertedLater);expect(ids).not.toContain(foreign.snapshot_id);expect(ids).not.toContain(other.snapshot_id);
+    expect((await jsonOk('list',base)).items[0].snapshot_id).toBe(insertedLater);
+    expect((await post('list',{...base,requested_exact_version:foreign.requested_exact_version,cursor:first.next_cursor})).status).toBe(400);
+    expect((await post('list',{...base,principal:other.principal,cursor:first.next_cursor},'synthetic-other')).status).toBe(400);
+    const otherList=await post('list',{...base,principal:other.principal},'synthetic-other');
+    expect(otherList.status).toBe(200);expect((await otherList.json()).items.map((item:{snapshot_id:string})=>item.snapshot_id)).toEqual([other.snapshot_id]);
+    const forged={...decoded,snapshot_id:`document-copy-snapshot:${randomUUID()}`};
+    const cursorFor=(value:unknown)=>`dcp1.${Buffer.from(JSON.stringify(value)).toString('base64url')}`;
+    for(const cursor of ['', 'invalid', 'dcp1.bad', `dcp1.${'a'.repeat(481)}`, `${first.next_cursor}=`,
+      cursorFor(forged),cursorFor({...decoded,created_at:'2026-02-30T00:00:00.123456Z'}),
+      cursorFor({...decoded,scope:'0'.repeat(64)}),cursorFor({...decoded,extra:true})]) {
+      expect((await post('list',{...base,cursor})).status,`cursor ${cursor.slice(0,30)}`).toBe(400);
+    }
+    expect((await admin.query('SELECT count(*) FROM amic_os_document_copy_snapshots WHERE copy_id=$1',[input.copy_id])).rows[0].count).toBe('107');
+  },30000);
   it('retains old snapshots after the current source changes, blocks commit and rechecks real membership and creator',async()=>{
     const input=await source('txt','text/plain',Buffer.from('original for recovery'));
     await jsonOk('prepare',{...input,title:'Recoverable',mode:'clone',file:null});await scan(input);
@@ -366,6 +412,40 @@ describe('generic copies: actual HTTP, disposable PostgreSQL, production upload/
     await expect(admin.query(migration.split('-- Down Migration')[1]!)).rejects.toThrow('Retained document copies must be preserved');
     expect(Number((await admin.query('SELECT count(*) FROM amic_os_document_copy_snapshots')).rows[0].count)).toBeGreaterThan(0);
   });
+
+  if (process.env.AMIC_OS_COPY_BROWSER_HARNESS) it('paired browser: OS cookie API to companion HTTP with durable remote copy recovery', async () => {
+    const paired = await import(/* @vite-ignore */ pathToFileURL(resolve(process.env.AMIC_OS_COPY_BROWSER_HARNESS!)).href);
+    const setMembership = async (allowed: boolean) => {
+      await admin.query('DELETE FROM matter_members WHERE tenant_id=$1 AND matter_id=$2 AND user_id=$3',[tenantId,matterId,userId]);
+      if (allowed) await admin.query("INSERT INTO matter_members VALUES($1,$2,$3,'owner','edit')",[tenantId,matterId,userId]);
+    };
+    await paired.runPairedRemoteDocumentCopy({ providerOrigin: origin, providerToken: 'synthetic-internal-provider-token', seedSource: source,
+      scanSnapshot: (snapshotId: string) => scan({ snapshot_id: snapshotId } as AmicOsVaultDocumentCopyBindingInput), setMembership,
+      configureUploadTarget: (uploadOrigin: string) => {
+        const previous = store.createQuarantineWriteUrl;
+        store.createQuarantineWriteUrl = async (input: {quarantineRef: string;contentType: string;contentLength: number}) => ({
+          url: `${uploadOrigin}/synthetic-upload/${input.quarantineRef}?X-Amz-Signature=${'a'.repeat(64)}`,
+          headers: {'content-type':input.contentType,'content-length':String(input.contentLength),'if-none-match':'*'}, expiresAt: new Date(Date.now()+600_000),
+        });
+        return () => { store.createQuarantineWriteUrl = previous; };
+      },
+      readback: async ({copyId,snapshotId,original,expected}: {copyId:string;snapshotId:string;
+        original:AmicOsVaultDocumentCopyBindingInput['requested_exact_version'];expected:AmicOsVaultDocumentCopyBindingInput['requested_exact_version']}) => {
+        const provenance=(await admin.query('SELECT source_document_id,source_version_id,final_snapshot_id,copy_kind FROM amic_os_office_copies WHERE copy_id=$1',[copyId])).rows[0];
+        expect(provenance).toEqual({source_document_id:original.document_id,source_version_id:original.version_id,final_snapshot_id:snapshotId,copy_kind:'generic'});
+        const versions=(await admin.query('SELECT file_hash,version_status FROM document_versions WHERE document_id=$1',[original.document_id])).rows;
+        expect(versions).toEqual([{file_hash:original.sha256,version_status:'current'}]);
+        const promoted=(await admin.query(`SELECT p.document_id,p.version_id,p.file_object_id,p.primary_sha256,f.storage_uri
+          FROM file_security_promotions p JOIN amic_os_document_copy_snapshots s ON s.tenant_id=p.tenant_id AND s.scan_id=p.scan_id
+          JOIN file_objects f ON f.tenant_id=p.tenant_id AND f.file_object_id=p.file_object_id WHERE s.copy_id=$1`,[copyId])).rows;
+        expect(promoted).toHaveLength(1);expect(promoted[0].document_id).toBe(expected.document_id);expect(promoted[0].version_id).toBe(expected.version_id);
+        expect(promoted[0].file_object_id).toBe(expected.file_object_id);expect(promoted[0].primary_sha256).toBe(expected.sha256);
+        const sha=store.sha256ByStorageUri as (tenant:string,uri:string)=>Promise<string>;
+        expect(await sha(tenantId,promoted[0].storage_uri)).toBe(expected.sha256);
+        return {provenance,exact_version:expected,promoted_documents:promoted.length,original_unchanged:true,primary_hash_verified:true};
+      },
+    });
+  },180_000);
 
   it('rejects disguised bytes and a changed fingerprint before a snapshot is retained',async()=>{
     const input=await source('pdf','application/pdf',binary.pdf);

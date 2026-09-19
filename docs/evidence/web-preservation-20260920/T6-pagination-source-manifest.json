@@ -1,0 +1,5 @@
+{
+  "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.ts": "66f9045082186bcb4ae88bbb8ba1f78064522613febae0ca1113e9020a4b9f65",
+  "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.contract.ts": "264ab7f0e0bcdfebfd6d842b9d1261a0149981149cad3aba75149555f0a2a8e8",
+  "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts": "68b61d92885b050ffbcc6c9269b963f3f8908b8a9cb6ea5a2b0de9de0b543781"
+}

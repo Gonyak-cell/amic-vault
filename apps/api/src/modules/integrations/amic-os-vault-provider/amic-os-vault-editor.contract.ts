@@ -264,6 +264,9 @@ export interface AmicOsVaultDocumentCopyPrepareInput extends AmicOsVaultDocument
   mode: 'clone' | 'upload';
   file: { filename: string; sha256: string; byte_size: number; mime_type: string } | null;
 }
+export interface AmicOsVaultDocumentCopyListInput extends AmicOsVaultOfficeCopyListInput {
+  cursor?: string | null;
+}
 function documentCopyBase(value: unknown, extraKeys: string[]): AmicOsVaultOfficeBaseInput {
   const input = object(value);
   exactKeys(input, ['principal', 'lawos_matter_id', 'requested_exact_version', ...extraKeys]);
@@ -294,11 +297,14 @@ export function parseAmicOsVaultDocumentCopyBindingInput(value: unknown): AmicOs
   return { ...documentCopyBase(input, ['copy_id', 'snapshot_id']),
     copy_id: copyId(input.copy_id), snapshot_id: snapshotId(input.snapshot_id) };
 }
-export function parseAmicOsVaultDocumentCopyListInput(value: unknown): AmicOsVaultOfficeCopyListInput {
+export function parseAmicOsVaultDocumentCopyListInput(value: unknown): AmicOsVaultDocumentCopyListInput {
   const input = object(value);
-  const parsed = documentCopyBase(input, ['limit']);
+  const hasCursor = Object.hasOwn(input, 'cursor');
+  const parsed = documentCopyBase(input, ['limit', ...(hasCursor ? ['cursor'] : [])]);
   if (!Number.isSafeInteger(input.limit) || Number(input.limit) < 1 || Number(input.limit) > 50) return invalid();
-  return { ...parsed, limit: Number(input.limit) };
+  if (hasCursor && input.cursor !== null && (typeof input.cursor !== 'string'
+      || !/^dcp1\.[A-Za-z0-9_-]{1,480}$/u.test(input.cursor))) return invalid();
+  return { ...parsed, limit: Number(input.limit), ...(hasCursor ? { cursor: input.cursor as string | null } : {}) };
 }
 export function parseAmicOsVaultDocumentCopyReadInput(value: unknown): AmicOsVaultDocumentCopyBindingInput & { offset: number } {
   const input = object(value);

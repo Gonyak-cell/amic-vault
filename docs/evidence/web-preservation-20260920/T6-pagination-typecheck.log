@@ -1,0 +1,12 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> @amic-vault/api@0.0.0 typecheck /Users/jws/.codex/worktrees/amic-vault-web-preservation-20260920/apps/api
+> tsc --noEmit -p tsconfig.json
+
+{
+  "resource_guard": "complete",
+  "kind": "focused-test",
+  "exit_code": 0,
+  "duration_seconds": 3.72,
+  "temp_root_removed": true
+}

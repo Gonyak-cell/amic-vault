@@ -13,7 +13,7 @@ import { fileSecuritySignatureIsFresh } from '../../file-security/file-security-
 import { StorageService } from '../../storage/storage.service';
 import { AmicOsVaultEditorService } from './amic-os-vault-editor.service';
 import type { AmicOsVaultDocumentCopyBindingInput, AmicOsVaultDocumentCopyPrepareInput,
-  AmicOsVaultOfficeBaseInput, AmicOsVaultOfficeCopyListInput } from './amic-os-vault-editor.contract';
+  AmicOsVaultOfficeBaseInput, AmicOsVaultDocumentCopyListInput } from './amic-os-vault-editor.contract';
 import { AmicOsVaultProviderConfig, type AmicOsVaultProviderPrincipal } from './amic-os-vault-provider.guard';
 import { AmicOsVaultUploadService, amicOsVaultUploadDeterministicRefs } from './amic-os-vault-upload.service';
 import { parseAmicOsVaultUploadPrepareInput, parseAmicOsVaultUploadCompleteInput } from './amic-os-vault-upload.contract';
@@ -30,6 +30,23 @@ type Snapshot = {
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const deny = () => new ForbiddenException({ code: 'PERMISSION_DENIED' });
 const conflict = (reason: string) => new BadRequestException({ code: 'VALIDATION_FAILED', reason });
+type CopyCursor = { scope: string; created_at: string; snapshot_id: string };
+const encodeCursor = (value: CopyCursor) => `dcp1.${Buffer.from(JSON.stringify(value)).toString('base64url')}`;
+function decodeCursor(value: string | null | undefined, scope: string): CopyCursor | null {
+  if (value === undefined || value === null) return null;
+  try {
+    if (!/^dcp1\.[A-Za-z0-9_-]{1,480}$/u.test(value)) throw conflict('copy_cursor_invalid');
+    const bytes = Buffer.from(value.slice(5), 'base64url');
+    const cursor = JSON.parse(bytes.toString('utf8')) as CopyCursor;
+    if (bytes.toString('base64url') !== value.slice(5) || !cursor || Array.isArray(cursor)
+        || Object.keys(cursor).sort().join(',') !== 'created_at,scope,snapshot_id' || cursor.scope !== scope
+        || typeof cursor.created_at !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/u.test(cursor.created_at)
+        || new Date(cursor.created_at).toISOString() !== `${cursor.created_at.slice(0, 23)}Z`
+        || typeof cursor.snapshot_id !== 'string'
+        || !/^document-copy-snapshot:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(cursor.snapshot_id)) throw conflict('copy_cursor_invalid');
+    return cursor;
+  } catch { throw conflict('copy_cursor_invalid'); }
+}
 function operation(snapshotId: string) {
   const digest = hash(snapshotId);
   return { operation_id: `vaultop_${digest.slice(0, 32)}`, correlation_id: `vaultcorr_${digest.slice(0, 32)}`,
@@ -133,19 +150,37 @@ export class AmicOsVaultDocumentCopyService {
     return this.status(actor, input, await this.requireRow(actor, input));
   }
 
-  async list(actor: AmicOsVaultProviderPrincipal, input: AmicOsVaultOfficeCopyListInput) {
+  async list(actor: AmicOsVaultProviderPrincipal, input: AmicOsVaultDocumentCopyListInput) {
     await this.editor.documentCopyTarget(actor, input);
-    const rows = await this.audit.transaction(actor.tenantId, (tx) => tx.query(`SELECT s.snapshot_id
-      FROM amic_os_document_copy_snapshots s JOIN amic_os_office_copies c USING (tenant_id,copy_id)
-      WHERE c.tenant_id=$1 AND c.created_by=$2 AND c.source_document_id=$3
-      ORDER BY s.created_at DESC, s.snapshot_id LIMIT $4`, [actor.tenantId, actor.actorUserId,
-      input.requested_exact_version.document_id, input.limit]));
+    const scope = hash(JSON.stringify([actor.tenantId, actor.actorUserId, input.principal.tenant_id,
+      input.principal.user_id, input.lawos_matter_id, input.requested_exact_version.document_id]));
+    const cursor = decodeCursor(input.cursor, scope);
+    const rows = await this.audit.transaction(actor.tenantId, async (tx) => {
+      const binding = [actor.tenantId, actor.actorUserId, input.requested_exact_version.document_id];
+      if (cursor) {
+        const anchor = await tx.query(`SELECT s.snapshot_id FROM amic_os_document_copy_snapshots s
+          JOIN amic_os_office_copies c USING (tenant_id,copy_id)
+          WHERE c.tenant_id=$1 AND c.created_by=$2 AND c.source_document_id=$3 AND c.copy_kind='generic'
+          AND s.created_at=$4::timestamptz AND s.snapshot_id=$5`, [...binding, cursor.created_at, cursor.snapshot_id]);
+        if (anchor.rows.length !== 1) throw conflict('copy_cursor_invalid');
+      }
+      return tx.query(`SELECT s.snapshot_id,
+        to_char(s.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_created_at
+        FROM amic_os_document_copy_snapshots s JOIN amic_os_office_copies c USING (tenant_id,copy_id)
+        WHERE c.tenant_id=$1 AND c.created_by=$2 AND c.source_document_id=$3 AND c.copy_kind='generic'
+        AND ($4::timestamptz IS NULL OR s.created_at<$4::timestamptz OR (s.created_at=$4::timestamptz AND s.snapshot_id>$5))
+        ORDER BY s.created_at DESC, s.snapshot_id ASC LIMIT $6`,
+      [...binding, cursor?.created_at ?? null, cursor?.snapshot_id ?? null, input.limit + 1]);
+    });
+    const page = (rows.rows as { snapshot_id: string; cursor_created_at: string }[]).slice(0, input.limit);
     const items = [];
-    for (const entry of rows.rows as { snapshot_id: string }[]) {
+    for (const entry of page) {
       const row = await this.row(actor, entry.snapshot_id);
       if (row) items.push(await this.status(actor, input, row));
     }
-    return { ...this.authority(), items, next_cursor: null };
+    const last = page.at(-1);
+    return { ...this.authority(), items, next_cursor: rows.rows.length > input.limit && last
+      ? encodeCursor({ scope, created_at: last.cursor_created_at, snapshot_id: last.snapshot_id }) : null };
   }
 
   async read(actor: AmicOsVaultProviderPrincipal, input: AmicOsVaultDocumentCopyBindingInput & { offset: number }) {
