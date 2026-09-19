@@ -3,6 +3,7 @@ import { mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { finished } from 'node:stream/promises';
 import {
   BadRequestException,
   ForbiddenException,
@@ -187,6 +188,8 @@ export class DocumentUploadService {
       throw validationFailed();
     }
 
+    let fileBody: ReturnType<typeof createReadStream> | undefined;
+    let fileBodyClosed = Promise.resolve();
     try {
       const sourceSystem = input.sourceSystem ?? 'upload';
       this.fileSizeValidator.validate(file.size, { sourceSystem });
@@ -218,12 +221,14 @@ export class DocumentUploadService {
       const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
       const documentId = randomUUID();
       const fileObjectId = randomUUID();
+      fileBody = createReadStream(file.path);
+      fileBodyClosed = finished(fileBody, { cleanup: true }).catch(() => {});
       const storage = await this.storageService.putTenantObject({
         tenantId: context.tenantId,
         matterId: input.matterId,
         documentId,
         fileObjectId,
-        body: createReadStream(file.path),
+        body: fileBody,
         contentLength: file.size,
         contentType: sniffed.mimeType,
       });
@@ -377,6 +382,8 @@ export class DocumentUploadService {
         duplicates: uploaded.duplicates,
       };
     } finally {
+      fileBody?.destroy();
+      await fileBodyClosed;
       await this.unlinkTempFile(file);
     }
   }
@@ -389,6 +396,8 @@ export class DocumentUploadService {
       throw validationFailed();
     }
 
+    let fileBody: ReturnType<typeof createReadStream> | undefined;
+    let fileBodyClosed = Promise.resolve();
     try {
       this.fileSizeValidator.validate(file.size);
       const target = await this.documentVersionService.findVersionTarget(
@@ -423,12 +432,14 @@ export class DocumentUploadService {
         decision: input.fields.duplicateDecision,
       });
       const metadataSuggestion = parseFilenameMetadata(normalizedFilename);
+      fileBody = createReadStream(file.path);
+      fileBodyClosed = finished(fileBody, { cleanup: true }).catch(() => {});
       const storage = await this.storageService.putTenantObject({
         tenantId: context.tenantId,
         matterId: target.matter_id,
         documentId: input.documentId,
         fileObjectId,
-        body: createReadStream(file.path),
+        body: fileBody,
         contentLength: file.size,
         contentType: sniffed.mimeType,
       });
@@ -533,6 +544,8 @@ export class DocumentUploadService {
       if (!added) throw new Error('document version transaction returned no result');
       return added;
     } finally {
+      fileBody?.destroy();
+      await fileBodyClosed;
       await this.unlinkTempFile(file);
     }
   }

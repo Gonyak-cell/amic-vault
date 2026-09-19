@@ -1,0 +1,80 @@
+{
+  "observed_at": "2026-09-19T21:45:05.649738+00:00",
+  "source_base": "6c0716f3b9b0602cd3a68dde86c075c479f1a21d",
+  "synthetic_only": true,
+  "production_claim": false,
+  "manual_ci": false,
+  "files": [
+    {
+      "path": "apps/api/src/modules/document/document-upload.service.ts",
+      "sha256": "0fb98374248f5519a413a9e4c74ff85ccdf5117502e6dd7cb30169d8da9ef309"
+    },
+    {
+      "path": "apps/api/src/modules/document/document-upload.service.spec.ts",
+      "sha256": "42483dddcf5e58d0440374482c783416ba82846052721fe0aeb26f9bcc3cd660"
+    },
+    {
+      "path": "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts",
+      "sha256": "8956c46c8e08545dab626dec21660fe3b08c0d8a5fb5da414200e62b2bce9ec0"
+    }
+  ],
+  "logs": [
+    {
+      "path": "/tmp/web-preserve-vault-stream-cleanup.log",
+      "sha256": "874b10b272be07f178bfa3b2ff169ee2a9e4299d2f162aac8bee484247e4a624",
+      "bytes": 2754,
+      "sanitized_excerpt": [
+        " \u2713 src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts (22 tests) 5491ms",
+        "   \u2713 generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > txt: clone and changed snapshot survive reselect, stay unpublished until commit and publish once 319ms",
+        "   \u2713 generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > paginates more than fifty generic snapshots without overlaps and rejects malformed or cross-source cursors 992ms",
+        "   \u2713 generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > reads a retained 25MiB snapshot in <=3MiB chunks and rejects 25MiB+1 before storage 594ms",
+        " \u2713 src/modules/file-security/file-promotion.service.spec.ts (5 tests) 9ms",
+        " FAIL  src/modules/document/document-upload.service.spec.ts > DocumentUploadService > closes the file stream before cleanup when upload storage rejects before reading",
+        " FAIL  src/modules/document/document-upload.service.spec.ts > DocumentUploadService > closes the file stream before cleanup when addVersion storage rejects before reading",
+        " Test Files  1 failed | 2 passed (3)",
+        "      Tests  2 failed | 45 passed (47)",
+        "   Duration  7.03s (transform 367ms, setup 0ms, collect 1.09s, tests 5.53s, environment 0ms, prepare 82ms)",
+        "  \"resource_guard\": \"complete\",",
+        "  \"exit_code\": 1,",
+        "  \"duration_seconds\": 7.77,",
+        "  \"temp_root_removed\": true"
+      ]
+    },
+    {
+      "path": "/tmp/web-preserve-vault-stream-cleanup-paired.log",
+      "sha256": "1d8b7d2f0ff70939cdafd9fea15d46107915be9447989d2589f4169109699ed4",
+      "bytes": 2122,
+      "sanitized_excerpt": [
+        " \u2713 src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts (23 tests) 14715ms",
+        "   \u2713 generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > txt: clone and changed snapshot survive reselect, stay unpublished until commit and publish once 316ms",
+        "   \u2713 generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > paginates more than fifty generic snapshots without overlaps and rejects malformed or cross-source cursors 983ms",
+        "   \u2713 generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > reads a retained 25MiB snapshot in <=3MiB chunks and rejects 25MiB+1 before storage 593ms",
+        "   \u2713 generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > paired browser: OS cookie API to companion HTTP with durable remote copy recovery 9241ms",
+        " \u2713 src/modules/document/document-upload.service.spec.ts (20 tests) 23ms",
+        " \u2713 src/modules/file-security/file-promotion.service.spec.ts (5 tests) 9ms",
+        " Test Files  3 passed (3)",
+        "      Tests  48 passed (48)",
+        "   Duration  16.22s (transform 1.75s, setup 0ms, collect 1.06s, tests 14.75s, environment 0ms, prepare 75ms)",
+        "  \"resource_guard\": \"complete\",",
+        "  \"exit_code\": 0,",
+        "  \"duration_seconds\": 16.99,",
+        "  \"temp_root_removed\": true"
+      ]
+    },
+    {
+      "path": "/tmp/web-preserve-vault-stream-typecheck.log",
+      "sha256": "082592df9a8c710921be0842dc0675d7c8b5f123baec5ef02016dcec8f77627c",
+      "bytes": 498,
+      "sanitized_excerpt": [
+        "  \"resource_guard\": \"complete\",",
+        "  \"exit_code\": 0,",
+        "  \"duration_seconds\": 4.83,",
+        "  \"temp_root_removed\": true"
+      ]
+    }
+  ],
+  "paired_os_harness": {
+    "path": "/Users/jws/.codex/worktrees/amic-os-issue-377-web-preservation-20260920/apps/web/test/helpers/paired-remote-document-copy.mjs",
+    "sha256": "f2f80fd50925dd513ccb677bd1d879c88b3a6f6795b91c019d3fe92410bb2742"
+  }
+}

@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { access, mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Readable } from 'node:stream';
@@ -197,6 +197,7 @@ function createService(
     createDraft,
     createFileObject,
     createInitialVersion,
+    addNextVersion,
     findCandidates,
     findDuplicateVersionCandidates,
     findSafeUploadCandidates,
@@ -210,6 +211,30 @@ function createService(
 }
 
 describe('DocumentUploadService', () => {
+  for (const operation of ['upload', 'addVersion'] as const) {
+    it(`closes the file stream before cleanup when ${operation} storage rejects before reading`, async () => {
+      const file = await tempUploadFile('Contract.pdf');
+      const { createDraft, createFileObject, addNextVersion, putTenantObject, service } = createService();
+      const failure = new Error('synthetic storage rejected before consumption');
+      let body: Readable | undefined;
+      putTenantObject.mockImplementationOnce(async input => {
+        body = input.body as Readable;
+        throw failure;
+      });
+      const command = operation === 'upload'
+        ? service.upload({ actorUserId, matterId, fields: {}, file })
+        : service.addVersion({ actorUserId, documentId: 'existing-document-id', fields: {}, file });
+
+      await expect(command).rejects.toBe(failure);
+      expect(body?.destroyed).toBe(true);
+      expect(body?.closed).toBe(true);
+      await expect(access(file.path)).rejects.toMatchObject({ code: 'ENOENT' });
+      expect(createDraft).not.toHaveBeenCalled();
+      expect(createFileObject).not.toHaveBeenCalled();
+      expect(addNextVersion).not.toHaveBeenCalled();
+    });
+  }
+
   it('creates storage object, document row, and file object row for allowed members', async () => {
     const file = await tempUploadFile('Contract.PDF');
     const { createDraft, createFileObject, createInitialVersion, putTenantObject, service } =
