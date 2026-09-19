@@ -109,6 +109,7 @@ const files: [string,string,Buffer][] = [
 
 describe('generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage', () => {
   let directory: string;
+  let postgresBinDirectory = '';
   let admin: Pool;
   let pool: Pool;
   let app: Awaited<ReturnType<typeof NestFactory.create>>;
@@ -121,13 +122,18 @@ describe('generic copies: actual HTTP, disposable PostgreSQL, production upload/
   const storageUri = (t: string,q: string) => `s3://synthetic/tenants/${t}/quarantine/${q}`;
   let store: { [key: string]: unknown };
   beforeAll(async () => {
+    try {
+      postgresBinDirectory = (await exec('pg_config', ['--bindir'])).stdout.trim();
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
     directory = await mkdtemp(join(tmpdir(),'amic-copy-pg-'));
     const portServer = createServer();
     await new Promise<void>((done) => portServer.listen(0,'127.0.0.1',done));
     const port = (portServer.address() as {port:number}).port;
     await new Promise<void>((done) => portServer.close(() => done()));
-    await exec('initdb',['-D',join(directory,'db'),'-A','trust','--no-locale','--encoding=UTF8','--username=copy_test_owner']);
-    await exec('pg_ctl',['-D',join(directory,'db'),'-l',join(directory,'postgres.log'),'-o',`-p ${port} -h 127.0.0.1 -k /tmp -F`,'-w','start']);
+    await exec(join(postgresBinDirectory,'initdb'),['-D',join(directory,'db'),'-A','trust','--no-locale','--encoding=UTF8','--username=copy_test_owner']);
+    await exec(join(postgresBinDirectory,'pg_ctl'),['-D',join(directory,'db'),'-l',join(directory,'postgres.log'),'-o',`-p ${port} -h 127.0.0.1 -k /tmp -F`,'-w','start']);
     admin = new Pool({connectionString:`postgresql://copy_test_owner@127.0.0.1:${port}/postgres`});
     await admin.query(ddl);
     const migrations = resolve(__dirname,'../../../../../../db/migrations');
@@ -204,7 +210,7 @@ describe('generic copies: actual HTTP, disposable PostgreSQL, production upload/
     });
     await app.listen(0,'127.0.0.1'); origin=await app.getUrl();
   },60000);
-  afterAll(async()=>{await app?.close();await pool?.end();await admin?.end();if(directory){await exec('pg_ctl',['-D',join(directory,'db'),'-m','immediate','-w','stop']).catch(()=>{});await rm(directory,{recursive:true,force:true});}},30000);
+  afterAll(async()=>{await app?.close();await pool?.end();await admin?.end();if(directory){await exec(join(postgresBinDirectory,'pg_ctl'),['-D',join(directory,'db'),'-m','immediate','-w','stop']).catch(()=>{});await rm(directory,{recursive:true,force:true});}},30000);
   function hashName(value:string){return createHash('sha256').update(value).digest('hex');}
   async function post(action:string,input:unknown,user='synthetic-user') {
     return fetch(`${origin}/v1/integrations/amic-os/vault/edit/document-copy/${action}`,{method:'POST',headers:{'content-type':'application/json','x-amic-os-vault-provider-token':'synthetic-internal-provider-token','x-amic-os-account-ledger-id':user},body:JSON.stringify(input)});
