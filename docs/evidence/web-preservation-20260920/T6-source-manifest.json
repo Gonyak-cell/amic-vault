@@ -1,0 +1,24 @@
+{
+  "base_commit": "ccc1e9d83774fbd61c53c68aa605b767af9c5114",
+  "head_commit": "ec071fca3f2644406c15b33ba28e943aca256c7e",
+  "status": "reviewed source candidate; source parent ec071fca",
+  "files": {
+    "apps/api/src/modules/document/validators/file-extension.validator.spec.ts": "f7e3bb83bcda46df00777efb9a0292afade84a3e8113e5d712a5eba294181b68",
+    "apps/api/src/modules/document/validators/file-extension.validator.ts": "91d1186a6c48eacf4ca00a1bcc741ba1faf02dd42c2703fcb0edc239b4c4ca6f",
+    "apps/api/src/modules/document/validators/mime-type.validator.spec.ts": "4b9d8a799e750659da51badcfc5bcc73a3887ae15bb4d552998039a523f48ef0",
+    "apps/api/src/modules/document/validators/mime-type.validator.ts": "5016ae12eb3eee80b474d74cd17d9de0b3cbb7c68aa0a1e912c169d973f6a2fd",
+    "apps/api/src/modules/file-security/file-promotion.service.ts": "b3a57fb57e0428344ddd2027dedb8514cbb2886bc6a54c4cb27f83efaf816bd9",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.ts": "a6caab98b25abd3404197b32019b6f3c7a336cfc78d8d37d0f595114fb9f11f6",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.contract.spec.ts": "3ca6ec8b77921307b9095ed2b22e0186798b47eb964402a8e1b6e0b77f2b131e",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.contract.ts": "fd608a0e1849ea29ff5959c5331cbee7c1fb21333a2be13863082e1bacae58a5",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts": "97c8a5525d90753a95b033000e255f81c00b193dfa0551bbba079cffff63489e",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.ts": "0cfdd6a34342fdd27c1b2c878e2b900426f2f623a8a0fe86e8f4c96f908ef70d",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.spec.ts": "4340b01e7f879ae2adb93fe65105796ce971e755b6628592df0a75ba33ff2909",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.ts": "285f30ce980967a87a61536429f8d8eb4adcb041d1c3e057668071c1f84c568a",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.module.ts": "6f0bb0937b12cad6bd47be327693b1488c18f64b285a835d7ad73f6cd469fcf2",
+    "db/migrations/0216_retain_amic_os_document_copy_snapshots.sql": "a60c13326887d2eef8fcab2475c0063c0c869eacb51657f7b157c6e98a189933",
+    "security/oss-adoption-decisions.yml": "4b1bbf7bd7db2f425f15e851b0bf75478be387ca29c705925a4e5c007949643c",
+    "tools/dlp/check-egress-route-inventory.mjs": "a72859658332178e5e7cd91577a451a20027b4875135f11576761b781a56ca02",
+    "tools/dlp/check-egress-route-inventory.spec.mjs": "1f08f1ef7e0c27be5256f9032b0e2ca199bb256de7c6889a702a29c733cc5fbf"
+  }
+}

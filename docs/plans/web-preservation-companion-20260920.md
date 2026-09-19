@@ -43,7 +43,14 @@ verification, not a production release or a historical PACK rollout.
 - Validator changes: locally verified; 13 tests across the two existing validator
   suites pass, and ESLint passes on the four changed validator files. See
   `docs/evidence/web-preservation-20260920/T6-validators.md`.
-- Generic copy binding / retained storage / commit: pending.
+- Generic copy binding / retained storage / commit: implemented and locally verified;
+  59 focused API tests and 8 egress inventory tests pass with zero skips. Full API
+  typecheck and changed TS lint pass. See
+  `docs/evidence/web-preservation-20260920/T6-generic-copy.md`.
+- Deployment contract: migration 0216 plus every API/scan worker must include the
+  deferred-promotion guard before generic traffic; preserve guarded workers and
+  retained snapshots on rollback. Exact DTO and rollout ordering are in
+  `docs/evidence/web-preservation-20260920/T6-generic-copy-contract.md`.
 - OS provider integration: pending, owned by the OS integrator.
 - Full T6 acceptance and companion PR: pending.
 

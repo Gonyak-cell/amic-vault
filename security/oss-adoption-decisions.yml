@@ -10,6 +10,11 @@
     "REJECTED": "cannot be used by a downstream implementation"
   },
   "l0IneligiblePaths": [
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.contract.spec.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.spec.ts",
+    "db/migrations/0216_retain_amic_os_document_copy_snapshots.sql",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.contract.ts",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.ts",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.ts",

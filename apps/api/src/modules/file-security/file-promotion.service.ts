@@ -41,6 +41,8 @@ type PromotionRow = {
   document_id: string | null;
   version_id: string | null;
   file_object_id: string | null;
+  copy_snapshot_id?: string | null;
+  copy_title?: string | null;
 };
 
 type QuarantineAuditBinding = {
@@ -118,9 +120,20 @@ export class FilePromotionService {
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
   ) {}
 
-  async promote(payload: FileSecurityScanJobPayload): Promise<FilePromotionResult | null> {
+  async promote(payload: FileSecurityScanJobPayload, copyCommit?: {
+    snapshotId: string; actorUserId: string; authorize: () => Promise<void>;
+  }): Promise<FilePromotionResult | null> {
+    const copyRequestContext = copyCommit ? this.tenantContext.require() : null;
     const row = await this.findPromotionRow(payload);
     if (!row) throw promotionFailure('FILE_SECURITY_SCAN_NOT_FOUND');
+    // A scan worker may inspect a retained snapshot, but only an explicit copy commit publishes it.
+    if (row.copy_snapshot_id) {
+      if (!copyCommit) return null;
+      if (copyCommit.snapshotId !== row.copy_snapshot_id || copyCommit.actorUserId !== row.created_by) {
+        throw promotionFailure('FILE_SECURITY_COPY_BINDING_MISMATCH');
+      }
+      await copyCommit.authorize();
+    } else if (copyCommit) throw promotionFailure('FILE_SECURITY_COPY_BINDING_MISSING');
     if (row.state === 'promoted') return this.existingPromotion(row);
     if (row.state !== 'clean') return null;
     if (
@@ -137,6 +150,7 @@ export class FilePromotionService {
     const intakeBinding = await this.findQuarantineAudit(payload.tenantId, row.scan_id);
     const sourceAuthority = authoritativeMatterSource(intakeBinding.metadata_json);
     const fields = parseFields(row.fields_json);
+    if (row.copy_snapshot_id) { fields.title = row.copy_title ?? undefined; fields.duplicateDecision = 'new_document'; }
     const dir = await mkdtemp(join(tmpdir(), 'amic-vault-file-promotion-'));
     const path = join(dir, 'quarantine-promotion');
     try {
@@ -164,6 +178,32 @@ export class FilePromotionService {
             sourceSystem: row.source_system as 'upload' | 'email_ingest' | 'migration',
             ...(sourceAuthority ? { authoritativeMatterSource: sourceAuthority } : {}),
             afterUploadAudit: async (tx, uploaded) => {
+              if (row.copy_snapshot_id && copyCommit && copyRequestContext) {
+                await this.tenantContext.run(copyRequestContext, copyCommit.authorize);
+                const bound = await tx.query(`SELECT s.source_exact, s.file_json, c.working_document_id,
+                    c.created_by, c.source_document_id, c.source_version_id, d.matter_id,
+                    v.version_id, v.file_object_id, v.file_hash
+                  FROM amic_os_document_copy_snapshots s JOIN amic_os_office_copies c USING (tenant_id,copy_id)
+                  JOIN documents d ON d.tenant_id=c.tenant_id AND d.document_id=c.source_document_id
+                  JOIN document_versions v ON v.tenant_id=d.tenant_id AND v.document_id=d.document_id AND v.version_status='current'
+                  WHERE s.tenant_id=$1 AND s.snapshot_id=$2 AND s.quarantine_ref=$3 AND c.copy_kind='generic'
+                  FOR UPDATE OF c, s, d, v`, [payload.tenantId, copyCommit.snapshotId, payload.quarantineRef]);
+                const copy = bound.rows[0] as { source_exact: { version_id: string; file_object_id: string; sha256: string };
+                  file_json: { sha256: string }; working_document_id: string | null; created_by: string;
+                  source_version_id: string; matter_id: string; version_id: string; file_object_id: string; file_hash: string } | undefined;
+                if (!copy || copy.working_document_id || copy.created_by !== copyCommit.actorUserId
+                  || copy.source_version_id !== copy.version_id || copy.source_exact.version_id !== copy.version_id
+                  || copy.source_exact.file_object_id !== copy.file_object_id || copy.source_exact.sha256 !== copy.file_hash
+                  || copy.matter_id !== row.matter_id || copy.file_json.sha256 !== uploaded.sha256) {
+                  throw promotionFailure('FILE_SECURITY_COPY_COMMIT_CONFLICT');
+                }
+                const updatedCopy = await tx.query(`UPDATE amic_os_office_copies c
+                  SET working_document_id=$3, final_snapshot_id=$2, state='saved', updated_at=now()
+                  FROM amic_os_document_copy_snapshots s WHERE c.tenant_id=$1 AND s.tenant_id=c.tenant_id
+                    AND s.copy_id=c.copy_id AND s.snapshot_id=$2 AND c.working_document_id IS NULL`,
+                  [payload.tenantId, copyCommit.snapshotId, uploaded.documentId]);
+                if (updatedCopy.rowCount !== 1) throw promotionFailure('FILE_SECURITY_COPY_COMMIT_CONFLICT');
+              }
               const current = await tx.query(`
                 SELECT state, result_code, expected_sha256, observed_sha256, signature_at
                 FROM file_security_scans
@@ -189,6 +229,9 @@ export class FilePromotionService {
               const storageUri = primary.rows[0]?.storage_uri;
               if (!storageUri || await this.storageService.sha256ByStorageUri(payload.tenantId, storageUri) !== uploaded.sha256) {
                 throw promotionFailure('FILE_SECURITY_PRIMARY_HASH_MISMATCH');
+              }
+              if (row.copy_snapshot_id && copyCommit && copyRequestContext) {
+                await this.tenantContext.run(copyRequestContext, copyCommit.authorize);
               }
               await tx.query(
                 `
@@ -254,13 +297,15 @@ export class FilePromotionService {
           s.expected_sha256, s.observed_sha256, s.size_bytes::text, s.state, s.result_code,
           s.signature_at, i.original_filename, i.normalized_filename, i.mime_type,
           i.source_system, i.created_by, i.fields_json, t.slug, t.status AS tenant_status,
-          p.document_id, p.version_id, p.file_object_id
+          p.document_id, p.version_id, p.file_object_id, cs.snapshot_id AS copy_snapshot_id, cc.title AS copy_title
         FROM file_security_scans s
         JOIN tenants t ON t.tenant_id = s.tenant_id
         LEFT JOIN file_security_promotion_inputs i
           ON i.tenant_id = s.tenant_id AND i.scan_id = s.scan_id
         LEFT JOIN file_security_promotions p
           ON p.tenant_id = s.tenant_id AND p.scan_id = s.scan_id
+        LEFT JOIN amic_os_document_copy_snapshots cs ON cs.tenant_id=s.tenant_id AND cs.quarantine_ref=s.quarantine_ref
+        LEFT JOIN amic_os_office_copies cc ON cc.tenant_id=cs.tenant_id AND cc.copy_id=cs.copy_id AND cc.copy_kind='generic'
         WHERE s.tenant_id = $1 AND s.quarantine_ref = $2 AND s.expected_sha256 = $3
         LIMIT 1
       `,

@@ -1,0 +1,20 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+ RUN  v2.1.9 /Users/jws/.codex/worktrees/amic-vault-web-preservation-20260920/apps/api
+
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts (21 tests) 4779ms
+   ✓ generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > txt: clone and changed snapshot survive reselect, stay unpublished until commit and publish once 324ms
+   ✓ generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > reads a retained 25MiB snapshot in <=3MiB chunks and rejects 25MiB+1 before storage 620ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  03:51:47
+   Duration  5.80s (transform 389ms, setup 0ms, collect 883ms, tests 4.78s, environment 0ms, prepare 33ms)
+
+{
+  "resource_guard": "complete",
+  "kind": "focused-test",
+  "exit_code": 0,
+  "duration_seconds": 6.54,
+  "temp_root_removed": true
+}

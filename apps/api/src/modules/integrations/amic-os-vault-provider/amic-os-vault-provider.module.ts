@@ -11,6 +11,7 @@ import { StorageModule } from '../../storage/storage.module';
 import { TenantModule } from '../../tenant/tenant.module';
 import { UserModule } from '../../user/user.module';
 import { DocumentModule } from '../../document/document.module';
+import { AmicOsVaultDocumentCopyService } from './amic-os-vault-document-copy.service';
 import { AmicOsVaultEditorController } from './amic-os-vault-editor.controller';
 import { AmicOsVaultEditorService } from './amic-os-vault-editor.service';
 import { AmicOsVaultProviderController } from './amic-os-vault-provider.controller';
@@ -56,6 +57,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
     AmicOsVaultEditorService,
+    AmicOsVaultDocumentCopyService,
   ],
   exports: [
     AmicOsVaultProviderConfig,
@@ -63,6 +65,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
     AmicOsVaultEditorService,
+    AmicOsVaultDocumentCopyService,
   ],
 })
 export class AmicOsVaultProviderModule {}

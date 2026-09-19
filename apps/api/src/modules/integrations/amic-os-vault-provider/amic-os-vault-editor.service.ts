@@ -25,6 +25,7 @@ import type {
   AmicOsVaultOfficeSaveInput,
   AmicOsVaultOfficeStatusInput,
 } from './amic-os-vault-editor.contract';
+import { documentCopyMimeTypes } from './amic-os-vault-editor.contract';
 import {
   AmicOsVaultProviderConfig,
   type AmicOsVaultProviderPrincipal,
@@ -567,7 +568,8 @@ export class AmicOsVaultEditorService {
     principal: AmicOsVaultProviderPrincipal,
     input: AmicOsVaultOfficeCopyBindingInput,
   ) {
-    await this.target(principal, input, false);
+    const source = await this.target(principal, input, false);
+    await this.assertCopyAllowed(principal, source.document_id, source.matter_id);
     const copy = await this.copyRow(principal, input.copy_id);
     if (!copy || copy.working_document_id !== input.working_document_id
         || copy.source_document_id !== input.requested_exact_version.document_id
@@ -577,7 +579,7 @@ export class AmicOsVaultEditorService {
       `UPDATE amic_os_office_copies
        SET final_snapshot_id = $3, state = CASE WHEN state = 'saved' THEN state ELSE 'retained' END,
            updated_at = now()
-       WHERE tenant_id = $1::uuid AND copy_id = $2`,
+       WHERE tenant_id = $1::uuid AND copy_id = $2 AND copy_kind = 'office'`,
       [principal.tenantId, input.copy_id, input.snapshot_id],
     ));
     return this.copyOpenResult(principal, (await this.copyRow(principal, input.copy_id))!);
@@ -587,7 +589,8 @@ export class AmicOsVaultEditorService {
     principal: AmicOsVaultProviderPrincipal,
     input: AmicOsVaultOfficeCopyBindingInput,
   ) {
-    await this.target(principal, input, false);
+    const source = await this.target(principal, input, false);
+    await this.assertCopyAllowed(principal, source.document_id, source.matter_id);
     const copy = await this.copyRow(principal, input.copy_id);
     if (!copy || copy.working_document_id !== input.working_document_id
         || copy.source_document_id !== input.requested_exact_version.document_id
@@ -597,7 +600,7 @@ export class AmicOsVaultEditorService {
     const working = await this.workingSource(principal, copy.working_document_id);
     await this.auditService.transaction(principal.tenantId, (tx) => tx.query(
       `UPDATE amic_os_office_copies SET state = 'saved', updated_at = now()
-       WHERE tenant_id = $1::uuid AND copy_id = $2`,
+       WHERE tenant_id = $1::uuid AND copy_id = $2 AND copy_kind = 'office'`,
       [principal.tenantId, input.copy_id],
     ));
     return {
@@ -625,7 +628,7 @@ export class AmicOsVaultEditorService {
               created_at, updated_at
        FROM amic_os_office_copies
        WHERE tenant_id = $1::uuid AND source_document_id = $2::uuid
-         AND created_by = $3::uuid AND working_document_id IS NOT NULL
+         AND created_by = $3::uuid AND working_document_id IS NOT NULL AND copy_kind = 'office'
        ORDER BY updated_at DESC, copy_id
        LIMIT $4`,
       [principal.tenantId, source.document_id, principal.actorUserId, input.limit],
@@ -770,7 +773,7 @@ export class AmicOsVaultEditorService {
               initial_snapshot_id, final_snapshot_id, title, state, created_by,
               created_at, updated_at
        FROM amic_os_office_copies
-       WHERE tenant_id = $1::uuid AND copy_id = $2`,
+       WHERE tenant_id = $1::uuid AND copy_id = $2 AND copy_kind = 'office'`,
       [principal.tenantId, copyId],
     ));
     return (result.rows[0] as OfficeCopyRow | undefined) ?? null;
@@ -916,10 +919,17 @@ export class AmicOsVaultEditorService {
     }
   }
 
+  async documentCopyTarget(principal: AmicOsVaultProviderPrincipal, input: AmicOsVaultOfficeBaseInput) {
+    const source = await this.target(principal, input, false, documentCopyMimeTypes);
+    await this.assertCopyAllowed(principal, source.document_id, source.matter_id);
+    return source;
+  }
+
   private async target(
     principal: AmicOsVaultProviderPrincipal,
     input: AmicOsVaultOfficeBaseInput,
     requireCurrent: boolean,
+    allowedMimes = officeMimeTypes,
   ): Promise<OfficeDocumentRow> {
     this.assertPrincipal(principal, input);
     const result = await this.auditService.transaction(principal.tenantId, (tx) => tx.query(
@@ -961,7 +971,7 @@ export class AmicOsVaultEditorService {
       row.base_sha256 !== exact.sha256 ||
       Number(row.base_byte_size) !== exact.byte_size ||
       row.base_mime_type !== exact.mime_type ||
-      !officeMimeTypes.has(row.base_mime_type) ||
+      !allowedMimes.has(row.base_mime_type) ||
       row.document_status === 'immutable' ||
       row.matter_status === 'closed'
     ) {

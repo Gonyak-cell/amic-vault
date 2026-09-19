@@ -17,6 +17,10 @@ const CANDIDATE_MARKERS = Object.freeze([
 
 const FORCED_CANDIDATES = Object.freeze([
   {
+    key: 'AmicOsVaultDocumentCopyService.read',
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.ts',
+  },
+  {
     key: 'ExternalService.createLink',
     path: 'apps/api/src/modules/external/external.service.ts',
   },
@@ -210,6 +214,15 @@ export const EGRESS_INVENTORY = Object.freeze({
       ['this.storageService.getByStorageUri(', 'this.storageService.putQuarantineObject('],
     ],
   },
+  'AmicOsVaultProviderService.readExactRange': {
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.service.ts',
+    category: 'internal_processing',
+    rationale: 'bounded storage helper used only by the existing authorized exact-version export chunk operation',
+    authorityControl: 'downloadChunk validates the exact grant before reading and rechecks or consumes it after storage',
+    auditControl: 'downloadChunk preserves the authorized grant audit and records final consumption or replay',
+    required: ['this.storageService.getRangeByStorageUri(', 'offset + byteSize - 1',
+      'size > byteSize', 'size !== byteSize', 'object.body.destroy()'],
+  },
   'AmicOsVaultProviderService.readExactBytes': {
     path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.service.ts',
     category: 'internal_processing',
@@ -222,6 +235,21 @@ export const EGRESS_INVENTORY = Object.freeze({
       'this.storageService.getByStorageUri(tenantId, target.storage_uri)',
       'size !== target.size_bytes',
       "digest.digest('hex') !== target.sha256",
+    ],
+  },
+  'AmicOsVaultDocumentCopyService.read': {
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.ts',
+    category: 'reviewed_exclusion',
+    rationale: 'bounded retained copy recovery for its creator inside the authenticated AMIC OS Matter flow',
+    permissionControl: 'documentCopyTarget before and after storage, with requireRow exact-source and creator binding',
+    auditControl: 'auditCopy DOCUMENT_DOWNLOADED before returning bytes',
+    required: ['this.requireRow(actor, input)', 'copy_snapshot_not_clean', 'copy_snapshot_hash_mismatch',
+      '3 * 1024 * 1024', 'copy_snapshot_size_mismatch', 'DOCUMENT_DOWNLOADED'],
+    order: [
+      ['await this.editor.documentCopyTarget(actor, input);', 'this.storage.getRangeByStorageUri'],
+      ['this.storage.getRangeByStorageUri', 'const source = await this.editor.documentCopyTarget(actor, input);'],
+      ['const source = await this.editor.documentCopyTarget(actor, input);', 'DOCUMENT_DOWNLOADED'],
+      ['DOCUMENT_DOWNLOADED', 'bytes_base64: bytes.toString'],
     ],
   },
   'AmicOsVaultEditorService.createCopy': {

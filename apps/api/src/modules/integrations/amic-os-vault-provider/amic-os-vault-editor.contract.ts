@@ -118,12 +118,12 @@ function principal(value: unknown): AmicOsVaultOfficeBaseInput['principal'] {
   return { tenant_id: safeId(input.tenant_id), user_id: userId };
 }
 
-function exactVersion(value: unknown): AmicOsVaultOfficeExactVersion {
+function exactVersion(value: unknown, allowedMimes = officeMimeTypes): AmicOsVaultOfficeExactVersion {
   const input = object(value);
   exactKeys(input, ['document_id', 'version_id', 'file_object_id', 'sha256', 'byte_size', 'mime_type']);
   const hash = typeof input.sha256 === 'string' ? input.sha256.trim().toLowerCase() : '';
   const mimeType = typeof input.mime_type === 'string' ? input.mime_type.toLowerCase() : '';
-  if (!sha256Pattern.test(hash) || !officeMimeTypes.has(mimeType)
+  if (!sha256Pattern.test(hash) || !allowedMimes.has(mimeType)
       || !Number.isSafeInteger(input.byte_size) || Number(input.byte_size) < 1
       || Number(input.byte_size) > 25 * 1024 * 1024) return invalid();
   return {
@@ -246,4 +246,63 @@ export function parseAmicOsVaultOfficeCopyListInput(value: unknown): AmicOsVault
   const parsed = base(input, ['limit']);
   if (!Number.isSafeInteger(input.limit) || Number(input.limit) < 1 || Number(input.limit) > 50) return invalid();
   return { ...parsed, limit: Number(input.limit) };
+}
+
+
+// Copy transport is independent of the three-format Office editing engine.
+export const documentCopyMimeTypes = new Set([
+  ...officeMimeTypes, 'application/msword', 'application/pdf', 'application/vnd.ms-excel',
+  'application/vnd.ms-powerpoint', 'image/gif', 'image/jpeg', 'image/png', 'image/webp',
+  'text/csv', 'text/plain',
+]);
+export interface AmicOsVaultDocumentCopyBindingInput extends AmicOsVaultOfficeBaseInput {
+  copy_id: string;
+  snapshot_id: string;
+}
+export interface AmicOsVaultDocumentCopyPrepareInput extends AmicOsVaultDocumentCopyBindingInput {
+  title: string;
+  mode: 'clone' | 'upload';
+  file: { filename: string; sha256: string; byte_size: number; mime_type: string } | null;
+}
+function documentCopyBase(value: unknown, extraKeys: string[]): AmicOsVaultOfficeBaseInput {
+  const input = object(value);
+  exactKeys(input, ['principal', 'lawos_matter_id', 'requested_exact_version', ...extraKeys]);
+  return { principal: principal(input.principal), lawos_matter_id: safeId(input.lawos_matter_id),
+    requested_exact_version: exactVersion(input.requested_exact_version, documentCopyMimeTypes) };
+}
+export function parseAmicOsVaultDocumentCopyPrepareInput(value: unknown): AmicOsVaultDocumentCopyPrepareInput {
+  const input = object(value);
+  const parsed = documentCopyBase(input, ['copy_id', 'snapshot_id', 'title', 'mode', 'file']);
+  const title = typeof input.title === 'string' ? input.title.normalize('NFC').trim() : '';
+  if (!title || title.length > 180 || !['clone', 'upload'].includes(String(input.mode))) return invalid();
+  let file: AmicOsVaultDocumentCopyPrepareInput['file'] = null;
+  if (input.file !== null) {
+    const data = object(input.file);
+    exactKeys(data, ['filename', 'sha256', 'byte_size', 'mime_type']);
+    const exact = exactVersion({ ...parsed.requested_exact_version, sha256: data.sha256,
+      byte_size: data.byte_size, mime_type: data.mime_type }, documentCopyMimeTypes);
+    file = { filename: filename(data.filename), sha256: exact.sha256,
+      byte_size: exact.byte_size, mime_type: exact.mime_type };
+    if (file.mime_type !== parsed.requested_exact_version.mime_type) return invalid();
+  }
+  if (input.mode === 'upload' && !file) return invalid();
+  return { ...parsed, copy_id: copyId(input.copy_id), snapshot_id: snapshotId(input.snapshot_id),
+    title, mode: input.mode as 'clone' | 'upload', file };
+}
+export function parseAmicOsVaultDocumentCopyBindingInput(value: unknown): AmicOsVaultDocumentCopyBindingInput {
+  const input = object(value);
+  return { ...documentCopyBase(input, ['copy_id', 'snapshot_id']),
+    copy_id: copyId(input.copy_id), snapshot_id: snapshotId(input.snapshot_id) };
+}
+export function parseAmicOsVaultDocumentCopyListInput(value: unknown): AmicOsVaultOfficeCopyListInput {
+  const input = object(value);
+  const parsed = documentCopyBase(input, ['limit']);
+  if (!Number.isSafeInteger(input.limit) || Number(input.limit) < 1 || Number(input.limit) > 50) return invalid();
+  return { ...parsed, limit: Number(input.limit) };
+}
+export function parseAmicOsVaultDocumentCopyReadInput(value: unknown): AmicOsVaultDocumentCopyBindingInput & { offset: number } {
+  const input = object(value);
+  const parsed = documentCopyBase(input, ['copy_id', 'snapshot_id', 'offset']);
+  if (!Number.isSafeInteger(input.offset) || Number(input.offset) < 0) return invalid();
+  return { ...parsed, copy_id: copyId(input.copy_id), snapshot_id: snapshotId(input.snapshot_id), offset: Number(input.offset) };
 }

@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: closes every discovered byte, ticket, internal-reference, and generated-document route
+ok 1 - closes every discovered byte, ticket, internal-reference, and generated-document route
+  ---
+  duration_ms: 229.395917
+  type: 'test'
+  ...
+# Subtest: fails when a covered document download loses its DLP gate
+ok 2 - fails when a covered document download loses its DLP gate
+  ---
+  duration_ms: 143.471
+  type: 'test'
+  ...
+# Subtest: fails closed on a newly discovered unclassified storage-read method
+ok 3 - fails closed on a newly discovered unclassified storage-read method
+  ---
+  duration_ms: 136.168667
+  type: 'test'
+  ...
+# Subtest: fails when an explicit preview exclusion loses its named authorization control
+ok 4 - fails when an explicit preview exclusion loses its named authorization control
+  ---
+  duration_ms: 133.821666
+  type: 'test'
+  ...
+# Subtest: fails when delegated preview loses session authorization or the post-storage check
+ok 5 - fails when delegated preview loses session authorization or the post-storage check
+  ---
+  duration_ms: 267.057458
+  type: 'test'
+  ...
+# Subtest: fails when DLP evaluation moves after a storage read
+ok 6 - fails when DLP evaluation moves after a storage read
+  ---
+  duration_ms: 133.255334
+  type: 'test'
+  ...
+# Subtest: fails when the AMIC OS exact download reads storage before authorization
+ok 7 - fails when the AMIC OS exact download reads storage before authorization
+  ---
+  duration_ms: 131.405
+  type: 'test'
+  ...
+# Subtest: retained copy recovery requires exact binding, clean scan and post-storage permission before bytes
+ok 8 - retained copy recovery requires exact binding, clean scan and post-storage permission before bytes
+  ---
+  duration_ms: 396.286042
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1772.752833

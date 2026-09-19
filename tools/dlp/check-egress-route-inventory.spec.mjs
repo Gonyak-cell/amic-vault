@@ -105,3 +105,11 @@ test('fails when the AMIC OS exact download reads storage before authorization',
   assert.equal(report.status, 'FAIL');
   assert.match(report.errors.join('\n'), /amic_os_vault_provider_exact_download.*unsafe order/u);
 });
+
+test('retained copy recovery requires exact binding, clean scan and post-storage permission before bytes', () => {
+  const path = 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.ts';
+  for (const token of ['const source = await this.editor.documentCopyTarget(actor, input);', 'copy_snapshot_not_clean', 'copy_snapshot_hash_mismatch']) {
+    const mutated = { ...sources, [path]: sources[path].replaceAll(token, 'removedCopyControl') };
+    assert.throws(() => validateEgressInventory({ sources: mutated }), /AmicOsVaultDocumentCopyService\.read/u);
+  }
+});

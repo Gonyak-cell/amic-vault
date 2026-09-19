@@ -1,0 +1,19 @@
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+ RUN  v2.1.9 /Users/jws/.codex/worktrees/amic-vault-web-preservation-20260920/apps/api
+
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.spec.ts (21 tests) 4651ms
+   ✓ generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > txt: clone and changed snapshot survive reselect, stay unpublished until commit and publish once 332ms
+   ✓ generic copies: actual HTTP, disposable PostgreSQL, production upload/scan/promotion and local synthetic storage > reads a retained 25MiB snapshot in <=3MiB chunks and rejects 25MiB+1 before storage 640ms
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-upload.service.spec.ts (6 tests) 8ms
+ ✓ src/modules/document/validators/mime-type.validator.spec.ts (8 tests) 21ms
+ ✓ src/modules/file-security/file-promotion.service.spec.ts (5 tests) 8ms
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.spec.ts (12 tests) 4ms
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.contract.spec.ts (2 tests) 2ms
+ ✓ src/modules/document/validators/file-extension.validator.spec.ts (5 tests) 2ms
+
+ Test Files  7 passed (7)
+      Tests  59 passed (59)
+   Start at  03:38:22
+   Duration  7.08s (transform 431ms, setup 0ms, collect 1.54s, tests 4.70s, environment 0ms, prepare 158ms)
+

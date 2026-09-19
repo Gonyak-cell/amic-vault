@@ -18,6 +18,10 @@ import { Public } from '../../auth/public.decorator';
 import { multipartFieldName, multipartUploadOptions } from '../../document/multipart.config';
 import type { UploadedDiskFile } from '../../document/document-upload.service';
 import {
+  parseAmicOsVaultDocumentCopyPrepareInput,
+  parseAmicOsVaultDocumentCopyBindingInput,
+  parseAmicOsVaultDocumentCopyListInput,
+  parseAmicOsVaultDocumentCopyReadInput,
   parseAmicOsVaultOfficeCancelInput,
   parseAmicOsVaultOfficeCopyBindingInput,
   parseAmicOsVaultOfficeCopyCreateInput,
@@ -31,6 +35,7 @@ import {
   parseAmicOsVaultOfficeSourceInput,
   parseAmicOsVaultOfficeStatusInput,
 } from './amic-os-vault-editor.contract';
+import { AmicOsVaultDocumentCopyService } from './amic-os-vault-document-copy.service';
 import { AmicOsVaultEditorService } from './amic-os-vault-editor.service';
 import {
   AmicOsVaultProviderGuard,
@@ -75,7 +80,8 @@ function contentDisposition(filename: string): string {
 @UseGuards(AmicOsVaultProviderGuard)
 @Controller('integrations/amic-os/vault/edit')
 export class AmicOsVaultEditorController {
-  constructor(@Inject(AmicOsVaultEditorService) private readonly service: AmicOsVaultEditorService) {}
+  constructor(@Inject(AmicOsVaultEditorService) private readonly service: AmicOsVaultEditorService,
+    @Inject(AmicOsVaultDocumentCopyService) private readonly copies: AmicOsVaultDocumentCopyService) {}
 
   @Post('info')
   @HttpCode(200)
@@ -192,5 +198,40 @@ export class AmicOsVaultEditorController {
   @Header('Cache-Control', 'private, no-store')
   listCopies(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown) {
     return this.service.listCopies(principal(request), parseAmicOsVaultOfficeCopyListInput(body));
+  }
+
+  @Post('document-copy/prepare')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  documentCopyPrepare(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown) {
+    return this.copies.prepare(principal(request), parseAmicOsVaultDocumentCopyPrepareInput(body));
+  }
+
+  @Post('document-copy/complete')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  documentCopyComplete(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown) {
+    return this.copies.complete(principal(request), parseAmicOsVaultDocumentCopyBindingInput(body));
+  }
+
+  @Post('document-copy/list')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  documentCopyList(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown) {
+    return this.copies.list(principal(request), parseAmicOsVaultDocumentCopyListInput(body));
+  }
+
+  @Post('document-copy/read')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  documentCopyRead(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown) {
+    return this.copies.read(principal(request), parseAmicOsVaultDocumentCopyReadInput(body));
+  }
+
+  @Post('document-copy/commit')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  documentCopyCommit(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown) {
+    return this.copies.commit(principal(request), parseAmicOsVaultDocumentCopyBindingInput(body));
   }
 }
