@@ -21,6 +21,7 @@ const supportedMimeExtensions = [
   'doc',
   'docx',
   'eml',
+  'gif',
   'hwp',
   'hwpx',
   'html',
@@ -36,6 +37,7 @@ const supportedMimeExtensions = [
   'ppt',
   'pptx',
   'txt',
+  'webp',
   'xls',
   'xlsx',
   'zip',
@@ -72,6 +74,11 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
     extension: 'eml',
     mimeType: 'message/rfc822',
     declaredAliases: ['message/rfc822', 'text/plain', 'application/octet-stream'],
+  },
+  gif: {
+    extension: 'gif',
+    mimeType: 'image/gif',
+    declaredAliases: ['image/gif'],
   },
   hwp: {
     extension: 'hwp',
@@ -156,6 +163,11 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
     mimeType: 'text/plain',
     declaredAliases: ['text/plain'],
   },
+  webp: {
+    extension: 'webp',
+    mimeType: 'image/webp',
+    declaredAliases: ['image/webp'],
+  },
   xls: {
     extension: 'xls',
     mimeType: 'application/vnd.ms-excel',
@@ -207,10 +219,37 @@ function isSupportedMimeExtension(extension: string): extension is SupportedMime
 function sniffSupportedBinaryMime(
   buffer: Buffer,
   extension: SupportedMimeExtension,
-  options: { allowLegacyExcelExtensionMismatch?: boolean } = {},
+  options: { allowLegacyExcelExtensionMismatch?: boolean; sizeBytes?: number } = {},
 ): SupportedMime {
   if (startsWith(buffer, '%PDF')) return supportedMimes.pdf;
   if (startsWith(buffer, '\x89PNG\r\n\x1A\n')) return supportedMimes.png;
+  if (startsWith(buffer, 'GIF87a') || startsWith(buffer, 'GIF89a')) {
+    if (buffer.length < 14 || buffer.readUInt16LE(6) === 0 || buffer.readUInt16LE(8) === 0) {
+      throw unsupportedFileType();
+    }
+    const headerSize = 13 + ((buffer[10]! & 0x80) ? 3 * 2 ** ((buffer[10]! & 7) + 1) : 0);
+    if (buffer.length <= headerSize || ![0x21, 0x2c].includes(buffer[headerSize]!)) {
+      throw unsupportedFileType();
+    }
+    return supportedMimes.gif;
+  }
+  if (startsWith(buffer, 'RIFF') && buffer.subarray(8, 12).toString('ascii') === 'WEBP') {
+    if (buffer.length < 25 || buffer.readUInt32LE(4) + 8 !== options.sizeBytes) {
+      throw unsupportedFileType();
+    }
+    const chunk = buffer.subarray(12, 16).toString('ascii');
+    const length = buffer.readUInt32LE(16);
+    if (length + (length % 2) + 20 > options.sizeBytes!) throw unsupportedFileType();
+    const lossy = chunk === 'VP8 ' && length >= 10 && buffer.length >= 30
+      && (buffer[20]! & 1) === 0 && buffer.subarray(23, 26).equals(Buffer.from([0x9d, 0x01, 0x2a]))
+      && (buffer.readUInt16LE(26) & 0x3fff) !== 0 && (buffer.readUInt16LE(28) & 0x3fff) !== 0;
+    const lossless = chunk === 'VP8L' && length >= 5 && buffer[20] === 0x2f && (buffer[24]! & 0xe0) === 0;
+    const extended = chunk === 'VP8X' && length === 10 && buffer.length >= 30
+      && options.sizeBytes! > 38 && (buffer[20]! & 0xc1) === 0
+      && buffer.subarray(21, 24).every(byte => byte === 0);
+    if (!lossy && !lossless && !extended) throw unsupportedFileType();
+    return supportedMimes.webp;
+  }
   if (startsWith(buffer, '\xFF\xD8\xFF')) {
     if (extension === 'jpg' || extension === 'jpeg') return supportedMimes[extension];
     return supportedMimes.jpg;
@@ -357,6 +396,7 @@ export class MimeTypeValidator {
       sniffLegacyOfficeHtmlMime(buffer, input.extension) ??
       sniffSupportedBinaryMime(buffer, input.extension, {
         allowLegacyExcelExtensionMismatch: input.allowImageExtensionMismatch === true,
+        sizeBytes: input.sizeBytes,
       });
     const allowImageMismatch =
       input.allowImageExtensionMismatch === true &&

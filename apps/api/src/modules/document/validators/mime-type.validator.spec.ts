@@ -35,8 +35,46 @@ const oleBytes = Buffer.concat([
 ]);
 const jpgBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
 const pngBytes = Buffer.from('\x89PNG\r\n\x1A\npng payload', 'latin1');
+const gifBytes = Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64');
+const webpBytes = Buffer.from('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA', 'base64');
 
 describe('MimeTypeValidator', () => {
+  it('recognizes bounded GIF and WebP headers and rejects mismatched declarations and extensions', async () => {
+    const validator = new MimeTypeValidator();
+    for (const [extension, bytes, mimeType] of [['gif', gifBytes, 'image/gif'], ['webp', webpBytes, 'image/webp']] as const) {
+      const input = { path: await fixtureFile(`source.${extension}`, bytes), sizeBytes: bytes.length,
+        extension, declaredMimeType: mimeType };
+      expect(validator.validateDeclaration(input)).toEqual({ mimeType });
+      await expect(validator.validate(input)).resolves.toEqual({ mimeType });
+      await expect(validator.validate({ ...input, declaredMimeType: 'image/png' })).rejects.toThrow(UnsupportedMediaTypeException);
+      await expect(validator.validate({ ...input, extension: 'png' })).rejects.toThrow(UnsupportedMediaTypeException);
+      // The historical migration-only JPEG/PNG exception does not admit new file types.
+      await expect(validator.validate({ ...input, extension: 'png', allowImageExtensionMismatch: true }))
+        .rejects.toThrow(UnsupportedMediaTypeException);
+      await expect(validator.validate({ ...input, path: await fixtureFile('fake', '%PDF-1.7') }))
+        .rejects.toThrow(UnsupportedMediaTypeException);
+    }
+  });
+
+  it('rejects truncated, empty and damaged GIF/WebP headers', async () => {
+    const zeroWidthGif = Buffer.from(gifBytes);
+    zeroWidthGif.writeUInt16LE(0, 6);
+    const wrongRiffSize = Buffer.from(webpBytes);
+    wrongRiffSize.writeUInt32LE(webpBytes.length, 4);
+    const invalidFrame = Buffer.from(webpBytes);
+    invalidFrame[23] = 0;
+    const oversizedChunk = Buffer.from(webpBytes);
+    oversizedChunk.writeUInt32LE(webpBytes.length, 16);
+    for (const [extension, bytes] of [
+      ['gif', Buffer.from('GIF89a')], ['gif', gifBytes.subarray(0, 13)], ['gif', zeroWidthGif],
+      ['webp', webpBytes.subarray(0, 20)], ['webp', wrongRiffSize], ['webp', invalidFrame], ['webp', oversizedChunk],
+    ] as const) {
+      await expect(new MimeTypeValidator().validate({ path: await fixtureFile(`damaged.${extension}`, bytes),
+        sizeBytes: bytes.length, extension, declaredMimeType: `image/${extension}` }))
+        .rejects.toThrow(UnsupportedMediaTypeException);
+    }
+  });
+
   it('sniffs PDF, DOCX, and HWPX supported files', async () => {
     const validator = new MimeTypeValidator();
 

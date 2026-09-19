@@ -19,6 +19,14 @@ describe('FileExtensionValidator', () => {
     }
   });
 
+  it('preserves GIF and WebP source files without widening a configured allow-list', () => {
+    const validator = new FileExtensionValidator(allowedDocumentExtensions(''));
+    expect(validator.validate('사본.GIF').extension).toBe('gif');
+    expect(validator.validate('사본.webp').extension).toBe('webp');
+    expect(() => new FileExtensionValidator(allowedDocumentExtensions('pdf')).validate('사본.gif'))
+      .toThrow(expect.objectContaining({ response: { code: 'UNSUPPORTED_FILE_TYPE' } }));
+  });
+
   it('includes OneDrive migration source extensions in the default allow-list', () => {
     const allowed = allowedDocumentExtensions();
 
