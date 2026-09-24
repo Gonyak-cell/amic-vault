@@ -125,6 +125,14 @@ export class SearchFilterBuilder {
     if (filters.matterId) {
       fragments.push({ sql: 'idx.matter_id = ?', params: [filters.matterId] });
     }
+    if (filters.folderId) {
+      fragments.push({ sql: `EXISTS (
+        SELECT 1 FROM documents folder_filter
+        WHERE folder_filter.tenant_id = idx.tenant_id
+          AND folder_filter.document_id = idx.document_id
+          AND folder_filter.folder_id = ?
+      )`, params: [filters.folderId] });
+    }
     if (filters.clientId) {
       fragments.push({ sql: 'idx.client_id = ?', params: [filters.clientId] });
     }

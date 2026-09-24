@@ -87,10 +87,14 @@ function optionalDate(value: unknown): string | null {
 
 function parseList(value: unknown): AmicOsVaultReadInput {
   const input = object(value);
-  exactKeys(input, ['principal', 'lawos_matter_id', 'page', 'page_size']);
+  exactKeys(input, ['principal', 'lawos_matter_id', 'page', 'page_size', ...(Object.hasOwn(input, 'folder_id') ? ['folder_id'] : [])]);
+  const mappedMatterId = matterId(input.lawos_matter_id);
+  const folderId = Object.hasOwn(input, 'folder_id') ? parseUuid(input.folder_id) : null;
+  if (folderId && !mappedMatterId) throw invalid();
   return {
     accountLedgerId: principalAccountLedgerId(input.principal),
-    lawosMatterId: matterId(input.lawos_matter_id),
+    lawosMatterId: mappedMatterId,
+    ...(folderId ? { folderId } : {}),
     page: page(input.page, 1_000),
     pageSize: page(input.page_size, 50),
     query: null,
@@ -110,6 +114,7 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
     'date_to',
     'page',
     'page_size',
+    ...(Object.hasOwn(input, 'folder_id') ? ['folder_id'] : []),
   ]);
   const query = typeof input.query === 'string' ? input.query.trim() : '';
   const dateFrom = optionalDate(input.date_from);
@@ -117,9 +122,13 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
   if (query.length > 2_000
       || input.current_version_only !== true
       || (dateFrom && dateTo && dateFrom > dateTo)) throw invalid();
+  const mappedMatterId = matterId(input.lawos_matter_id);
+  const folderId = Object.hasOwn(input, 'folder_id') ? parseUuid(input.folder_id) : null;
+  if (folderId && !mappedMatterId) throw invalid();
   return {
     accountLedgerId: principalAccountLedgerId(input.principal),
-    lawosMatterId: matterId(input.lawos_matter_id),
+    lawosMatterId: mappedMatterId,
+    ...(folderId ? { folderId } : {}),
     page: page(input.page, 1_000),
     pageSize: page(input.page_size, 50),
     query: query || null,
@@ -140,6 +149,14 @@ function parseVersions(value: unknown): AmicOsVaultVersionReadInput {
     page: page(input.page, 1_000),
     pageSize: page(input.page_size, 50),
   };
+}
+
+function parseFolders(value: unknown): { accountLedgerId: string; lawosMatterId: string } {
+  const input = object(value);
+  exactKeys(input, ['principal', 'lawos_matter_id']);
+  const mappedMatterId = matterId(input.lawos_matter_id);
+  if (!mappedMatterId) throw invalid();
+  return { accountLedgerId: principalAccountLedgerId(input.principal), lawosMatterId: mappedMatterId };
 }
 
 function principal(request: RequestWithAmicOsVaultProvider): AmicOsVaultProviderPrincipal {
@@ -203,6 +220,13 @@ export class AmicOsVaultReadController {
     @Body() body: unknown,
   ): Promise<AmicOsVaultReadResponse> {
     return this.service.list(principal(request), parseList(body));
+  }
+
+  @Post('folders')
+  @HttpCode(200)
+  @Header('Cache-Control', 'private, no-store')
+  folders(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown) {
+    return this.service.folders(principal(request), parseFolders(body));
   }
 
   @Post('search')

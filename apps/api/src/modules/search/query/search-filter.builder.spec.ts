@@ -11,6 +11,14 @@ function tenantScope(value = tenantId) {
 }
 
 describe('SearchFilterBuilder', () => {
+  it('binds the selected folder to the same tenant and document before pagination', () => {
+    const folderId = '11111111-1111-4111-8111-111111111144';
+    const built = new SearchFilterBuilder().build({ scope: tenantScope(), filters: { matterId, folderId } });
+    expect(built.whereSql).toContain('folder_filter.tenant_id = idx.tenant_id');
+    expect(built.whereSql).toContain('folder_filter.document_id = idx.document_id');
+    expect(built.whereSql).toContain('folder_filter.folder_id = $5');
+    expect(built.params).toEqual([tenantId, 'deleted', 'current', matterId, folderId]);
+  });
   it('defaults to deny-all scope, deleted exclusion, and current versions', () => {
     const built = new SearchFilterBuilder().build();
 

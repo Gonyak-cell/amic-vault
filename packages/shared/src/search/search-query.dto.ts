@@ -60,6 +60,7 @@ export const searchIsoDateTimeSchema = z
 export const searchFiltersSchema = z
   .object({
     matterId: z.string().uuid().optional(),
+    folderId: z.string().uuid().optional(),
     clientId: z.string().uuid().optional(),
     matterCode: searchTextFilterSchema.optional(),
     matterName: searchTextFilterSchema.optional(),
