@@ -224,6 +224,20 @@ export const EGRESS_INVENTORY = Object.freeze({
       "digest.digest('hex') !== target.sha256",
     ],
   },
+  'AmicOsVaultProviderService.readExactRange': {
+    path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.service.ts',
+    category: 'internal_processing',
+    rationale: 'reads one bounded exact-version chunk only after downloadChunk checks the authorized grant',
+    authorityControl: 'downloadChunk binds the grant, tenant, exact target, aligned offset, and chunk byte size before storage access',
+    auditControl: 'downloadChunk consumes or records the authorized grant and audits the final chunk',
+    required: [
+      'this.storageService.getRangeByStorageUri(',
+      'tenantId, target.storage_uri, offset, offset + byteSize - 1',
+      'size > byteSize',
+      'size !== byteSize',
+      'object.body.destroy()',
+    ],
+  },
   'AmicOsVaultEditorService.createCopy': {
     path: 'apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.ts',
     category: 'internal_processing',

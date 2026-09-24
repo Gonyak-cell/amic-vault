@@ -46,6 +46,7 @@ const chunkBody = { ...previewBody, preview_session_id: '99999999-9999-4999-8999
 function createHarness() {
   const service = {
     list: vi.fn(async () => response),
+    folders: vi.fn(async () => ({ items: [] })),
     search: vi.fn(async () => response),
     preparePreview: vi.fn(async () => ({ status: 'pending' })),
     issuePreviewSession: vi.fn(async () => ({ status: 'ready' })),
@@ -59,6 +60,17 @@ function createHarness() {
 }
 
 describe('AmicOsVaultReadController', () => {
+  it('requires a bounded matter and guard principal for folder listing', async () => {
+    const f = createHarness();
+    const body = { principal: { tenant_id: 'caller-tenant', user_id: principal.accountLedgerId }, lawos_matter_id: 'matter:1' };
+    await f.controller.folders(f.request, body);
+    expect(f.service.folders).toHaveBeenCalledWith(principal, {
+      accountLedgerId: principal.accountLedgerId, lawosMatterId: 'matter:1',
+    });
+    expect(() => f.controller.folders(f.request, { ...body, lawos_matter_id: null })).toThrow();
+    expect(() => f.controller.folders(f.request, { ...body, extra: true })).toThrow();
+    expect(() => f.controller.folders({ headers: {} }, body)).toThrow();
+  });
   it('parses exact preview targets and separates polling from explicit queue requests', async () => {
     const f = createHarness();
     await f.controller.preparePreview(f.request, { ...previewBody, enqueue: true });

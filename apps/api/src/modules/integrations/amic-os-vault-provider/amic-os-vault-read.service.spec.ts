@@ -195,6 +195,8 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
       baseCleanVersionId: null,
     }] })),
   };
+  const documentFolders = { listFolders: vi.fn(async () => [{ folderId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    parentFolderId: null, name: '계약', path: '계약' }]) };
   const service = new AmicOsVaultReadService(
     auditService as never,
     searchService as never,
@@ -210,11 +212,24 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
     previewQueue as never,
     external,
     documentVersions as never,
+    documentFolders as never,
   );
-  return { auditService, query, searchService, service, previewSessions, previews, previewQueue, documentVersions };
+  return { auditService, query, searchService, service, previewSessions, previews, previewQueue, documentVersions, documentFolders };
 }
 
 describe('AmicOsVaultReadService', () => {
+  it('requires Matter permission before listing folders and constrains document search to an existing folder', async () => {
+    const f = createHarness();
+    const folders = await f.service.folders(principal, { accountLedgerId: principal.accountLedgerId, lawosMatterId });
+    expect(f.documentFolders.listFolders).toHaveBeenCalledWith(actorUserId, vaultMatterId);
+    expect(folders.items[0]?.folder_id).toBe('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    await f.service.list(principal, input({ folderId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }));
+    expect(f.searchService.search).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+      filters: expect.objectContaining({ matterId: vaultMatterId, folderId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }),
+    }));
+    await expect(f.service.list(principal, input({ folderId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' })))
+      .rejects.toThrow();
+  });
   it('authorizes delegated Portal documents through current sharing, owner, hold and external DLP policy', async () => {
     const actor = { role: 'matter_owner', status: 'active' };
     const member = { matter_role: 'owner', access_level: 'edit' };

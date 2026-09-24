@@ -5,6 +5,7 @@ import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { SearchService } from '../../search/search.service';
 import { ExternalService } from '../../external/external.service';
 import { DocumentVersionService } from '../../document/document-version.service';
+import { DocumentFolderService } from '../../document/document-folder.service';
 import { TenantContextService } from '../../tenant/tenant-context';
 import { PreviewPrecreateQueueService } from '../../preview/preview-precreate-queue.service';
 import {
@@ -31,6 +32,7 @@ const portalDocumentMimeTypes = new Set([
 export interface AmicOsVaultReadInput {
   accountLedgerId: string;
   lawosMatterId: string | null;
+  folderId?: string | null;
   page: number;
   pageSize: number;
   query: string | null;
@@ -185,7 +187,28 @@ export class AmicOsVaultReadService {
     @Inject(PreviewPrecreateQueueService) private readonly previewQueue: PreviewPrecreateQueueService,
     @Inject(ExternalService) private readonly external: ExternalService,
     @Inject(DocumentVersionService) private readonly documentVersions: DocumentVersionService,
+    @Inject(DocumentFolderService) private readonly documentFolders: DocumentFolderService,
   ) {}
+
+  async folders(principal: AmicOsVaultProviderPrincipal, input: {
+    accountLedgerId: string; lawosMatterId: string;
+  }) {
+    this.assertPrincipal(principal, input.accountLedgerId);
+    const vaultMatterId = await this.resolveLawosMatter(principal.tenantId, input.lawosMatterId);
+    const folders = await this.documentFolders.listFolders(principal.actorUserId, vaultMatterId);
+    return {
+      authority_kind: 'amic-vault-api' as const,
+      authority_ref: this.config.uploadAuthorityRef(),
+      provider_revision: this.config.uploadProviderRevision(),
+      items: folders.map((folder) => ({
+        folder_id: folder.folderId,
+        parent_folder_id: folder.parentFolderId,
+        name: folder.name,
+        path: folder.path,
+      })),
+      count_leak_prevented: true as const,
+    };
+  }
 
   async list(
     principal: AmicOsVaultProviderPrincipal,
@@ -412,9 +435,15 @@ export class AmicOsVaultReadService {
     const vaultMatterId = input.lawosMatterId
       ? await this.resolveLawosMatter(principal.tenantId, input.lawosMatterId)
       : null;
+    if (input.folderId) {
+      if (!vaultMatterId) throw permissionDenied();
+      const folders = await this.documentFolders.listFolders(principal.actorUserId, vaultMatterId);
+      if (!folders.some((folder) => folder.folderId === input.folderId)) throw permissionDenied();
+    }
     const filters: NonNullable<SearchQueryDto['filters']> = {
       versionStatus: 'current',
       ...(vaultMatterId ? { matterId: vaultMatterId } : {}),
+      ...(input.folderId ? { folderId: input.folderId } : {}),
       ...(input.dateFrom ? { dateFrom: `${input.dateFrom}T00:00:00.000Z` } : {}),
       ...(input.dateTo ? { dateTo: `${input.dateTo}T23:59:59.999Z` } : {}),
     };
