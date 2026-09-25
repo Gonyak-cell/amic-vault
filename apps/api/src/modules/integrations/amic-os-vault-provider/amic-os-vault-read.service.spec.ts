@@ -887,7 +887,7 @@ describe('AmicOsVaultReadService', () => {
       current_mime_type: 'text/plain',
       mime_type: 'text/plain',
       email_message: {
-        subject: 'Received header subject',
+        subject: '받은 메일 DB 제목',
         from: 'sender@example.test',
         to: ['reader@example.test', 'second@example.test'],
         direction: 'received',
@@ -941,6 +941,16 @@ describe('AmicOsVaultReadService', () => {
         received_at: null,
         event_at: '2026-08-28T00:00:00.000Z',
       },
+    });
+
+    await expect(f.service.search(principal, input({
+      query: 'second@',
+      mimeTypes: ['message/rfc822'],
+      emailSort: 'event_at',
+      page: 1,
+      pageSize: 1,
+    }))).rejects.toMatchObject({
+      response: { reason: 'EMAIL_ADDRESS_QUERY_REQUIRES_COMPLETE_ADDRESS' },
     });
 
     const receivedOnly = await f.service.search(principal, input({

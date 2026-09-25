@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { SearchMode, SearchQueryDto, SearchSort, SearchTarget } from '@amic-vault/shared';
 import {
@@ -37,6 +38,42 @@ function emailTargetFilterSql(input: SearchQueryDto): string {
   return (targetFor(input) as string) === 'email'
     ? "\n            AND idx.document_type = 'email'"
     : '';
+}
+
+function emailAddressHash(query: string | undefined): string | null {
+  const address = query?.trim().toLowerCase() ?? '';
+  if (!/^[^\s@<>;,]+@[a-z0-9.-]+$/u.test(address) || address.length > 320) return null;
+  return createHash('sha256').update('email-address').update('\0').update(address).digest('hex');
+}
+
+function emailHeaderMatchParams(input: SearchQueryDto, params: SearchSqlValue[]): string {
+  if (targetFor(input) !== 'email') return '';
+  const addressHash = emailAddressHash(input.query);
+  if (addressHash) params.push(addressHash);
+  return emailHeaderMatchSql(addressHash ? `$${params.length}` : null);
+}
+
+function emailHeaderMatchSql(hashParam: string | null): string {
+  return `EXISTS (
+    SELECT 1
+    FROM email_matter_filings filing_search
+    JOIN email_messages message_search
+      ON message_search.tenant_id = filing_search.tenant_id
+      AND message_search.email_id = filing_search.email_id
+    WHERE filing_search.tenant_id = idx.tenant_id
+      AND filing_search.matter_id = idx.matter_id
+      AND filing_search.body_document_id = idx.document_id
+      AND (
+        ${normalizedFieldMatchSql('message_search.subject')}
+        ${hashParam ? `OR EXISTS (
+          SELECT 1 FROM email_participants participant_search
+          WHERE participant_search.tenant_id = message_search.tenant_id
+            AND participant_search.email_id = message_search.email_id
+            AND participant_search.role IN ('from', 'to')
+            AND participant_search.address_hash = ${hashParam}
+        )` : ''}
+      )
+  )`;
 }
 
 function isClauseTarget(input: SearchQueryDto): boolean {
@@ -177,7 +214,10 @@ export class SearchQueryBuilder {
     if (input.query) {
       if (isClauseTarget(input)) return this.buildClauseKeyword(input, scope);
       const target = lexicalTargetFor(input);
-      const matchSql = keywordRowMatchSql(target);
+      const emailMatch = emailHeaderMatchParams(input, params);
+      const matchSql = emailMatch
+        ? `(${keywordRowMatchSql(target)} OR ${emailMatch})`
+        : keywordRowMatchSql(target);
       params.push(input.query);
       const queryParam = `$${params.length}`;
       params.push(boundedSearchTotalLimit);
@@ -841,6 +881,7 @@ export class SearchQueryBuilder {
       `;
     }
 
+    const emailMatch = emailHeaderMatchParams(input, params);
     params.push(input.query);
     const queryParam = `$${params.length}`;
     return `
@@ -862,7 +903,8 @@ export class SearchQueryBuilder {
         CROSS JOIN tsq
         ${whereSql}
           ${emailTargetFilterSql(input)}
-          AND ${keywordFacetMatchSql(lexicalTargetFor(input))}
+          AND (${keywordFacetMatchSql(lexicalTargetFor(input))}
+            ${emailMatch ? `OR ${emailMatch}` : ''})
       )
     `;
   }

@@ -859,6 +859,10 @@ export class AmicOsVaultReadService {
     const bodyQuery = input.bodyQuery?.trim() || null;
     const searchQuery = bodyQuery ?? input.query;
     const criteria = emailCriteria(input);
+    if (criteria && input.query?.includes('@')
+        && !/^[^\s@<>;,]+@[a-z0-9.-]+$/iu.test(input.query.trim())) {
+      throw new BadRequestException({ code: 'VALIDATION_FAILED', reason: 'EMAIL_ADDRESS_QUERY_REQUIRES_COMPLETE_ADDRESS' });
+    }
     const searchContext = {
       tenantId: principal.tenantId,
       userId: principal.actorUserId,
@@ -893,12 +897,17 @@ export class AmicOsVaultReadService {
     const response = criteria
       ? await this.searchAllEmailCandidates(searchContext, searchInput)
       : await this.searchService.search(searchContext, searchInput);
-    const projected = await this.projectExactVersions(
-      principal,
-      response.results,
-      criteria,
-      searchQuery,
-    );
+    const projected: AmicOsVaultExactProjection[] = [];
+    // Bound each exact-version read and its header reads to one search page.
+    // A tenant may have tens of thousands of permitted email documents.
+    for (let offset = 0; offset < response.results.length; offset += providerEmailScanPageSize) {
+      projected.push(...await this.projectExactVersions(
+        principal,
+        response.results.slice(offset, offset + providerEmailScanPageSize),
+        criteria,
+        searchQuery,
+      ));
+    }
     const filtered = criteria
       ? orderEmailResults(
           projected.filter((item) => {
@@ -1202,7 +1211,7 @@ export class AmicOsVaultReadService {
     const sentAt = canonicalInstant(row.email_sent_at ?? new Date(Number.NaN));
     const receivedAt = canonicalInstant(row.email_received_at ?? new Date(Number.NaN));
     const filedAt = canonicalInstant(row.email_filed_at ?? new Date(Number.NaN));
-    let subject = displayText(row.email_subject, 500);
+    const subject = displayText(row.email_subject, 500);
     let from: string | null = null;
     let to: string[] = [];
     if (this.storageService && row.email_storage_uri && emailSourceForRow(row)) {
@@ -1211,7 +1220,8 @@ export class AmicOsVaultReadService {
         const prefix = await readEmailHeaderPrefix(stored.body);
         if (prefix) {
           const metadata = normalizeEmailMetadata(decodeEmlRawContent(Buffer.from(prefix, 'latin1')));
-          subject = displayText(metadata.subject, 500) ?? subject;
+          // Search matches the persisted subject; keep the displayed title
+          // aligned with that same authoritative indexed value.
           from = metadata.participants.find((participant) => participant.role === 'from')?.normalizedAddress ?? null;
           to = metadata.participants
             .filter((participant) => participant.role === 'to')
