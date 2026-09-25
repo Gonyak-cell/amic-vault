@@ -254,7 +254,8 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       const authorityAction = this.clientAuthority?.current()?.action;
       const requiredAction = action === 'download' ? 'dms:document:download'
         : action === 'client_write' ? 'dms:document:write'
-          : authorityAction === 'dms:review:decide' ? 'dms:review:decide' : 'dms:document:read';
+          : authorityAction === 'dms:review:decide' || authorityAction === 'dms:review:read'
+            ? authorityAction : 'dms:document:read';
       if (action !== 'read' && action !== 'download' && action !== 'client_write') {
         return denyPermission('PERMISSION_DENIED', ['client_scope:action_unsupported']);
       }

@@ -23,7 +23,7 @@ const bytes = Buffer.from('synthetic exact client document bytes');
 const digest = createHash('sha256').update(bytes).digest('hex');
 const storageUri = `s3://synthetic/tenants/${tenantId}/clients/${scopeId}/documents/${documentId}/${fileObjectId}`;
 
-function fixture(action: ClientDocumentAction = 'dms:document:download') {
+function fixture(action: ClientDocumentAction = 'dms:document:download', uploadRow?: Record<string, unknown>) {
   const authority = { tenantId, actorUserId, osTenantId: 'lawos-test', partyId: 'party-1',
     workspaceRef: clientWorkspaceRef('lawos-test', 'party-1'), action,
     decisionRef: 'synthetic-decision', requestId: 'synthetic-request' };
@@ -41,6 +41,8 @@ function fixture(action: ClientDocumentAction = 'dms:document:download') {
     version_created_at: new Date(), version_created_by: actorUserId, legal_hold: false };
   const query = vi.fn(async (sql: string) => {
     if (sql.includes('FROM client_document_scopes')) return { rows: [{ client_scope_id: scopeId, status: 'active' }], rowCount: 1 };
+    if (sql.includes('FROM users') && sql.includes('FOR UPDATE')) return { rows: [{ user_id: actorUserId }], rowCount: 1 };
+    if (sql.includes('FROM client_document_uploads')) return { rows: uploadRow ? [uploadRow] : [], rowCount: uploadRow ? 1 : 0 };
     if (sql.includes('FROM documents d')) return { rows: [entry], rowCount: 1 };
     throw new Error('unexpected synthetic query');
   });
@@ -49,6 +51,7 @@ function fixture(action: ClientDocumentAction = 'dms:document:download') {
     log: vi.fn(async () => ({ eventId: '11111111-1111-4111-8111-111111111117' })) };
   const permissions = { canAccessClientScope: vi.fn(async () => ({ effect: 'ALLOW' })),
     canReadDocument: vi.fn(async () => ({ effect: 'ALLOW' })),
+    canWriteClientDocument: vi.fn(async () => ({ effect: 'ALLOW' })),
     canDownloadDocument: vi.fn(async () => ({ effect: 'ALLOW' })) };
   const getByStorageUri = vi.fn(async () => ({ body: Readable.from([bytes]), contentLength: bytes.length,
     contentType: 'application/pdf' }));
@@ -72,8 +75,40 @@ function fixture(action: ClientDocumentAction = 'dms:document:download') {
 }
 
 describe('AMIC OS Client exact-version provider', () => {
+  it('rejects a retained replacement handle with a different document or expected version before completion', async () => {
+    const upload = { upload_id: fileObjectId, scan_id: scopeId, state: 'quarantined',
+      document_id: documentId, expected_version_id: versionId };
+    const { service, envelope, permissions, getByStorageUri, audit } = fixture('dms:document:write', upload);
+    envelope.input = { upload_id: fileObjectId, document_id: scopeId, expected_version_id: versionId };
+    await expect(service.execute('uploads/complete', envelope)).rejects.toThrow();
+    envelope.input = { upload_id: fileObjectId, document_id: documentId, expected_version_id: scopeId };
+    await expect(service.execute('uploads/complete', envelope)).rejects.toThrow();
+    expect(permissions.canWriteClientDocument).not.toHaveBeenCalled();
+    expect(getByStorageUri).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+    envelope.input = { upload_id: fileObjectId, document_id: documentId, expected_version_id: versionId };
+    const pending = await service.execute('uploads/complete', envelope);
+    expect(pending.status).toBe(202);
+    expect(permissions.canWriteClientDocument).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId }, documentId);
+  });
+
+  it('requires the same staged pair and current document read permission for pending readback', async () => {
+    const upload = { upload_id: fileObjectId, scan_id: scopeId, state: 'quarantined',
+      document_id: documentId, expected_version_id: versionId };
+    const { service, envelope, permissions } = fixture('dms:document:read', upload);
+    envelope.input = { upload_id: fileObjectId, document_id: documentId, expected_version_id: scopeId };
+    await expect(service.execute('uploads/readback', envelope)).rejects.toThrow();
+    expect(permissions.canReadDocument).not.toHaveBeenCalled();
+    envelope.input = { upload_id: fileObjectId, document_id: documentId, expected_version_id: versionId };
+    permissions.canReadDocument.mockResolvedValueOnce({ effect: 'DENY' });
+    await expect(service.execute('uploads/readback', envelope)).rejects.toThrow();
+    const pending = await service.execute('uploads/readback', envelope);
+    expect(pending.status).toBe(202);
+  });
+
   it('commits a denied DLP assessment discovery without exposing document bytes', async () => {
-    const { service, envelope, audit, dlp, getByStorageUri } = fixture('dms:document:read');
+    const { service, envelope, audit, dlp, getByStorageUri } = fixture('dms:review:read');
     envelope.input = { document_id: documentId, version_id: versionId };
     const response = await service.execute('dlp/assessments/read', envelope);
     expect(response.status).toBe(200);

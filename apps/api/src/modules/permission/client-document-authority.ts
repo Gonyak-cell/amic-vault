@@ -1,7 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Injectable } from '@nestjs/common';
 
-export type ClientDocumentAction = 'dms:document:read' | 'dms:document:write' | 'dms:document:download' | 'dms:review:decide';
+export type ClientDocumentAction = 'dms:document:read' | 'dms:document:write' | 'dms:document:download'
+  | 'dms:review:read' | 'dms:review:decide';
 export interface ClientDocumentAuthority {
   tenantId: string;
   actorUserId: string;

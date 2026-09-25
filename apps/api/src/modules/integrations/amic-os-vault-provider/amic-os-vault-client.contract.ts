@@ -48,6 +48,7 @@ export function clientWorkspaceRef(osTenantId: string, partyId: string): string 
 }
 export function clientOperationAction(operation: ClientDocumentOperation, input: Record<string, unknown>): ClientDocumentAction {
   if (operation === 'dlp/reviews/create') return 'dms:review:decide';
+  if (operation === 'dlp/assessments/read') return 'dms:review:read';
   if (operation === 'documents/download') return 'dms:document:download';
   if (operation === 'uploads/stage' || operation === 'uploads/complete' || operation === 'metadata/update'
     || (operation === 'workspaces/resolve' && input.mode === 'ensure')) return 'dms:document:write';
@@ -74,7 +75,8 @@ export function parseClientDocumentEnvelope(value: unknown, operation: ClientDoc
   const fields: Record<ClientDocumentOperation, string[]> = {
     'workspaces/resolve': ['mode', 'idempotency_key'], 'documents/list': ['page', 'page_size'],
     'uploads/stage': ['idempotency_key', 'title', 'document_id', 'expected_version_id', 'file'],
-    'uploads/complete': ['upload_id'], 'uploads/readback': ['upload_id'],
+    'uploads/complete': ['upload_id', 'document_id', 'expected_version_id'],
+    'uploads/readback': ['upload_id', 'document_id', 'expected_version_id'],
     'documents/versions': ['document_id'], 'documents/download': ['document_id', 'version_id'],
     'metadata/read': ['document_id'],
     'metadata/update': ['document_id', 'expected_revision', 'category', 'issued_on', 'viewed_on'],
@@ -88,9 +90,12 @@ export function parseClientDocumentEnvelope(value: unknown, operation: ClientDoc
   if ('document_id' in input && input.document_id !== null) id(input.document_id);
   if ('expected_version_id' in input && input.expected_version_id !== null) id(input.expected_version_id);
   if ('version_id' in input && input.version_id !== null) id(input.version_id);
-  if (operation !== 'uploads/stage' && 'document_id' in input && input.document_id === null) return invalid();
+  if (!['uploads/stage', 'uploads/complete', 'uploads/readback'].includes(operation)
+    && 'document_id' in input && input.document_id === null) return invalid();
   if ('upload_id' in input) id(input.upload_id);
   if ('assessment_id' in input) id(input.assessment_id);
+  if ((operation === 'uploads/complete' || operation === 'uploads/readback')
+    && (input.document_id === null) !== (input.expected_version_id === null)) return invalid();
   if (operation === 'workspaces/resolve') {
     if (input.mode !== 'read' && input.mode !== 'ensure') return invalid();
     if (input.idempotency_key !== null) text(input.idempotency_key);

@@ -252,6 +252,8 @@ export class AmicOsVaultClientService {
         await assertActiveUserLifecycleFence(tx, authority.tenantId as TenantId, authority.actorUserId);
         const row = await this.findUpload(tx, authority, scope, 'u.upload_id = $4::uuid', String(envelope.input.upload_id), true);
         if (!row) missing();
+        if (row.document_id !== envelope.input.document_id
+          || row.expected_version_id !== envelope.input.expected_version_id) denied();
         if (row.document_id) await this.documentPermission(authority, row.document_id);
         let promotedNow = false;
         if (complete && row.state === 'clean') {
@@ -286,6 +288,7 @@ export class AmicOsVaultClientService {
             fileHash: row.expected_sha256, createdBy: authority.actorUserId, clientScopeId: scope.client_scope_id };
           const version = row.document_id ? await this.versions.addNextVersion(versionInput, tx)
             : await this.versions.createInitialVersion(versionInput, tx);
+          if (row.expected_version_id && version.versionId === row.expected_version_id) conflict();
           await tx.query(`INSERT INTO file_security_promotions
             (scan_id,tenant_id,document_id,version_id,file_object_id,primary_sha256,promoted_by)
             VALUES ($1,$2,$3,$4,$5,$6,$7)`, [row.scan_id, authority.tenantId, documentId,

@@ -46,4 +46,26 @@ describe('AMIC OS Client document envelope', () => {
     review.input.reason_code = 'sensitive_content_denied';
     expect(() => parseClientDocumentEnvelope(review, 'dlp/reviews/create')).toThrow();
   });
+
+  it('binds pending upload handles to the staged document and expected version pair', () => {
+    const complete = { ...envelope(), input: { upload_id: documentId,
+      document_id: documentId as string | null, expected_version_id: documentId as string | null } };
+    expect(parseClientDocumentEnvelope(complete, 'uploads/complete').input.document_id).toBe(documentId);
+    complete.input.document_id = null;
+    expect(() => parseClientDocumentEnvelope(complete, 'uploads/complete')).toThrow();
+    complete.input.expected_version_id = null;
+    expect(parseClientDocumentEnvelope(complete, 'uploads/complete').input.document_id).toBeNull();
+    complete.authorization.action = 'dms:document:read';
+    expect(parseClientDocumentEnvelope(complete, 'uploads/readback').input.expected_version_id).toBeNull();
+    const missingPair = { ...complete, input: { upload_id: documentId } };
+    expect(() => parseClientDocumentEnvelope(missingPair, 'uploads/readback')).toThrow();
+  });
+
+  it('requires review-read authority for DLP assessment discovery', () => {
+    const assessment = { ...envelope(), input: { document_id: documentId, version_id: documentId } };
+    assessment.authorization.action = 'dms:review:read';
+    expect(parseClientDocumentEnvelope(assessment, 'dlp/assessments/read').input.version_id).toBe(documentId);
+    assessment.authorization.action = 'dms:document:read';
+    expect(() => parseClientDocumentEnvelope(assessment, 'dlp/assessments/read')).toThrow();
+  });
 });
