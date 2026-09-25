@@ -71,6 +71,14 @@ export class AmicOsVaultClientController {
   update(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown, @Res({ passthrough: true }) response: Response) {
     return this.execute('metadata/update', request, body, response);
   }
+  @Post('dlp/assessments/read')
+  assessment(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown, @Res({ passthrough: true }) response: Response) {
+    return this.execute('dlp/assessments/read', request, body, response);
+  }
+  @Post('dlp/reviews/create')
+  review(@Req() request: RequestWithAmicOsVaultProvider, @Body() body: unknown, @Res({ passthrough: true }) response: Response) {
+    return this.execute('dlp/reviews/create', request, body, response);
+  }
   private async execute(operation: ClientDocumentOperation, request: RequestWithAmicOsVaultProvider,
     body: unknown, response: Response, file?: UploadedDiskFile) {
     if (!request.amicOsVaultPrincipal) throw new Error('AMIC OS provider principal unavailable');

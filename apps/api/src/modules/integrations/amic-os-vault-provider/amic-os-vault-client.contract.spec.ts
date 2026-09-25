@@ -33,4 +33,17 @@ describe('AMIC OS Client document envelope', () => {
     wrongParty.scope.party_id = 'party-2';
     expect(() => parseClientDocumentEnvelope(wrongParty, 'metadata/update')).toThrow();
   });
+
+  it('requires distinct reviewer authority and validates exact assessment decision fields', () => {
+    const review = { ...envelope(), input: { document_id: documentId, version_id: documentId,
+      assessment_id: documentId, decision: 'allow', reason_code: 'business_justified',
+      expires_at: new Date(Date.now() + 60_000).toISOString() } };
+    review.authorization.action = 'dms:review:decide';
+    expect(parseClientDocumentEnvelope(review, 'dlp/reviews/create').input.assessment_id).toBe(documentId);
+    review.authorization.action = 'dms:document:read';
+    expect(() => parseClientDocumentEnvelope(review, 'dlp/reviews/create')).toThrow();
+    review.authorization.action = 'dms:review:decide';
+    review.input.reason_code = 'sensitive_content_denied';
+    expect(() => parseClientDocumentEnvelope(review, 'dlp/reviews/create')).toThrow();
+  });
 });

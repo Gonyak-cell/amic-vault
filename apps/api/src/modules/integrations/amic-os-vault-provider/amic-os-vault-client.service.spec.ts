@@ -53,7 +53,15 @@ function fixture(action: ClientDocumentAction = 'dms:document:download') {
   const getByStorageUri = vi.fn(async () => ({ body: Readable.from([bytes]), contentLength: bytes.length,
     contentType: 'application/pdf' }));
   const storage = { getByStorageUri, sha256ByStorageUri: vi.fn(async () => digest) };
-  const dlp = { evaluateClientDocumentDownload: vi.fn(async () => ({ allowed: true })) };
+  const dlp = { evaluateClientDocumentDownload: vi.fn(async () => ({ allowed: true })),
+    inspectClientDocumentAssessment: vi.fn(async () => ({ allowed: false, assessmentId: scopeId,
+      reviewId: null, scanState: 'unscannable', reasonCode: 'assessment_missing',
+      requiresReview: true, policyVersion: 'sf20-dlp-v1', resultHash: digest,
+      findingCount: 0, restrictedFindingCount: 0 })),
+    createClientDocumentReview: vi.fn(async () => ({ auditEventId: scopeId,
+      review: { assessmentId: scopeId, reviewId: fileObjectId,
+        decision: 'allow', reasonCode: 'business_justified',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(), reviewedAt: new Date().toISOString() } })) };
   const service = new AmicOsVaultClientService(audit as unknown as AuditService,
     permissions as unknown as PermissionService,
     { current: () => authority } as unknown as ClientDocumentAuthorityContext,
@@ -63,6 +71,35 @@ function fixture(action: ClientDocumentAction = 'dms:document:download') {
 }
 
 describe('AMIC OS Client exact-version provider', () => {
+  it('commits a denied DLP assessment discovery without exposing document bytes', async () => {
+    const { service, envelope, audit, dlp, getByStorageUri } = fixture('dms:document:read');
+    envelope.input = { document_id: documentId, version_id: versionId };
+    const response = await service.execute('dlp/assessments/read', envelope);
+    expect(response.status).toBe(200);
+    expect((response.body as { result: { assessment: { allowed: boolean; assessment_id: string } } }).result.assessment)
+      .toMatchObject({ allowed: false, assessment_id: scopeId });
+    expect(audit.transaction).toHaveBeenCalled();
+    expect(dlp.inspectClientDocumentAssessment).toHaveBeenCalledWith(expect.anything(),
+      { tenantId, documentId, versionId, userId: actorUserId });
+    expect(getByStorageUri).not.toHaveBeenCalled();
+    expect(JSON.stringify(response.body)).not.toContain(storageUri);
+  });
+
+  it('binds a review to the exact document, version and assessment under reviewer authority', async () => {
+    const { service, envelope, dlp, audit, getByStorageUri } = fixture('dms:review:decide');
+    const expiresAt = new Date(Date.now() + 60_000).toISOString();
+    envelope.input = { document_id: documentId, version_id: versionId, assessment_id: scopeId,
+      decision: 'allow', reason_code: 'business_justified', expires_at: expiresAt };
+    const response = await service.execute('dlp/reviews/create', envelope);
+    expect((response.body as { result: { document_id: string; version_id: string } }).result)
+      .toMatchObject({ document_id: documentId, version_id: versionId, assessment_id: scopeId });
+    expect(dlp.createClientDocumentReview).toHaveBeenCalledWith({ tenantId, userId: actorUserId }, scopeId,
+      { decision: 'allow', reasonCode: 'business_justified', expiresAt }, { documentId, versionId }, expect.anything());
+    expect(audit.log).not.toHaveBeenCalled();
+    expect((response.body as { audit: { event_id: string } }).audit.event_id).toBe(scopeId);
+    expect(getByStorageUri).not.toHaveBeenCalled();
+  });
+
   it('projects Vault lifecycle to the OS contract without changing document visibility', async () => {
     const { service, envelope, entry, permissions } = fixture('dms:document:read');
     envelope.input = { document_id: documentId };

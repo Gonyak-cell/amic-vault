@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type { PermissionDecision, TenantId } from '@amic-vault/shared';
+import { createDlpReviewRequestSchema } from '@amic-vault/shared';
 import { AuditService, type QueryClient, type AuditLogInput } from '../../audit/audit.service';
 import type { UploadedDiskFile } from '../../document/document-upload.service';
 import { DocumentVersionService } from '../../document/document-version.service';
@@ -84,9 +85,40 @@ export class AmicOsVaultClientService {
     if (operation === 'documents/list') return this.list(authority, scope, envelope);
     const documentId = String(envelope.input.document_id);
     await this.documentPermission(authority, documentId);
+    if (operation === 'dlp/reviews/create') {
+      const versionId = String(envelope.input.version_id);
+      const input = createDlpReviewRequestSchema.parse({ decision: envelope.input.decision,
+        reasonCode: envelope.input.reason_code, expiresAt: envelope.input.expires_at });
+      return this.audit.transaction(authority.tenantId, async (tx) => {
+        await this.entryRow(tx, authority, scope, documentId, versionId);
+        const { review, auditEventId } = await this.dlp.createClientDocumentReview(
+          { tenantId: authority.tenantId, userId: authority.actorUserId },
+          String(envelope.input.assessment_id), input, { documentId, versionId }, tx);
+        return this.respond(tx, authority, envelope,
+          { document_id: documentId, version_id: versionId, assessment_id: review.assessmentId,
+            review_id: review.reviewId, decision: review.decision, reason_code: review.reasonCode,
+            expires_at: review.expiresAt, reviewed_at: review.reviewedAt },
+          'DLP_REVIEW_RECORDED', review.assessmentId, 200, auditEventId);
+      });
+    }
     return this.audit.transaction(authority.tenantId, async (tx) => {
       const row = await this.entryRow(tx, authority, scope, documentId,
-        operation === 'documents/download' ? envelope.input.version_id as string | null : null);
+        operation === 'documents/download' || operation === 'dlp/assessments/read'
+          ? envelope.input.version_id as string : null);
+      if (operation === 'dlp/assessments/read') {
+        const versionId = String(envelope.input.version_id);
+        const assessment = await this.dlp.inspectClientDocumentAssessment(tx, {
+          tenantId: authority.tenantId, documentId, versionId: row.version_id,
+          userId: authority.actorUserId,
+        });
+        return this.respond(tx, authority, envelope, { document_id: documentId, version_id: versionId,
+          assessment: { assessment_id: assessment.assessmentId, allowed: assessment.allowed,
+            review_id: assessment.reviewId, scan_state: assessment.scanState,
+            reason_code: assessment.reasonCode, requires_review: assessment.requiresReview,
+            policy_version: assessment.policyVersion, result_hash: assessment.resultHash,
+            finding_count: assessment.findingCount, restricted_finding_count: assessment.restrictedFindingCount } },
+        'DOCUMENT_VIEWED', documentId);
+      }
       if (operation === 'metadata/update') {
         if (row.client_metadata_revision !== envelope.input.expected_revision) conflict();
         const metadata = { category: envelope.input.category, issued_on: envelope.input.issued_on,
@@ -373,10 +405,11 @@ export class AmicOsVaultClientService {
   }
 
   private async respond(tx: QueryClient, authority: Readonly<ClientDocumentAuthority>, envelope: ClientDocumentEnvelope,
-    result: unknown, action: AuditLogInput['action'], targetId: string, status = 200) {
-    const event = await this.audit.log({ tenantId: authority.tenantId, actorId: authority.actorUserId,
+    result: unknown, action: AuditLogInput['action'], targetId: string, status = 200, existingAuditEventId?: string) {
+    const event = existingAuditEventId ? { eventId: existingAuditEventId } : await this.audit.log({ tenantId: authority.tenantId, actorId: authority.actorUserId,
       action, targetType: action.startsWith('DOCUMENT_') ? 'document'
-        : action === 'CLIENT_DOCUMENT_UPLOAD_READBACK' ? 'file_security_scan' : 'client_document_scope', targetId,
+        : action === 'DLP_REVIEW_RECORDED' ? 'dlp_assessment'
+          : action === 'CLIENT_DOCUMENT_UPLOAD_READBACK' ? 'file_security_scan' : 'client_document_scope', targetId,
       metadata: { request_id: authority.requestId, correlation_id: authority.requestId, decision_ref: authority.decisionRef } }, tx);
     return { status, body: { schema_version: clientDocumentSchemaVersion, authority_kind: 'amic-vault-api',
       authority_ref: 'amic-vault-api:client-documents-v1', provider_revision: clientDocumentProviderRevision,

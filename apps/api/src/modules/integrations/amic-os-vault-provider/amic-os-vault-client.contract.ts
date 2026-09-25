@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { createDlpReviewRequestSchema } from '@amic-vault/shared';
 import type { ClientDocumentAction, ClientDocumentAuthority } from '../../permission/client-document-authority';
 import type { AmicOsVaultProviderConfig, AmicOsVaultProviderPrincipal } from './amic-os-vault-provider.guard';
 
@@ -8,7 +9,7 @@ export const clientDocumentProviderRevision = 'client-documents-v1';
 export const maxClientDocumentBytes = 16 * 1024 * 1024;
 export type ClientDocumentOperation = 'workspaces/resolve' | 'documents/list' | 'uploads/stage'
   | 'uploads/complete' | 'uploads/readback' | 'documents/versions' | 'documents/download'
-  | 'metadata/read' | 'metadata/update';
+  | 'metadata/read' | 'metadata/update' | 'dlp/assessments/read' | 'dlp/reviews/create';
 export interface ClientDocumentMetadata {
   category: 'registry_extract' | 'business_registration_certificate' | 'engagement_contract' | 'other';
   issued_on: string | null;
@@ -46,6 +47,7 @@ export function clientWorkspaceRef(osTenantId: string, partyId: string): string 
   return `workspace:client:${createHash('sha256').update(`${osTenantId}\0${partyId}`).digest('hex').slice(0, 32)}`;
 }
 export function clientOperationAction(operation: ClientDocumentOperation, input: Record<string, unknown>): ClientDocumentAction {
+  if (operation === 'dlp/reviews/create') return 'dms:review:decide';
   if (operation === 'documents/download') return 'dms:document:download';
   if (operation === 'uploads/stage' || operation === 'uploads/complete' || operation === 'metadata/update'
     || (operation === 'workspaces/resolve' && input.mode === 'ensure')) return 'dms:document:write';
@@ -76,6 +78,8 @@ export function parseClientDocumentEnvelope(value: unknown, operation: ClientDoc
     'documents/versions': ['document_id'], 'documents/download': ['document_id', 'version_id'],
     'metadata/read': ['document_id'],
     'metadata/update': ['document_id', 'expected_revision', 'category', 'issued_on', 'viewed_on'],
+    'dlp/assessments/read': ['document_id', 'version_id'],
+    'dlp/reviews/create': ['document_id', 'version_id', 'assessment_id', 'decision', 'reason_code', 'expires_at'],
   };
   const input = record(body.input, fields[operation]);
   if (authorization.decision !== 'allow' || authorization.action !== clientOperationAction(operation, input)) {
@@ -86,6 +90,7 @@ export function parseClientDocumentEnvelope(value: unknown, operation: ClientDoc
   if ('version_id' in input && input.version_id !== null) id(input.version_id);
   if (operation !== 'uploads/stage' && 'document_id' in input && input.document_id === null) return invalid();
   if ('upload_id' in input) id(input.upload_id);
+  if ('assessment_id' in input) id(input.assessment_id);
   if (operation === 'workspaces/resolve') {
     if (input.mode !== 'read' && input.mode !== 'ensure') return invalid();
     if (input.idempotency_key !== null) text(input.idempotency_key);
@@ -109,6 +114,9 @@ export function parseClientDocumentEnvelope(value: unknown, operation: ClientDoc
     date(input.issued_on); date(input.viewed_on);
     if (input.category !== 'registry_extract' && (input.issued_on !== null || input.viewed_on !== null)) return invalid();
   }
+  if (operation === 'dlp/reviews/create' && !createDlpReviewRequestSchema.safeParse({
+    decision: input.decision, reasonCode: input.reason_code, expiresAt: input.expires_at,
+  }).success) return invalid();
   return body as unknown as ClientDocumentEnvelope;
 }
 export function clientDocumentAuthority(

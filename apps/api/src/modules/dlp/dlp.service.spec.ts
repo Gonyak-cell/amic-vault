@@ -432,6 +432,62 @@ describe('DlpService', () => {
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('M12345678');
   });
 
+  it('requires the current exact Client assessment before an expiring review is inserted', async () => {
+    const documentId = '11111111-1111-4111-8111-11111111d261';
+    const versionId = '11111111-1111-4111-8111-11111111d262';
+    const assessmentId = '11111111-1111-4111-8111-11111111d263';
+    const reviewId = '11111111-1111-4111-8111-11111111d264';
+    const assessment = { assessment_id: assessmentId, tenant_id: tenantId, source_type: 'document',
+      source_id: versionId, matter_id: null, document_id: documentId, version_id: versionId,
+      scan_state: 'unscannable', reason_code: 'assessment_missing', finding_count: 0,
+      restricted_finding_count: 0, requires_review: true, policy_version: 'sf20-dlp-v1',
+      result_hash: 'a'.repeat(64), created_at: new Date() };
+    let currentId = assessmentId;
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('AND assessment_id = $2')) return { rows: [assessment] };
+      if (sql.includes('SELECT role, status')) return { rows: [{ role: 'security_admin', status: 'active' }] };
+      if (sql.includes('LEFT JOIN canonical_documents')) return { rows: [{ version_id: versionId,
+        extraction_status: null, extraction_method: null, failure_reason_code: null,
+        body_length: null, scan_text: null }] };
+      if (sql.includes('AND result_hash = $5')) return { rows: [{ ...assessment, assessment_id: currentId }] };
+      if (sql.includes('INSERT INTO dlp_review_decisions')) return { rows: [{ review_id: reviewId,
+        decision: 'allow', reason_code: 'business_justified', reviewed_at: new Date(),
+        expires_at: new Date(Date.now() + 60_000) }] };
+      return { rows: [] };
+    });
+    const tx = { query } as unknown as QueryClient;
+    const auditLog = vi.fn(async () => ({ eventId: sourceId, createdAt: new Date() }));
+    const service = new DlpService({ transaction: vi.fn(async (_tenant: string,
+      run: (client: QueryClient) => Promise<unknown>) => run(tx)), log: auditLog } as unknown as AuditService,
+    new SensitiveDataDetector(), { canReadDocument: vi.fn(async () => ({ effect: 'ALLOW' })) } as unknown as PermissionService);
+    const request = { decision: 'allow' as const, reasonCode: 'business_justified' as const,
+      expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    await expect(service.createClientDocumentReview({ tenantId, userId: sourceId }, assessmentId, request,
+      { documentId, versionId }, tx)).resolves.toMatchObject({ review: { assessmentId, reviewId }, auditEventId: sourceId });
+    expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO dlp_review_decisions'))).toBe(true);
+    query.mockClear();
+    currentId = reviewId;
+    await expect(service.createClientDocumentReview({ tenantId, userId: sourceId }, assessmentId, request,
+      { documentId, versionId }, tx)).rejects.toThrow();
+    expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO dlp_review_decisions'))).toBe(false);
+    query.mockClear();
+    currentId = assessmentId;
+    await expect(service.createClientDocumentReview({ tenantId, userId: sourceId }, assessmentId, request,
+      { documentId: versionId, versionId }, tx)).rejects.toThrow();
+    expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO dlp_review_decisions'))).toBe(false);
+  });
+
+  it('blocks Client assessment discovery for a non-reviewer before reading canonical text', async () => {
+    const query = vi.fn(async () => ({ rows: [{ role: 'matter_member', status: 'active' }] }));
+    const canReadDocument = vi.fn(async () => ({ effect: 'ALLOW' }));
+    const service = new DlpService({ log: vi.fn() } as unknown as AuditService,
+      new SensitiveDataDetector(), { canReadDocument } as unknown as PermissionService);
+    await expect(service.inspectClientDocumentAssessment({ query } as unknown as QueryClient,
+      { tenantId, documentId: sourceId, versionId: sourceId, userId: sourceId })).rejects.toThrow();
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(canReadDocument).not.toHaveBeenCalled();
+  });
+
   it('applies only an unexpired allow for the exact assessment and rejects an expired latest allow', async () => {
     const documentId = '11111111-1111-4111-8111-11111111d211';
     const versionId = '11111111-1111-4111-8111-11111111d212';
