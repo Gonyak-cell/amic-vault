@@ -232,6 +232,60 @@ describe('AmicOsVaultReadController', () => {
     });
   });
 
+  it('accepts the authorized email search contract only for EML and maps its fields', async () => {
+    const { controller, request, service } = createHarness();
+    const valid = {
+      principal: { tenant_id: 'caller-tenant', user_id: principal.accountLedgerId },
+      query: 'sender@example.test',
+      lawos_matter_id: 'matter:1',
+      current_version_only: true,
+      date_from: '2026-01-01',
+      date_to: '2026-08-29',
+      mime_type: ['message/rfc822'],
+      email_date_basis: 'received_at',
+      email_sort: 'received_at',
+      email_sort_order: 'asc',
+      email_direction: 'received',
+      page: 2,
+      page_size: 10,
+    };
+
+    await expect(controller.search(request, valid)).resolves.toBe(response);
+    expect(service.search).toHaveBeenCalledWith(principal, {
+      accountLedgerId: principal.accountLedgerId,
+      lawosMatterId: 'matter:1',
+      page: 2,
+      pageSize: 10,
+      query: 'sender@example.test',
+      bodyQuery: null,
+      dateFrom: '2026-01-01',
+      dateTo: '2026-08-29',
+      dateBasis: 'modified',
+      mimeTypes: ['message/rfc822'],
+      matterCode: null,
+      matterName: null,
+      clientCode: null,
+      clientName: null,
+      tags: null,
+      sortBy: null,
+      emailDateBasis: 'received_at',
+      emailSort: 'received_at',
+      emailSortOrder: 'asc',
+      emailDirection: 'received',
+    });
+
+    for (const override of [
+      { mime_type: ['application/pdf'] },
+      { email_sort: 'title' },
+      { email_direction: 'other' },
+      { date_basis: 'modified' },
+    ]) {
+      const before = service.search.mock.calls.length;
+      expect(() => controller.search(request, { ...valid, ...override })).toThrow();
+      expect(service.search).toHaveBeenCalledTimes(before);
+    }
+  });
+
   it.each([
     { metadata_codes: ['LEGACY.CODE'] },
     { code_basis: 'legacy' },

@@ -10,8 +10,10 @@ const vaultMatterId = '33333333-3333-4333-8333-333333333333';
 const documentId = '44444444-4444-4444-8444-444444444444';
 const versionId = '55555555-5555-4555-8555-555555555555';
 const fileObjectId = '66666666-6666-4666-8666-666666666666';
+const rawFileObjectId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const lawosMatterId = 'matter:1';
 const sha256 = 'a'.repeat(64);
+const rawSha256 = 'd'.repeat(64);
 const policyRef = 'b'.repeat(64);
 
 const principal: AmicOsVaultProviderPrincipal = {
@@ -26,12 +28,14 @@ function createHarness({
   authorizeInternal = vi.fn(async () => ({ versionId, policyRef })),
   mimeType = 'application/pdf',
   sizeBytes = '4096',
+  emailSource = false,
 }: {
   target?: boolean;
   contextSource?: string;
   authorizeInternal?: ReturnType<typeof vi.fn>;
   mimeType?: string;
   sizeBytes?: string;
+  emailSource?: boolean;
 } = {}) {
   const query = vi.fn(async (sql: string) => {
     if (sql.includes('FROM matters')) {
@@ -45,7 +49,15 @@ function createHarness({
         ? {
         rowCount: 1,
           rows: [{ matter_id: vaultMatterId, document_id: documentId, version_id: versionId,
-            file_object_id: fileObjectId, sha256, size_bytes: sizeBytes, mime_type: mimeType }],
+            file_object_id: fileObjectId, sha256, size_bytes: sizeBytes, mime_type: mimeType,
+            ...(emailSource ? {
+              email_raw_file_object_id: rawFileObjectId,
+              email_raw_sha256: rawSha256,
+              email_raw_size_bytes: '512',
+              email_raw_mime_type: 'message/rfc822',
+              email_raw_filename: 'filed-message.eml',
+            } : {}),
+          }],
         }
         : { rowCount: 0, rows: [] };
     }
@@ -172,6 +184,30 @@ describe('AmicOsVaultReadService latest contract', () => {
       raw_bytes_included: false,
       storage_locator_returned: false,
       history_included: false,
+    });
+  });
+
+  it('returns a separate filed EML source exact identity while keeping the body version MIME unchanged', async () => {
+    const f = createHarness({ emailSource: true, mimeType: 'text/plain' });
+    await expect(f.service.latest(principal, request)).resolves.toMatchObject({
+      exact_version: {
+        document_id: documentId,
+        version_id: versionId,
+        file_object_id: fileObjectId,
+        mime_type: 'text/plain',
+      },
+      email_source: {
+        source_kind: 'filed_eml',
+        attachment_name: 'filed-message.eml',
+        exact_version: {
+          document_id: documentId,
+          version_id: versionId,
+          file_object_id: rawFileObjectId,
+          sha256: rawSha256,
+          byte_size: 512,
+          mime_type: 'message/rfc822',
+        },
+      },
     });
   });
 

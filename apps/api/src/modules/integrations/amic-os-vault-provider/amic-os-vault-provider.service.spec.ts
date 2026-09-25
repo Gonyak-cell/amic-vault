@@ -21,8 +21,17 @@ const matterId = '33333333-3333-4333-8333-333333333333';
 const documentId = '44444444-4444-4444-8444-444444444444';
 const versionId = '55555555-5555-4555-8555-555555555555';
 const fileObjectId = '66666666-6666-4666-8666-666666666666';
+const rawFileObjectId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const bytes = Buffer.from('payload');
 const sha256 = createHash('sha256').update(bytes).digest('hex');
+const rawBytes = Buffer.from([
+  'From: sender@example.test\r\n',
+  'To: reader@example.test\r\n',
+  'Subject: Filed original\r\n',
+  '\r\n',
+  'body\r\n',
+].join(''));
+const rawSha256 = createHash('sha256').update(rawBytes).digest('hex');
 const providerToken = 'provider-secret-that-is-longer-than-thirty-two-bytes';
 
 interface GrantState {
@@ -39,6 +48,8 @@ interface GrantState {
 
 interface TestState {
   matterMapped: boolean;
+  currentEmailVersionId: string;
+  filedEmailRawFileObjectId: string;
   permission: PermissionDecision;
   dlpAllowed: boolean;
   storageBytes: Buffer;
@@ -65,6 +76,17 @@ function exactVersion() {
   };
 }
 
+function filedEmailExactVersion() {
+  return {
+    document_id: documentId,
+    version_id: versionId,
+    file_object_id: rawFileObjectId,
+    sha256: rawSha256,
+    byte_size: rawBytes.byteLength,
+    mime_type: 'message/rfc822',
+  };
+}
+
 function authorizeInput(): AmicOsVaultExportAuthorizeInput {
   return {
     principal: { tenant_id: 'lawos-tenant', user_id: principal.accountLedgerId },
@@ -76,6 +98,14 @@ function authorizeInput(): AmicOsVaultExportAuthorizeInput {
     correlation_id: `vaultcorr_${'2'.repeat(32)}`,
     operation_kind: 'attach_outlook',
     idempotency_key: 'vaultidem:one',
+  };
+}
+
+function filedEmailAuthorizeInput(): AmicOsVaultExportAuthorizeInput {
+  return {
+    ...authorizeInput(),
+    requested_exact_version: filedEmailExactVersion(),
+    operation_kind: 'export_exact_version',
   };
 }
 
@@ -96,16 +126,28 @@ function downloadInput(authorization: AmicOsVaultExportAuthorization): AmicOsVau
   };
 }
 
-function createHarness() {
+function filedEmailDownloadInput(
+  authorization: AmicOsVaultExportAuthorization,
+): AmicOsVaultExportDownloadInput {
+  const input = downloadInput(authorization);
+  return {
+    ...input,
+    operation: { ...input.operation, operation_kind: 'export_exact_version' },
+  };
+}
+
+function createHarness({ emailSource = false } = {}) {
   const state: TestState = {
     matterMapped: true,
+    currentEmailVersionId: versionId,
+    filedEmailRawFileObjectId: rawFileObjectId,
     permission: {
       effect: 'ALLOW',
       reasonCode: 'ALLOWED',
       appliedRules: ['document.download:role_allow', 'ethical_wall:clear'],
     },
     dlpAllowed: true,
-    storageBytes: Buffer.from(bytes),
+    storageBytes: emailSource ? Buffer.from(rawBytes) : Buffer.from(bytes),
     storageReads: 0,
     events: new Map(),
     eventCounter: 0,
@@ -118,7 +160,34 @@ function createHarness() {
           rowCount: state.matterMapped ? 1 : 0,
         };
       }
+      if (emailSource && sql.includes('filing.body_document_id = d.document_id')) {
+        if (params[3] !== state.currentEmailVersionId
+          || params[4] !== state.filedEmailRawFileObjectId) return { rows: [], rowCount: 0 };
+        return {
+          rows: [
+            {
+              document_id: documentId,
+              version_id: versionId,
+              file_object_id: rawFileObjectId,
+              matter_id: matterId,
+              storage_uri: `s3://vault/tenants/${tenantId}/emails/${rawFileObjectId}/raw/${rawFileObjectId}`,
+              normalized_filename: 'filed-original.eml',
+              mime_type: 'message/rfc822',
+              size_bytes: String(rawBytes.byteLength),
+              sha256: rawSha256,
+              document_status: 'final',
+              matter_status: 'active',
+              document_legal_hold: false,
+              matter_legal_hold: false,
+              active_legal_hold: false,
+              active_disposal_request: false,
+            },
+          ],
+          rowCount: 1,
+        };
+      }
       if (sql.includes('FROM documents d') && sql.includes('file_security_promotions')) {
+        if (emailSource && params[4] === rawFileObjectId) return { rows: [], rowCount: 0 };
         return {
           rows: [
             {
@@ -303,6 +372,74 @@ describe('AmicOsVaultProviderService', () => {
     expect(harness.storageService.getRangeByStorageUri).toHaveBeenCalledOnce();
     expect(harness.storageService.getByStorageUri).not.toHaveBeenCalled();
     expect(harness.state.grant?.revoked_at).toBeInstanceOf(Date);
+  });
+
+  it('authorizes and downloads a filed EML through the body-document ACL anchor without MIME relabeling', async () => {
+    const harness = createHarness({ emailSource: true });
+    const request = filedEmailAuthorizeInput();
+    const authorization = await harness.run(() => harness.service.authorize(principal, request));
+    expect(authorization.exact_version).toEqual(filedEmailExactVersion());
+    expect(authorization.attachment_name).toBe('filed-original.eml');
+
+    const downloaded = await harness.run(() =>
+      harness.service.download(principal, filedEmailDownloadInput(authorization)),
+    );
+    expect(downloaded.body).toEqual(rawBytes);
+    expect(downloaded.metadata.exact_version).toEqual(filedEmailExactVersion());
+    expect(downloaded.metadata.exact_version.mime_type).toBe('message/rfc822');
+    expect(harness.permissionService.canDownloadDocument).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId }, documentId, 'amic_os_exact_copy',
+    );
+    expect(harness.state.storageReads).toBe(1);
+    expect(harness.state.grant?.revoked_at).toBeInstanceOf(Date);
+  });
+
+  it('rechecks the body-document ACL and raw file binding before releasing a filed EML', async () => {
+    const revoked = createHarness({ emailSource: true });
+    const authorization = await revoked.run(() =>
+      revoked.service.authorize(principal, filedEmailAuthorizeInput()),
+    );
+    revoked.state.permission = {
+      effect: 'DENY',
+      reasonCode: 'ETHICAL_WALL_BLOCKED',
+      appliedRules: ['ethical_wall:excluded'],
+    };
+    await expect(
+      revoked.run(() => revoked.service.download(principal, filedEmailDownloadInput(authorization))),
+    ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+    expect(revoked.state.storageReads).toBe(0);
+
+    const rebound = createHarness({ emailSource: true });
+    const reboundAuthorization = await rebound.run(() =>
+      rebound.service.authorize(principal, filedEmailAuthorizeInput()),
+    );
+    await expect(
+      rebound.run(() => rebound.service.download(principal, {
+        ...filedEmailDownloadInput(reboundAuthorization),
+        authorization: {
+          ...reboundAuthorization,
+          exact_version: { ...reboundAuthorization.exact_version, file_object_id: fileObjectId },
+        },
+      })),
+    ).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+    expect(rebound.state.storageReads).toBe(0);
+  });
+
+  it('refuses a filed EML grant after the body current version or filing changes', async () => {
+    for (const mutate of [
+      (state: TestState) => { state.currentEmailVersionId = '99999999-9999-4999-8999-999999999999'; },
+      (state: TestState) => { state.filedEmailRawFileObjectId = fileObjectId; },
+    ]) {
+      const harness = createHarness({ emailSource: true });
+      const authorization = await harness.run(() =>
+        harness.service.authorize(principal, filedEmailAuthorizeInput()),
+      );
+      mutate(harness.state);
+      await expect(harness.run(() =>
+        harness.service.download(principal, filedEmailDownloadInput(authorization)),
+      )).rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+      expect(harness.state.storageReads).toBe(0);
+    }
   });
 
   it('authorizes, verifies exact bytes, consumes once, and returns audit readback', async () => {

@@ -35,6 +35,8 @@ const date = /^\d{4}-\d{2}-\d{2}$/u;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const mimeType = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/u;
 const tagText = /^.{1,80}$/su;
+const emailTimeFields = new Set(['event_at', 'sent_at', 'received_at', 'filed_at'] as const);
+const emailDirections = new Set(['sent', 'received'] as const);
 
 function invalid(): BadRequestException {
   return new BadRequestException({ code: 'VALIDATION_FAILED' });
@@ -143,6 +145,26 @@ function dateBasis(value: unknown): 'created' | 'modified' | 'created_or_modifie
   throw invalid();
 }
 
+type EmailTimeField = 'event_at' | 'sent_at' | 'received_at' | 'filed_at';
+
+function optionalEmailTimeField(value: unknown): EmailTimeField | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !emailTimeFields.has(value as EmailTimeField)) throw invalid();
+  return value as EmailTimeField;
+}
+
+function optionalEmailSortOrder(value: unknown): 'asc' | 'desc' | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (value !== 'asc' && value !== 'desc') throw invalid();
+  return value;
+}
+
+function optionalEmailDirection(value: unknown): 'sent' | 'received' | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !emailDirections.has(value as 'sent' | 'received')) throw invalid();
+  return value as 'sent' | 'received';
+}
+
 function parseList(value: unknown): AmicOsVaultReadInput {
   const input = object(value);
   exactKeys(input, ['principal', 'lawos_matter_id', 'page', 'page_size', ...(Object.hasOwn(input, 'folder_id') ? ['folder_id'] : [])]);
@@ -184,6 +206,10 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
     ...(Object.hasOwn(input, 'sort_by') ? ['sort_by'] : []),
     ...(Object.hasOwn(input, 'code_basis') ? ['code_basis'] : []),
     ...(Object.hasOwn(input, 'metadata_codes') ? ['metadata_codes'] : []),
+    ...(Object.hasOwn(input, 'email_date_basis') ? ['email_date_basis'] : []),
+    ...(Object.hasOwn(input, 'email_sort') ? ['email_sort'] : []),
+    ...(Object.hasOwn(input, 'email_sort_order') ? ['email_sort_order'] : []),
+    ...(Object.hasOwn(input, 'email_direction') ? ['email_direction'] : []),
   ]);
   if (input.query !== undefined && input.query !== null && typeof input.query !== 'string') throw invalid();
   const query = typeof input.query === 'string' ? input.query.trim() : '';
@@ -198,13 +224,23 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
   const clientName = optionalSearchText(input.client_name);
   const tags = optionalTags(input.tags);
   const sortBy = optionalSort(input.sort_by);
+  const emailDateBasis = optionalEmailTimeField(input.email_date_basis);
+  const emailSort = optionalEmailTimeField(input.email_sort);
+  const emailSortOrder = optionalEmailSortOrder(input.email_sort_order);
+  const emailDirection = optionalEmailDirection(input.email_direction);
+  const emailCriteriaActive = [emailDateBasis, emailSort, emailSortOrder, emailDirection]
+    .some((value) => value !== null);
+  if (emailCriteriaActive
+      && (mimeTypes?.length !== 1 || mimeTypes[0] !== 'message/rfc822')) throw invalid();
   if (query.length > 2_000
       || (query && bodyQuery)
       || input.current_version_only !== true
       || (dateFrom && dateTo && dateFrom > dateTo)
       || input.code_basis !== undefined && input.code_basis !== null && input.code_basis !== 'matter'
-      || input.metadata_codes !== undefined && input.metadata_codes !== null
-        && (input.metadata_codes !== '' && (!Array.isArray(input.metadata_codes) || input.metadata_codes.length > 0))) throw invalid();
+    || input.metadata_codes !== undefined && input.metadata_codes !== null
+        && (input.metadata_codes !== '' && (!Array.isArray(input.metadata_codes) || input.metadata_codes.length > 0))
+      || emailCriteriaActive && input.date_basis !== undefined && input.date_basis !== null
+        && input.date_basis !== '' && input.date_basis !== 'created') throw invalid();
   const mappedMatterId = matterId(input.lawos_matter_id);
   const folderId = Object.hasOwn(input, 'folder_id') ? parseUuid(input.folder_id) : null;
   if (folderId && !mappedMatterId) throw invalid();
@@ -226,6 +262,10 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
     clientName,
     tags,
     sortBy,
+    ...(emailDateBasis ? { emailDateBasis } : {}),
+    ...(emailSort ? { emailSort } : {}),
+    ...(emailSortOrder ? { emailSortOrder } : {}),
+    ...(emailDirection ? { emailDirection } : {}),
   };
 }
 

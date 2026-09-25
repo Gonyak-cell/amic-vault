@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
 import type {
   SearchDateBasis,
   SearchQueryDto,
@@ -14,6 +14,8 @@ import { DocumentVersionService } from '../../document/document-version.service'
 import { DocumentFolderService } from '../../document/document-folder.service';
 import { PermissionService } from '../../permission/permission.service';
 import { TenantContextService } from '../../tenant/tenant-context';
+import { StorageService } from '../../storage/storage.service';
+import { decodeEmlRawContent, normalizeEmailMetadata } from '@amic-vault/shared';
 import { PreviewPrecreateQueueService } from '../../preview/preview-precreate-queue.service';
 import {
   PreviewSessionService,
@@ -22,6 +24,10 @@ import {
 } from '../../preview/preview-session.service';
 import { PREVIEW_CHUNK_BYTES, PreviewService, type PreviewArtifactRow } from '../../preview/preview.service';
 import { promotedDocumentExistsSql } from '../../file-security/promoted-file.guard';
+import {
+  AMIC_OS_VAULT_MAX_EXPORT_BYTES,
+  type AmicOsVaultExactVersion,
+} from './amic-os-vault-provider.contract';
 import { AMIC_OS_VAULT_MAX_UPLOAD_BYTES } from './amic-os-vault-upload.contract';
 import {
   AmicOsVaultProviderConfig,
@@ -38,6 +44,26 @@ const portalDocumentMimeTypes = new Set([
   'application/vnd.oasis.opendocument.presentation',
 ]);
 const vaultMimeTypePattern = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/u;
+const providerEmailScanPageSize = 50;
+// SearchService caps the *reported total*, while SQL pages use LIMIT/OFFSET.
+// Collect complete scoped pages before applying the email timestamp sort.
+const providerEmailScanPageLimit = 1_000;
+const providerEmailHeaderBytes = 4 * 1024 * 1024;
+const providerEmailHeaderReadConcurrency = 16;
+
+type EmailTimeField = 'event_at' | 'sent_at' | 'received_at' | 'filed_at';
+type EmailDirection = 'sent' | 'received';
+
+interface ProviderEmailCriteria {
+  dateBasis: EmailTimeField;
+  sort: EmailTimeField;
+  sortOrder: 'asc' | 'desc';
+  direction: EmailDirection | null;
+}
+
+interface SearchQueryWithEmailCriteria extends SearchQueryDto {
+  emailCriteria?: ProviderEmailCriteria;
+}
 
 export interface AmicOsVaultReadInput {
   accountLedgerId: string;
@@ -57,6 +83,10 @@ export interface AmicOsVaultReadInput {
   clientName?: string | null;
   tags?: readonly string[] | null;
   sortBy?: SearchSort | null;
+  emailDateBasis?: EmailTimeField | null;
+  emailSort?: EmailTimeField | null;
+  emailSortOrder?: 'asc' | 'desc' | null;
+  emailDirection?: EmailDirection | null;
 }
 
 export interface AmicOsVaultVersionReadInput {
@@ -115,6 +145,7 @@ export interface AmicOsVaultLatestReadResponse {
   provider_revision: string;
   matter_id: string;
   exact_version: AmicOsVaultLatestVersionProjection;
+  email_source?: AmicOsVaultEmailSourceProjection;
   policy_ref: string;
   raw_bytes_included: false;
   storage_locator_returned: false;
@@ -158,6 +189,17 @@ interface ExactProjectionRow {
   canonical_matter_name: string | null;
   canonical_client_id: string | null;
   canonical_client_name: string | null;
+  email_id?: string | null;
+  email_subject?: string | null;
+  email_sent_at?: Date | string | null;
+  email_received_at?: Date | string | null;
+  email_filed_at?: Date | string | null;
+  email_storage_uri?: string | null;
+  email_raw_file_object_id?: string | null;
+  email_raw_sha256?: string | null;
+  email_raw_size_bytes?: string | null;
+  email_raw_mime_type?: string | null;
+  email_raw_filename?: string | null;
 }
 
 interface VersionFileRow {
@@ -193,6 +235,25 @@ export interface AmicOsVaultExactProjection {
   creator_name: string | null;
   indexed_at: string | null;
   match_fields: string[];
+  email_message?: AmicOsVaultEmailMessageProjection;
+  email_source?: AmicOsVaultEmailSourceProjection;
+}
+
+export interface AmicOsVaultEmailMessageProjection {
+  subject: string | null;
+  from: string | null;
+  to: string[];
+  direction?: EmailDirection | null;
+  sent_at?: string | null;
+  received_at?: string | null;
+  filed_at?: string | null;
+  event_at?: string | null;
+}
+
+export interface AmicOsVaultEmailSourceProjection {
+  source_kind: 'filed_eml';
+  exact_version: AmicOsVaultExactVersion;
+  attachment_name: string;
 }
 
 export interface AmicOsVaultReadResponse {
@@ -206,6 +267,10 @@ export interface AmicOsVaultReadResponse {
     returned_count: number;
     current_version_only: true;
     omitted_result_count: null;
+    email_date_basis?: EmailTimeField;
+    email_sort?: EmailTimeField;
+    email_sort_order?: 'asc' | 'desc';
+    email_direction?: EmailDirection | null;
   };
   count_leak_prevented: true;
   raw_bytes_included: false;
@@ -257,6 +322,141 @@ function displayText(value: string | null | undefined, maximum: number): string 
   return normalized;
 }
 
+function emailSourceForRow(row: ExactProjectionRow): AmicOsVaultEmailSourceProjection | null {
+  const rawFileObjectId = row.email_raw_file_object_id?.trim() ?? '';
+  const rawSha256 = row.email_raw_sha256?.trim().toLowerCase() ?? '';
+  const rawMimeType = row.email_raw_mime_type?.trim().toLowerCase() ?? '';
+  const attachmentName = displayText(row.email_raw_filename, 240);
+  const byteSize = Number(row.email_raw_size_bytes);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(rawFileObjectId)
+      || !/^[a-f0-9]{64}$/u.test(rawSha256)
+      || rawMimeType !== 'message/rfc822'
+      || !attachmentName
+      || !Number.isSafeInteger(byteSize)
+      || byteSize < 1
+      || byteSize > AMIC_OS_VAULT_MAX_EXPORT_BYTES) return null;
+  return {
+    source_kind: 'filed_eml',
+    exact_version: {
+      // The DMS body document/version is the ACL and current-version anchor;
+      // file_object_id/hash/size/mime identify the immutable filed EML object.
+      document_id: row.document_id,
+      version_id: row.version_id,
+      file_object_id: rawFileObjectId,
+      sha256: rawSha256,
+      byte_size: byteSize,
+      mime_type: 'message/rfc822',
+    },
+    attachment_name: attachmentName,
+  };
+}
+
+function emailCriteria(input: AmicOsVaultReadInput): ProviderEmailCriteria | null {
+  const active = [input.emailDateBasis, input.emailSort, input.emailSortOrder, input.emailDirection]
+    .some((value) => value !== undefined && value !== null);
+  if (!active) return null;
+  return {
+    dateBasis: input.emailDateBasis ?? 'event_at',
+    sort: input.emailSort ?? 'event_at',
+    sortOrder: input.emailSortOrder ?? 'desc',
+    direction: input.emailDirection ?? null,
+  };
+}
+
+function emailEventAt(message: AmicOsVaultEmailMessageProjection, field: EmailTimeField): string | null {
+  const value = message[field];
+  return typeof value === 'string' && Number.isFinite(Date.parse(value)) ? value : null;
+}
+
+function emailDirectionFor(row: ExactProjectionRow): EmailDirection | null {
+  // The provider schema does not persist a folder direction. A non-null
+  // received timestamp is the durable inbound signal; absent that, a sent
+  // timestamp denotes the sent copy. Rows with neither timestamp remain null
+  // and therefore fail a direction filter closed instead of being guessed.
+  if (row.email_received_at) return 'received';
+  if (row.email_sent_at) return 'sent';
+  return null;
+}
+
+function emailSortTime(message: AmicOsVaultEmailMessageProjection, field: EmailTimeField): number {
+  const parsed = Date.parse(emailEventAt(message, field) ?? '');
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function orderEmailResults(
+  items: readonly AmicOsVaultExactProjection[],
+  criteria: ProviderEmailCriteria,
+): AmicOsVaultExactProjection[] {
+  return [...items].sort((left, right) => {
+    const leftMessage = left.email_message;
+    const rightMessage = right.email_message;
+    const leftAt = leftMessage ? emailSortTime(leftMessage, criteria.sort) : Number.NaN;
+    const rightAt = rightMessage ? emailSortTime(rightMessage, criteria.sort) : Number.NaN;
+    const leftValid = Number.isFinite(leftAt);
+    const rightValid = Number.isFinite(rightAt);
+    if (leftValid !== rightValid) return leftValid ? -1 : 1;
+    if (leftValid && rightValid && leftAt !== rightAt) {
+      return criteria.sortOrder === 'asc' ? leftAt - rightAt : rightAt - leftAt;
+    }
+    return left.document_id.localeCompare(right.document_id);
+  });
+}
+
+function withinEmailDateRange(
+  message: AmicOsVaultEmailMessageProjection,
+  input: AmicOsVaultReadInput,
+  criteria: ProviderEmailCriteria,
+): boolean {
+  const value = emailEventAt(message, criteria.dateBasis);
+  if (!value) return !input.dateFrom && !input.dateTo;
+  const instant = Date.parse(value);
+  // AMIC OS treats calendar bounds as Seoul dates. Keep the provider's
+  // timestamp comparison aligned with that contract instead of interpreting
+  // a date-only value in the host process timezone.
+  const from = input.dateFrom ? Date.parse(`${input.dateFrom}T00:00:00.000+09:00`) : Number.NEGATIVE_INFINITY;
+  const to = input.dateTo ? Date.parse(`${input.dateTo}T23:59:59.999+09:00`) : Number.POSITIVE_INFINITY;
+  return instant >= from && instant <= to;
+}
+
+function emailMatchFields(
+  item: SearchResultDto,
+  message: AmicOsVaultEmailMessageProjection | undefined,
+  query: string | null,
+): string[] {
+  if (!message || !query?.trim()) return inputMatchFields(item);
+  const needle = query.normalize('NFC').trim().toLocaleLowerCase();
+  const fields: string[] = [];
+  if (message.subject?.toLocaleLowerCase().includes(needle)) fields.push('email_subject');
+  if (message.from?.toLocaleLowerCase().includes(needle)) fields.push('email_from');
+  if (message.to.some((address) => address.toLocaleLowerCase().includes(needle))) fields.push('email_to');
+  return fields.length > 0 ? fields : inputMatchFields(item);
+}
+
+async function readEmailHeaderPrefix(body: NodeJS.ReadableStream | Buffer): Promise<string | null> {
+  const bytes: Buffer[] = [];
+  let length = 0;
+  const append = (value: Uint8Array) => {
+    if (length >= providerEmailHeaderBytes) return;
+    const remaining = providerEmailHeaderBytes - length;
+    const chunk = Buffer.from(value.subarray(0, remaining));
+    bytes.push(chunk);
+    length += chunk.length;
+  };
+  if (Buffer.isBuffer(body)) {
+    append(body);
+  } else {
+    for await (const chunk of body as AsyncIterable<Uint8Array | string>) {
+      append(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+      const joined = Buffer.concat(bytes).toString('latin1');
+      if (/\r?\n\r?\n/u.test(joined) || length >= providerEmailHeaderBytes) break;
+    }
+  }
+  const raw = Buffer.concat(bytes).toString('latin1');
+  const boundary = raw.match(/\r?\n\r?\n/u);
+  if (!boundary) return null;
+  return raw.slice(0, (boundary.index ?? raw.length) + boundary[0].length);
+}
+
 @Injectable()
 export class AmicOsVaultReadService {
   constructor(
@@ -272,6 +472,8 @@ export class AmicOsVaultReadService {
     @Inject(ExternalService) private readonly external: ExternalService,
     @Inject(DocumentVersionService) private readonly documentVersions: DocumentVersionService,
     @Inject(DocumentFolderService) private readonly documentFolders: DocumentFolderService,
+    @Optional()
+    @Inject(StorageService) private readonly storageService?: StorageService,
   ) {}
 
   async folders(principal: AmicOsVaultProviderPrincipal, input: {
@@ -421,12 +623,38 @@ export class AmicOsVaultReadService {
           );
           const result = await tx.query(
             `SELECT d.matter_id, v.document_id, v.version_id, v.file_object_id, v.file_hash AS sha256,
-                    f.size_bytes::text, f.mime_type
+                    f.size_bytes::text, f.mime_type,
+                    email_source.raw_file_object_id AS email_raw_file_object_id,
+                    email_source.raw_sha256 AS email_raw_sha256,
+                    email_source.raw_size_bytes AS email_raw_size_bytes,
+                    email_source.raw_mime_type AS email_raw_mime_type,
+                    email_source.raw_filename AS email_raw_filename
              FROM documents d
              JOIN document_versions v
                ON v.tenant_id = d.tenant_id AND v.document_id = d.document_id
              JOIN file_objects f
                ON f.tenant_id = v.tenant_id AND f.file_object_id = v.file_object_id
+             LEFT JOIN LATERAL (
+               SELECT raw_file.file_object_id AS raw_file_object_id,
+                      em.raw_sha256,
+                      em.raw_size_bytes::text AS raw_size_bytes,
+                      raw_file.mime_type AS raw_mime_type,
+                      raw_file.normalized_filename AS raw_filename
+               FROM email_matter_filings filing
+               JOIN email_messages em
+                 ON em.tenant_id = filing.tenant_id AND em.email_id = filing.email_id
+               JOIN file_objects raw_file
+                 ON raw_file.tenant_id = em.tenant_id
+                AND raw_file.file_object_id = em.raw_file_object_id
+               WHERE filing.tenant_id = d.tenant_id
+                 AND filing.matter_id = d.matter_id
+                 AND filing.body_document_id = d.document_id
+                 AND em.raw_size_bytes = raw_file.size_bytes
+                 AND em.raw_sha256 = raw_file.sha256
+                 AND lower(raw_file.mime_type) = 'message/rfc822'
+               ORDER BY filing.created_at DESC, em.email_id ASC
+               LIMIT 1
+             ) email_source ON true
              WHERE d.tenant_id = $1::uuid AND d.document_id = $2::uuid
                AND d.matter_id = $3::uuid AND d.status <> 'deleted'
                AND v.version_id = $4::uuid AND v.version_status = 'current'
@@ -442,6 +670,7 @@ export class AmicOsVaultReadService {
               || !/^[a-f0-9]{64}$/u.test(row.sha256)
               || typeof authorization.policyRef !== 'string'
               || !/^[a-f0-9]{64}$/u.test(authorization.policyRef)) throw permissionDenied();
+          const emailSource = emailSourceForRow(row);
 
           return {
             authority_kind: 'amic-vault-api' as const,
@@ -456,6 +685,7 @@ export class AmicOsVaultReadService {
               byte_size: size,
               mime_type: row.mime_type,
             },
+            ...(emailSource ? { email_source: emailSource } : {}),
             policy_ref: authorization.policyRef,
             raw_bytes_included: false,
             storage_locator_returned: false,
@@ -628,43 +858,98 @@ export class AmicOsVaultReadService {
     };
     const bodyQuery = input.bodyQuery?.trim() || null;
     const searchQuery = bodyQuery ?? input.query;
-    const response = await this.searchService.search(
-      {
-        tenantId: principal.tenantId,
-        userId: principal.actorUserId,
-        sessionId: null,
-      },
-      {
-        ...(searchQuery ? { query: searchQuery } : {}),
-        mode: 'keyword',
-        target: bodyQuery ? 'body' : 'all',
-        sortBy: input.sortBy ?? (searchQuery ? 'relevance' : 'updated_desc'),
-        groupBy: 'none',
-        filters,
-        page: input.page,
-        pageSize: input.pageSize,
-      },
-    );
+    const criteria = emailCriteria(input);
+    const searchContext = {
+      tenantId: principal.tenantId,
+      userId: principal.actorUserId,
+      sessionId: null,
+    };
+    const searchInput: SearchQueryWithEmailCriteria = {
+      ...(searchQuery ? { query: searchQuery } : {}),
+      mode: 'keyword',
+      target: criteria ? 'email' : bodyQuery ? 'body' : 'all',
+      sortBy: criteria ? 'updated_desc' : input.sortBy ?? (searchQuery ? 'relevance' : 'updated_desc'),
+      groupBy: 'none',
+      filters: criteria
+        ? {
+            ...filters,
+            dateFrom: undefined,
+            dateTo: undefined,
+            dateBasis: undefined,
+            // Imported mail is indexed as a `document_type = 'email'` body
+            // document (`text/plain`), while the filed immutable EML remains
+            // in email_messages/file_objects. Search the body document here
+            // and let projectExactVersions follow body_document_id to the
+            // filed EML metadata. The response keeps the body's exact MIME;
+            // this bridge never relabels it or exposes raw storage bytes.
+            mimeType: undefined,
+            documentType: ['email'],
+          }
+        : filters,
+      page: criteria ? 1 : input.page,
+      pageSize: criteria ? providerEmailScanPageSize : input.pageSize,
+      ...(criteria ? { emailCriteria: criteria } : {}),
+    };
+    const response = criteria
+      ? await this.searchAllEmailCandidates(searchContext, searchInput)
+      : await this.searchService.search(searchContext, searchInput);
     const projected = await this.projectExactVersions(
       principal,
       response.results,
+      criteria,
+      searchQuery,
     );
+    const filtered = criteria
+      ? orderEmailResults(
+          projected.filter((item) => {
+            const message = item.email_message;
+            if (!message) return false;
+            return (!criteria.direction || message.direction === criteria.direction)
+              && withinEmailDateRange(message, input, criteria);
+          }),
+          criteria,
+        )
+      : projected;
+    const pageStart = criteria ? (input.page - 1) * input.pageSize : 0;
+    const pageItems = criteria ? filtered.slice(pageStart, pageStart + input.pageSize) : filtered;
     return {
       authority_kind: 'amic-vault-api' as const,
       authority_ref: this.config.uploadAuthorityRef(),
       provider_revision: this.config.uploadProviderRevision(),
-      items: projected,
+      items: pageItems,
       page_info: {
         page: input.page,
         page_size: input.pageSize,
-        returned_count: projected.length,
+        returned_count: pageItems.length,
         current_version_only: true,
         omitted_result_count: null,
+        ...(criteria ? {
+          email_date_basis: criteria.dateBasis,
+          email_sort: criteria.sort,
+          email_sort_order: criteria.sortOrder,
+          email_direction: criteria.direction,
+        } : {}),
       },
       count_leak_prevented: true,
       raw_bytes_included: false,
       storage_locator_returned: false,
     };
+  }
+
+  private async searchAllEmailCandidates(
+    context: { tenantId: string; userId: string; sessionId: null },
+    input: SearchQueryWithEmailCriteria,
+  ): Promise<{ results: SearchResultDto[] }> {
+    const results: SearchResultDto[] = [];
+    for (let page = 1; page <= providerEmailScanPageLimit; page += 1) {
+      const response = await this.searchService.search(context, { ...input, page });
+      results.push(...response.results);
+      if (response.results.length < providerEmailScanPageSize) break;
+      if (page === providerEmailScanPageLimit) {
+        throw new BadRequestException({ code: 'VALIDATION_FAILED', reason: 'EMAIL_SEARCH_CANDIDATE_LIMIT' });
+      }
+    }
+    return { results };
   }
 
   private assertPrincipal(
@@ -706,6 +991,8 @@ export class AmicOsVaultReadService {
   private async projectExactVersions(
     principal: AmicOsVaultProviderPrincipal,
     results: SearchResultDto[],
+    criteria: ProviderEmailCriteria | null = null,
+    query: string | null = null,
   ): Promise<AmicOsVaultExactProjection[]> {
     const documentIds = [...new Set(results
       .map((item) => item.documentId)
@@ -754,7 +1041,18 @@ export class AmicOsVaultReadService {
             coalesce(
               nullif(m.metadata_json ->> 'lawosMatterId', ''),
               nullif(m.metadata_json ->> 'matterAppMatterId', '')
-            ) AS lawos_matter_id
+            ) AS lawos_matter_id,
+            email.email_id,
+            email.subject AS email_subject,
+            email.sent_at AS email_sent_at,
+            email.received_at AS email_received_at,
+            email.filed_at AS email_filed_at,
+            email.storage_uri AS email_storage_uri,
+            email.raw_file_object_id AS email_raw_file_object_id,
+            email.raw_sha256 AS email_raw_sha256,
+            email.raw_size_bytes AS email_raw_size_bytes,
+            email.raw_mime_type AS email_raw_mime_type,
+            email.raw_filename AS email_raw_filename
           FROM documents d
           JOIN matters m
             ON m.tenant_id = d.tenant_id
@@ -773,6 +1071,35 @@ export class AmicOsVaultReadService {
           LEFT JOIN users creator
             ON creator.tenant_id = d.tenant_id
            AND creator.user_id = d.created_by
+          LEFT JOIN LATERAL (
+            SELECT
+              em.email_id,
+              em.subject,
+              em.sent_at,
+              em.received_at,
+              filing.created_at AS filed_at,
+              raw_file.storage_uri,
+              raw_file.file_object_id AS raw_file_object_id,
+              em.raw_sha256,
+              em.raw_size_bytes::text AS raw_size_bytes,
+              raw_file.mime_type AS raw_mime_type,
+              raw_file.normalized_filename AS raw_filename
+            FROM email_matter_filings filing
+            JOIN email_messages em
+              ON em.tenant_id = filing.tenant_id
+             AND em.email_id = filing.email_id
+            JOIN file_objects raw_file
+              ON raw_file.tenant_id = em.tenant_id
+             AND raw_file.file_object_id = em.raw_file_object_id
+             AND raw_file.sha256 = em.raw_sha256
+             AND raw_file.size_bytes = em.raw_size_bytes
+             AND lower(raw_file.mime_type) = 'message/rfc822'
+            WHERE filing.tenant_id = d.tenant_id
+              AND filing.matter_id = d.matter_id
+              AND filing.body_document_id = d.document_id
+            ORDER BY filing.created_at DESC, em.email_id ASC
+            LIMIT 1
+          ) email ON true
           WHERE d.tenant_id = $1::uuid
             AND d.document_id = ANY($2::uuid[])
             AND d.status <> 'deleted'
@@ -792,6 +1119,23 @@ export class AmicOsVaultReadService {
         .filter((row) => lawosMatterId(row) !== null)
         .map((row) => [row.document_id, row]),
     );
+    const emailByDocument = new Map<string, AmicOsVaultEmailMessageProjection>();
+    const exactRows = rows.rows as ExactProjectionRow[];
+    if (criteria || exactRows.some((row) => row.email_id)) {
+      const emailRows = exactRows.filter(
+        (row): row is ExactProjectionRow & { email_id: string } => typeof row.email_id === 'string',
+      );
+      for (let offset = 0; offset < emailRows.length; offset += providerEmailHeaderReadConcurrency) {
+        const batch = emailRows.slice(offset, offset + providerEmailHeaderReadConcurrency);
+        const messages = await Promise.all(batch.map((row) => this.emailMessageForRow(principal, row, criteria)));
+        messages.forEach((message, index) => {
+          if (message) {
+            const row = batch[index];
+            if (row) emailByDocument.set(row.document_id, message);
+          }
+        });
+      }
+    }
     const emitted = new Set<string>();
     return results.flatMap((item): AmicOsVaultExactProjection[] => {
       if (!item.documentId || !item.versionId || !item.matterId) return [];
@@ -812,6 +1156,8 @@ export class AmicOsVaultReadService {
           || editedAt < createdAt) return [];
       const clientDisplayName = displayText(exact.canonical_client_name, 1_000);
       emitted.add(item.documentId);
+      const emailMessage = emailByDocument.get(item.documentId);
+      const emailSource = exact.email_id ? emailSourceForRow(exact) : null;
       return [{
         document_id: item.documentId,
         matter_id: mappedMatterId,
@@ -840,9 +1186,52 @@ export class AmicOsVaultReadService {
         author_name: displayText(item.author?.displayName, 200),
         creator_name: displayText(exact.creator_name, 200),
         indexed_at: null,
-        match_fields: inputMatchFields(item),
+        match_fields: emailMatchFields(item, emailMessage, query),
+        ...(emailMessage ? { email_message: emailMessage } : {}),
+        ...(emailSource ? { email_source: emailSource } : {}),
       }];
     });
+  }
+
+  private async emailMessageForRow(
+    principal: AmicOsVaultProviderPrincipal,
+    row: ExactProjectionRow & { email_id: string },
+    criteria: ProviderEmailCriteria | null,
+  ): Promise<AmicOsVaultEmailMessageProjection | null> {
+    const direction = emailDirectionFor(row);
+    const sentAt = canonicalInstant(row.email_sent_at ?? new Date(Number.NaN));
+    const receivedAt = canonicalInstant(row.email_received_at ?? new Date(Number.NaN));
+    const filedAt = canonicalInstant(row.email_filed_at ?? new Date(Number.NaN));
+    let subject = displayText(row.email_subject, 500);
+    let from: string | null = null;
+    let to: string[] = [];
+    if (this.storageService && row.email_storage_uri && emailSourceForRow(row)) {
+      try {
+        const stored = await this.storageService.getByStorageUri(principal.tenantId, row.email_storage_uri);
+        const prefix = await readEmailHeaderPrefix(stored.body);
+        if (prefix) {
+          const metadata = normalizeEmailMetadata(decodeEmlRawContent(Buffer.from(prefix, 'latin1')));
+          subject = displayText(metadata.subject, 500) ?? subject;
+          from = metadata.participants.find((participant) => participant.role === 'from')?.normalizedAddress ?? null;
+          to = metadata.participants
+            .filter((participant) => participant.role === 'to')
+            .map((participant) => participant.normalizedAddress);
+        }
+      } catch {
+        // The persisted subject/timestamps remain safe; address projection is
+        // omitted if the immutable raw header cannot be read or parsed.
+      }
+    }
+    if (!subject && !from && to.length === 0 && !sentAt && !receivedAt && !filedAt) return null;
+    const message: AmicOsVaultEmailMessageProjection = { subject, from, to };
+    if (criteria) {
+      message.direction = direction;
+      message.sent_at = sentAt;
+      message.received_at = receivedAt;
+      message.filed_at = filedAt;
+      message.event_at = direction === 'sent' ? sentAt : direction === 'received' ? receivedAt : null;
+    }
+    return message;
   }
 }
 

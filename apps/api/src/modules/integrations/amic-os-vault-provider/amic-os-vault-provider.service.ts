@@ -812,7 +812,85 @@ export class AmicOsVaultProviderService {
         expected.file_object_id,
       ],
     );
-    const row = result.rows[0] as ExactTargetRow | undefined;
+    let row = result.rows[0] as ExactTargetRow | undefined;
+    if (!row) {
+      // Email search documents keep the searchable body as the current DMS
+      // version, while the filed immutable EML remains the email raw object.
+      // Keep the body document/version as the ACL and current-version anchor,
+      // but bind the requested file identity to the raw object without
+      // relabeling its persisted MIME or creating a synthetic DMS version.
+      const emailResult = await tx.query(
+        `
+          SELECT
+            d.document_id,
+            dv.version_id,
+            raw_file.file_object_id,
+            d.matter_id,
+            raw_file.storage_uri,
+            raw_file.normalized_filename,
+            lower(raw_file.mime_type) AS mime_type,
+            em.raw_size_bytes::text AS size_bytes,
+            em.raw_sha256 AS sha256,
+            d.status AS document_status,
+            m.status AS matter_status,
+            d.legal_hold AS document_legal_hold,
+            m.legal_hold AS matter_legal_hold,
+            EXISTS (
+              SELECT 1
+              FROM legal_holds lh
+              WHERE lh.tenant_id = d.tenant_id
+                AND lh.status = 'active'
+                AND (
+                  lh.document_id = d.document_id
+                  OR (lh.document_id IS NULL AND lh.matter_id = d.matter_id)
+                )
+            ) AS active_legal_hold,
+            EXISTS (
+              SELECT 1
+              FROM disposal_requests dr
+              WHERE dr.tenant_id = d.tenant_id
+                AND dr.document_id = d.document_id
+                AND dr.status IN ('requested', 'approved')
+            ) AS active_disposal_request
+          FROM documents d
+          JOIN matters m
+            ON m.tenant_id = d.tenant_id
+           AND m.matter_id = d.matter_id
+          JOIN document_versions dv
+            ON dv.tenant_id = d.tenant_id
+           AND dv.document_id = d.document_id
+           AND dv.version_status = 'current'
+          JOIN email_matter_filings filing
+            ON filing.tenant_id = d.tenant_id
+           AND filing.matter_id = d.matter_id
+           AND filing.body_document_id = d.document_id
+          JOIN email_messages em
+            ON em.tenant_id = filing.tenant_id
+           AND em.email_id = filing.email_id
+          JOIN file_objects raw_file
+            ON raw_file.tenant_id = em.tenant_id
+           AND raw_file.file_object_id = em.raw_file_object_id
+          WHERE d.tenant_id = $1
+            AND d.matter_id = $2::uuid
+            AND d.document_id = $3::uuid
+            AND dv.version_id = $4::uuid
+            AND raw_file.file_object_id = $5::uuid
+            AND lower(raw_file.mime_type) = 'message/rfc822'
+            AND em.raw_size_bytes = raw_file.size_bytes
+            AND em.raw_sha256 = raw_file.sha256
+            AND ${promotedDocumentExistsSql('d', 'dv')}
+          LIMIT 1
+        `,
+        [
+          tenantId,
+          matters[0]?.matter_id,
+          expected.document_id,
+          expected.version_id,
+          expected.file_object_id,
+        ],
+      );
+      row = emailResult.rows[0] as ExactTargetRow | undefined;
+    }
     if (!row) return null;
     const size = Number(row.size_bytes);
     const name = safeAttachmentName(row.normalized_filename);

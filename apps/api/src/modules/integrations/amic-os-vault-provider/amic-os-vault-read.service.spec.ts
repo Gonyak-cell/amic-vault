@@ -20,6 +20,16 @@ const lawosClientId = 'lawos-client-1';
 const documentId = '44444444-4444-4444-8444-444444444444';
 const versionId = '55555555-5555-4555-8555-555555555555';
 const fileObjectId = '66666666-6666-4666-8666-666666666666';
+const receivedEmailDocumentId = 'aaaaaaa1-aaaa-4aaa-8aaa-aaaaaaaaaaa1';
+const receivedEmailVersionId = 'bbbbbbb1-bbbb-4bbb-8bbb-bbbbbbbbbbb1';
+const receivedEmailFileObjectId = 'ccccccc1-cccc-4ccc-8ccc-ccccccccccc1';
+const receivedEmailRawFileObjectId = 'eeeeeee1-eeee-4eee-8eee-eeeeeeeeeee1';
+const sentEmailDocumentId = 'aaaaaaa2-aaaa-4aaa-8aaa-aaaaaaaaaaa2';
+const sentEmailVersionId = 'bbbbbbb2-bbbb-4bbb-8bbb-bbbbbbbbbbb2';
+const sentEmailFileObjectId = 'ccccccc2-cccc-4ccc-8ccc-ccccccccccc2';
+const sentEmailRawFileObjectId = 'eeeeeee2-eeee-4eee-8eee-eeeeeeeeeee2';
+const receivedEmailId = 'ddddddd1-dddd-4ddd-8ddd-ddddddddddd1';
+const sentEmailId = 'ddddddd2-dddd-4ddd-8ddd-ddddddddddd2';
 const sha256 = 'a'.repeat(64);
 const pdfBytes = Buffer.from('%PDF-1.7\npreview');
 const pdfFile = {
@@ -94,6 +104,56 @@ function result(overrides: Partial<SearchResultDto> = {}): SearchResultDto {
   };
 }
 
+function emailProjectionRow(input: {
+  documentId: string;
+  versionId: string;
+  fileObjectId: string;
+  emailId: string;
+  subject: string;
+  sentAt: string | null;
+  receivedAt: string | null;
+  filedAt: string;
+  storageUri: string;
+  mimeType?: string;
+  rawFileObjectId?: string;
+  rawSha256?: string;
+  rawSizeBytes?: string;
+  rawMimeType?: string;
+  rawFilename?: string;
+}) {
+  return {
+    document_id: input.documentId,
+    matter_id: vaultMatterId,
+    version_id: input.versionId,
+    file_object_id: input.fileObjectId,
+    sha256: 'e'.repeat(64),
+    size_bytes: '1024',
+    mime_type: input.mimeType ?? 'message/rfc822',
+    normalized_filename: input.mimeType === 'text/plain'
+      ? `${input.documentId}.txt`
+      : `${input.documentId}.eml`,
+    lawos_matter_id: lawosMatterId,
+    created_at: new Date('2026-08-20T00:00:00.000Z'),
+    updated_at: new Date('2026-08-29T00:00:00.000Z'),
+    creator_name: '메일 업로더',
+    canonical_matter_code: 'AMIC-2026-0001',
+    canonical_matter_name: '공급계약 자문',
+    canonical_client_id: lawosClientId,
+    canonical_client_name: 'AMIC Client',
+    email_id: input.emailId,
+    email_subject: input.subject,
+    email_sent_at: input.sentAt ? new Date(input.sentAt) : null,
+    email_received_at: input.receivedAt ? new Date(input.receivedAt) : null,
+    email_filed_at: new Date(input.filedAt),
+    email_storage_uri: input.storageUri,
+    email_raw_file_object_id: input.rawFileObjectId,
+    email_raw_sha256: input.rawSha256,
+    email_raw_size_bytes: input.rawSizeBytes,
+    email_raw_mime_type: input.rawMimeType,
+    email_raw_filename: input.rawFilename,
+  };
+}
+
 interface ExactLabelOverrides {
   matterCode?: string | null;
   matterName?: string | null;
@@ -107,6 +167,9 @@ interface HarnessOptions {
   exactMatterId?: string;
   exactLabels?: ExactLabelOverrides;
   exactQueryError?: boolean;
+  exactRows?: readonly Record<string, unknown>[];
+  emailSearchPages?: readonly (readonly SearchResultDto[])[];
+  storageBody?: Buffer;
 }
 
 function createHarness({
@@ -115,6 +178,9 @@ function createHarness({
   exactMatterId = vaultMatterId,
   exactLabels = {},
   exactQueryError = false,
+  exactRows,
+  emailSearchPages,
+  storageBody,
 }: HarnessOptions = {}) {
   const {
     matterCode = 'AMIC-2026-0001',
@@ -138,6 +204,7 @@ function createHarness({
     }
     if (sql.includes('FROM documents')) {
       if (exactQueryError) throw new Error('exact projection unavailable');
+      if (exactRows) return { rowCount: exactRows.length, rows: exactRows };
       const labelsReadable = (params[2] as string[] | undefined)?.includes(exactMatterId) === true;
       return {
         rowCount: 3,
@@ -208,7 +275,10 @@ function createHarness({
     ) => work({ query })),
   };
   const searchService = {
-    search: vi.fn(async () => ({
+    search: vi.fn(async (_context: unknown, searchInput: { page?: number } = {}) => ({
+      ...(emailSearchPages
+        ? { results: [...(emailSearchPages[(searchInput.page ?? 1) - 1] ?? [])] }
+        : {
       results: [
         result(),
         result({ snippet: 'duplicate clause match' }),
@@ -221,6 +291,7 @@ function createHarness({
           versionId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
         }),
       ],
+        }),
     })),
   };
   const permissionService = {
@@ -261,6 +332,9 @@ function createHarness({
   };
   const documentFolders = { listFolders: vi.fn(async () => [{ folderId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     parentFolderId: null, name: '계약', path: '계약' }]) };
+  const storageService = storageBody
+    ? { getByStorageUri: vi.fn(async () => ({ body: storageBody })) }
+    : undefined;
   const service = new AmicOsVaultReadService(
     auditService as never,
     searchService as never,
@@ -278,8 +352,10 @@ function createHarness({
     external,
     documentVersions as never,
     documentFolders as never,
+    storageService as never,
   );
-  return { auditService, query, searchService, permissionService, service, previewSessions, previews, previewQueue, documentVersions, documentFolders };
+  return { auditService, query, searchService, permissionService, service, previewSessions, previews, previewQueue,
+    documentVersions, documentFolders, storageService };
 }
 
 describe('AmicOsVaultReadService', () => {
@@ -679,6 +755,253 @@ describe('AmicOsVaultReadService', () => {
         pageSize: 10,
       },
     );
+  });
+
+  it('projects filed EML headers from text/plain email bodies, applies Seoul date bounds, and paginates at 50/51', async () => {
+    const received = result({
+      documentId: receivedEmailDocumentId,
+      versionId: receivedEmailVersionId,
+      title: '받은 메일',
+      documentType: 'email',
+    });
+    const sent = result({
+      documentId: sentEmailDocumentId,
+      versionId: sentEmailVersionId,
+      title: '보낸 메일',
+      documentType: 'email',
+    });
+    const extraEmailFixtures = Array.from({ length: 49 }, (_, index) => {
+      const suffix = String(index + 10).padStart(12, '0');
+      const documentId = `aaaabbbb-aaaa-4aaa-8aaa-${suffix}`;
+      const versionId = `bbbbcccc-bbbb-4bbb-8bbb-${suffix}`;
+      const fileObjectId = `ccccdddd-cccc-4ccc-8ccc-${suffix}`;
+      const emailId = `ddddaaaa-dddd-4ddd-8ddd-${suffix}`;
+      const sentAt = `2026-08-27T${String(index % 24).padStart(2, '0')}:00:00.000Z`;
+      return {
+        result: result({ documentId, versionId, title: `추가 메일 ${index + 1}`, documentType: 'email' }),
+        row: emailProjectionRow({
+          documentId,
+          versionId,
+          fileObjectId,
+          emailId,
+          subject: `추가 메일 DB 제목 ${index + 1}`,
+          sentAt,
+          receivedAt: null,
+          filedAt: '2026-08-27T23:00:00.000Z',
+          storageUri: `s3://private/extra-${index + 1}.eml`,
+          mimeType: 'text/plain',
+        }),
+      };
+    });
+    const firstSearchPage = [received, sent, ...extraEmailFixtures.slice(0, 48).map(({ result: item }) => item)];
+    const secondSearchPage = [extraEmailFixtures[48]!.result];
+    const rawHeaders = Buffer.from([
+      'Date: Fri, 28 Aug 2026 15:00:00 +0000',
+      'Received: from mail.example.test; Fri, 28 Aug 2026 15:00:00 +0000',
+      'Message-ID: <received@example.test>',
+      'Subject: Received header subject',
+      'From: sender@example.test',
+      'To: reader@example.test, second@example.test',
+      '',
+      '본문은 응답에 포함하지 않는다.',
+    ].join('\r\n'));
+    const rawSha256 = createHash('sha256').update(rawHeaders).digest('hex');
+    const f = createHarness({
+      exactRows: [
+        emailProjectionRow({
+          documentId: receivedEmailDocumentId,
+          versionId: receivedEmailVersionId,
+          fileObjectId: receivedEmailFileObjectId,
+          emailId: receivedEmailId,
+          subject: '받은 메일 DB 제목',
+          sentAt: '2026-08-28T14:00:00.000Z',
+          receivedAt: '2026-08-28T15:00:00.000Z',
+          filedAt: '2026-08-28T16:00:00.000Z',
+          storageUri: 's3://private/received.eml',
+          mimeType: 'text/plain',
+          rawFileObjectId: receivedEmailRawFileObjectId,
+          rawSha256,
+          rawSizeBytes: String(rawHeaders.byteLength),
+          rawMimeType: 'message/rfc822',
+          rawFilename: 'received.eml',
+        }),
+        emailProjectionRow({
+          documentId: sentEmailDocumentId,
+          versionId: sentEmailVersionId,
+          fileObjectId: sentEmailFileObjectId,
+          emailId: sentEmailId,
+          subject: '보낸 메일 DB 제목',
+          sentAt: '2026-08-28T00:00:00.000Z',
+          receivedAt: null,
+          filedAt: '2026-08-28T01:00:00.000Z',
+          storageUri: 's3://private/sent.eml',
+          mimeType: 'text/plain',
+          rawFileObjectId: sentEmailRawFileObjectId,
+          rawSha256,
+          rawSizeBytes: String(rawHeaders.byteLength),
+          rawMimeType: 'message/rfc822',
+          rawFilename: 'sent.eml',
+        }),
+        ...extraEmailFixtures.map(({ row }) => row),
+      ],
+      emailSearchPages: [firstSearchPage, secondSearchPage],
+      storageBody: rawHeaders,
+    });
+
+    const first = await f.service.search(principal, input({
+      query: 'sender@example.test',
+      dateFrom: '2026-08-28',
+      dateTo: '2026-08-29',
+      mimeTypes: ['message/rfc822'],
+      emailDateBasis: 'event_at',
+      emailSort: 'event_at',
+      emailSortOrder: 'desc',
+      page: 1,
+      pageSize: 1,
+    }));
+    expect(f.searchService.search).toHaveBeenCalledTimes(2);
+    expect(f.searchService.search).toHaveBeenNthCalledWith(2, expect.anything(), expect.objectContaining({
+      target: 'email',
+      page: 2,
+      pageSize: 50,
+    }));
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('filing.body_document_id = d.document_id'), expect.anything());
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('raw_file.sha256 = em.raw_sha256'), expect.anything());
+    expect(f.searchService.search).toHaveBeenNthCalledWith(1, expect.anything(), expect.objectContaining({
+      target: 'email',
+      page: 1,
+      pageSize: 50,
+      filters: expect.objectContaining({
+        mimeType: undefined,
+        documentType: ['email'],
+        dateFrom: undefined,
+        dateTo: undefined,
+        dateBasis: undefined,
+      }),
+      emailCriteria: expect.objectContaining({ dateBasis: 'event_at', sort: 'event_at', sortOrder: 'desc' }),
+      query: 'sender@example.test',
+    }));
+    expect(first.items).toHaveLength(1);
+    expect(first.items[0]).toMatchObject({
+      document_id: receivedEmailDocumentId,
+      current_mime_type: 'text/plain',
+      mime_type: 'text/plain',
+      email_message: {
+        subject: 'Received header subject',
+        from: 'sender@example.test',
+        to: ['reader@example.test', 'second@example.test'],
+        direction: 'received',
+        sent_at: '2026-08-28T14:00:00.000Z',
+        received_at: '2026-08-28T15:00:00.000Z',
+        filed_at: '2026-08-28T16:00:00.000Z',
+        event_at: '2026-08-28T15:00:00.000Z',
+      },
+      email_source: {
+        source_kind: 'filed_eml',
+        exact_version: {
+          document_id: receivedEmailDocumentId,
+          version_id: receivedEmailVersionId,
+          file_object_id: receivedEmailRawFileObjectId,
+          sha256: rawSha256,
+          byte_size: rawHeaders.byteLength,
+          mime_type: 'message/rfc822',
+        },
+        attachment_name: 'received.eml',
+      },
+      match_fields: ['email_from'],
+    });
+    expect(JSON.stringify(first.items)).not.toMatch(/본문은|storage_uri|email_storage_uri/u);
+    expect(first.page_info).toMatchObject({
+      page: 1,
+      page_size: 1,
+      returned_count: 1,
+      email_date_basis: 'event_at',
+      email_sort: 'event_at',
+      email_sort_order: 'desc',
+      email_direction: null,
+    });
+
+    const second = await f.service.search(principal, input({
+      query: 'sender@example.test',
+      dateFrom: '2026-08-28',
+      dateTo: '2026-08-29',
+      mimeTypes: ['message/rfc822'],
+      emailDateBasis: 'event_at',
+      emailSort: 'event_at',
+      emailSortOrder: 'desc',
+      page: 2,
+      pageSize: 1,
+    }));
+    expect(second.items).toHaveLength(1);
+    expect(second.items[0]).toMatchObject({
+      document_id: sentEmailDocumentId,
+      email_message: {
+        direction: 'sent',
+        sent_at: '2026-08-28T00:00:00.000Z',
+        received_at: null,
+        event_at: '2026-08-28T00:00:00.000Z',
+      },
+    });
+
+    const receivedOnly = await f.service.search(principal, input({
+      dateFrom: '2026-08-29',
+      dateTo: '2026-08-29',
+      mimeTypes: ['message/rfc822'],
+      emailDateBasis: 'received_at',
+      emailSort: 'received_at',
+      emailSortOrder: 'asc',
+      emailDirection: 'received',
+      page: 1,
+      pageSize: 50,
+    }));
+    expect(receivedOnly.items).toHaveLength(1);
+    expect(receivedOnly.items[0]).toMatchObject({ document_id: receivedEmailDocumentId });
+    expect(receivedOnly.page_info).toMatchObject({
+      email_date_basis: 'received_at',
+      email_sort: 'received_at',
+      email_sort_order: 'asc',
+      email_direction: 'received',
+    });
+  });
+
+  it('sorts all permission-scoped email pages even after SearchService caps its reported count', async () => {
+    const fixtures = Array.from({ length: 102 }, (_, index) => {
+      const suffix = String(index + 100).padStart(12, '0');
+      const currentDocumentId = `aaaabbbb-aaaa-4aaa-8aaa-${suffix}`;
+      const currentVersionId = `bbbbcccc-bbbb-4bbb-8bbb-${suffix}`;
+      const currentFileObjectId = `ccccdddd-cccc-4ccc-8ccc-${suffix}`;
+      return {
+        result: result({ documentId: currentDocumentId, versionId: currentVersionId, documentType: 'email' }),
+        row: emailProjectionRow({
+          documentId: currentDocumentId,
+          versionId: currentVersionId,
+          fileObjectId: currentFileObjectId,
+          emailId: `ddddaaaa-dddd-4ddd-8ddd-${suffix}`,
+          subject: `Email ${index}`,
+          sentAt: index === 101 ? '2026-08-30T00:00:00.000Z' : '2026-08-20T00:00:00.000Z',
+          receivedAt: null,
+          filedAt: '2026-08-31T00:00:00.000Z',
+          storageUri: `s3://private/email-${index}.eml`,
+          mimeType: 'text/plain',
+        }),
+      };
+    });
+    const f = createHarness({
+      exactRows: fixtures.map(({ row }) => row),
+      emailSearchPages: [
+        fixtures.slice(0, 50).map(({ result: item }) => item),
+        fixtures.slice(50, 100).map(({ result: item }) => item),
+        fixtures.slice(100).map(({ result: item }) => item),
+      ],
+    });
+    const response = await f.service.search(principal, input({
+      mimeTypes: ['message/rfc822'],
+      emailSort: 'event_at',
+      pageSize: 1,
+    }));
+    expect(f.searchService.search).toHaveBeenCalledTimes(3);
+    expect(response.items).toHaveLength(1);
+    expect(response.items[0]?.document_id).toBe(fixtures[101]?.result.documentId);
   });
 
   it('reuses the permission-scoped document version service and returns exact file metadata', async () => {
