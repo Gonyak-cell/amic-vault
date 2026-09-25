@@ -1311,7 +1311,8 @@ export class AmicOsVaultReadService {
     }
     if (criteria || exactRows.some((row) => row.email_id)) {
       const emailRows = exactRows.filter(
-        (row): row is ExactProjectionRow & { email_id: string } => typeof row.email_id === 'string',
+        (row): row is ExactProjectionRow & { email_id: string } =>
+          typeof row.email_id === 'string' && readableDocumentIds.has(row.document_id),
       );
       for (let offset = 0; offset < emailRows.length; offset += providerEmailHeaderReadConcurrency) {
         const batch = emailRows.slice(offset, offset + providerEmailHeaderReadConcurrency);

@@ -1269,6 +1269,34 @@ describe('AmicOsVaultReadService', () => {
     }))).items).toEqual([]);
   });
 
+  it('does not read a filed EML header after document access is denied', async () => {
+    const candidate = result({ documentId: receivedEmailDocumentId, versionId: receivedEmailVersionId,
+      documentType: 'email' });
+    const row = emailProjectionRow({
+      documentId: receivedEmailDocumentId,
+      versionId: receivedEmailVersionId,
+      fileObjectId: receivedEmailFileObjectId,
+      emailId: receivedEmailId,
+      subject: 'Private subject',
+      sentAt: '2026-08-28T00:00:00.000Z',
+      receivedAt: null,
+      filedAt: '2026-08-28T01:00:00.000Z',
+      storageUri: 's3://private/received.eml',
+      rawFileObjectId: receivedEmailRawFileObjectId,
+      rawSha256: 'a'.repeat(64),
+      rawSizeBytes: '64',
+      rawMimeType: 'message/rfc822',
+      rawFilename: 'received.eml',
+    });
+    const f = createHarness({ exactRows: [row], emailSearchPages: [[candidate]],
+      storageBody: Buffer.from('Message-ID: <private@example.test>\r\nFrom: sender@example.test\r\n\r\n') });
+    f.permissionService.canReadDocument.mockResolvedValue({ effect: 'DENY', reasonCode: 'DENIED' });
+    expect((await f.service.search(principal, input({
+      query: 'sender@example.test', mimeTypes: ['message/rfc822'], emailSort: 'event_at',
+    }))).items).toEqual([]);
+    expect(f.storageService?.getByStorageUri).not.toHaveBeenCalled();
+  });
+
   it('does not substitute another filed header for a complete address search hit', async () => {
     const candidate = result({ documentId: receivedEmailDocumentId, versionId: receivedEmailVersionId,
       documentType: 'email', snippet: 'A search-index body excerpt containing the queried address' });
