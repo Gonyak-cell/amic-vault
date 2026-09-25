@@ -218,7 +218,8 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain("'recordsStatuses'");
     expect(built.sql).toContain('idx.client_id = $3');
     expect(built.sql).toContain('idx.title ILIKE $4');
-    expect(built.sql).toContain('matter_filter.matter_code ILIKE $5');
+    expect(built.sql).toContain("coalesce(nullif(matter_filter.metadata_json ->> 'lawosMatterCode', ''),");
+    expect(built.sql).toContain('matter_filter.matter_code) ILIKE $5');
     expect(built.sql).toContain('client_filter.name ILIKE $6');
     expect(built.sql).toContain('idx.document_type = ANY($7::text[])');
     expect(built.sql).toContain('FROM documents confidentiality_doc');

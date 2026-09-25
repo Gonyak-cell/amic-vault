@@ -219,6 +219,8 @@ function createHarness({
             size_bytes: '4096',
             mime_type: 'application/pdf',
             normalized_filename: 'supply-contract.pdf',
+            amic_os_filename: null,
+            amic_os_metadata_code: null,
             lawos_matter_id: lawosMatterId,
             created_at: new Date('2026-08-20T00:00:00.000Z'),
             updated_at: new Date('2026-08-29T00:00:00.000Z'),
@@ -650,6 +652,31 @@ describe('AmicOsVaultReadService', () => {
       { tenantId, userId: actorUserId },
       vaultMatterId,
     );
+  });
+
+  it('preserves legacy metadata code separately from current Matter labels on list and search', async () => {
+    const { service } = createHarness({ exactRows: [{
+      document_id: documentId, matter_id: vaultMatterId, version_id: versionId,
+      file_object_id: fileObjectId, sha256, size_bytes: '4096', mime_type: 'application/pdf',
+      normalized_filename: 'source.pdf', amic_os_filename: 'renamed.pdf',
+      amic_os_metadata_code: 'LEGACY.CODE', lawos_matter_id: lawosMatterId,
+      created_at: new Date('2026-08-20T00:00:00.000Z'),
+      updated_at: new Date('2026-08-29T00:00:00.000Z'),
+      creator_name: '최초 업로더', editor_name: '현재 편집자',
+      canonical_matter_code: 'MATTER.CODE', canonical_matter_name: '공급계약 자문',
+      canonical_client_id: lawosClientId, canonical_client_name: 'AMIC Client',
+    }] });
+    const listed = await service.list(principal, input());
+    const searched = await service.search(principal, input({
+      codeBasis: 'legacy', metadataCodes: ['LEGACY.CODE'],
+    }));
+    expect(listed.items[0]).toMatchObject({
+      metadata_code: 'LEGACY.CODE', matter_code: 'MATTER.CODE', filename: 'renamed.pdf',
+    });
+    expect(searched.items[0]).toMatchObject({ document_id: documentId, metadata_code: 'LEGACY.CODE' });
+    expect((await service.search(principal, input({
+      codeBasis: 'matter', metadataCodes: ['LEGACY.CODE'],
+    }))).items).toEqual([]);
   });
 
   it('keeps related labels null when the Matter permission evaluator fails closed', async () => {

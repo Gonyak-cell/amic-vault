@@ -151,7 +151,10 @@ export class SearchFilterBuilder {
             FROM matters matter_filter
             WHERE matter_filter.tenant_id = idx.tenant_id
               AND matter_filter.matter_id = idx.matter_id
-              AND matter_filter.matter_code ILIKE ? ESCAPE '\\'
+              AND (
+                coalesce(nullif(matter_filter.metadata_json ->> 'lawosMatterCode', ''),
+                  matter_filter.matter_code) ILIKE ? ESCAPE '\\'
+              )
           )
         `,
         params: [likeContains(filters.matterCode)],

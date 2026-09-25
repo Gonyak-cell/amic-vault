@@ -37,6 +37,7 @@ const mimeType = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/u;
 const tagText = /^.{1,80}$/su;
 const emailTimeFields = new Set(['event_at', 'sent_at', 'received_at', 'filed_at'] as const);
 const emailDirections = new Set(['sent', 'received'] as const);
+const vaultCode = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u;
 
 function invalid(): BadRequestException {
   return new BadRequestException({ code: 'VALIDATION_FAILED' });
@@ -131,6 +132,17 @@ function optionalTags(value: unknown): string[] | null {
   });
   if (new Set(normalized).size !== normalized.length) throw invalid();
   return normalized;
+}
+
+function optionalMetadataCodes(value: unknown): string[] | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (!Array.isArray(value) || value.length > 20) throw invalid();
+  const codes = value.map((item: unknown) => {
+    if (typeof item !== 'string' || !vaultCode.test(item)) throw invalid();
+    return item;
+  });
+  if (new Set(codes).size !== codes.length) throw invalid();
+  return codes;
 }
 
 function optionalSort(value: unknown): (typeof searchSorts)[number] | null {
@@ -228,6 +240,9 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
   const emailSort = optionalEmailTimeField(input.email_sort);
   const emailSortOrder = optionalEmailSortOrder(input.email_sort_order);
   const emailDirection = optionalEmailDirection(input.email_direction);
+  const metadataCodes = optionalMetadataCodes(input.metadata_codes);
+  const codeBasis = input.code_basis === undefined || input.code_basis === null
+    ? null : input.code_basis;
   const emailCriteriaActive = [emailDateBasis, emailSort, emailSortOrder, emailDirection]
     .some((value) => value !== null);
   if (emailCriteriaActive
@@ -236,9 +251,8 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
       || (query && bodyQuery)
       || input.current_version_only !== true
       || (dateFrom && dateTo && dateFrom > dateTo)
-      || input.code_basis !== undefined && input.code_basis !== null && input.code_basis !== 'matter'
-    || input.metadata_codes !== undefined && input.metadata_codes !== null
-        && (input.metadata_codes !== '' && (!Array.isArray(input.metadata_codes) || input.metadata_codes.length > 0))
+      || codeBasis !== null && codeBasis !== 'matter' && codeBasis !== 'legacy'
+      || Boolean(metadataCodes?.length) && codeBasis === null
       || emailCriteriaActive && input.date_basis !== undefined && input.date_basis !== null
         && input.date_basis !== '' && input.date_basis !== 'created') throw invalid();
   const mappedMatterId = matterId(input.lawos_matter_id);
@@ -262,6 +276,8 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
     clientName,
     tags,
     sortBy,
+    codeBasis: codeBasis as 'matter' | 'legacy' | null,
+    metadataCodes,
     ...(emailDateBasis ? { emailDateBasis } : {}),
     ...(emailSort ? { emailSort } : {}),
     ...(emailSortOrder ? { emailSortOrder } : {}),

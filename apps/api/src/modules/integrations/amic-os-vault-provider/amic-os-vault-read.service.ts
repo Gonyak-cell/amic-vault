@@ -83,6 +83,8 @@ export interface AmicOsVaultReadInput {
   clientName?: string | null;
   tags?: readonly string[] | null;
   sortBy?: SearchSort | null;
+  codeBasis?: 'matter' | 'legacy' | null;
+  metadataCodes?: readonly string[] | null;
   emailDateBasis?: EmailTimeField | null;
   emailSort?: EmailTimeField | null;
   emailSortOrder?: 'asc' | 'desc' | null;
@@ -181,6 +183,8 @@ interface ExactProjectionRow {
   size_bytes: string;
   mime_type: string;
   normalized_filename: string;
+  amic_os_filename: string | null;
+  amic_os_metadata_code: string | null;
   lawos_matter_id: string | null;
   created_at: Date | string;
   updated_at: Date | string;
@@ -218,7 +222,7 @@ export interface AmicOsVaultExactProjection {
   client_id: string | null;
   client_name: string | null;
   client_display_name: string | null;
-  metadata_code: null;
+  metadata_code: string | null;
   current_version_id: string;
   version_id: string;
   current_file_object_id: string;
@@ -916,8 +920,10 @@ export class AmicOsVaultReadService {
       pageSize: criteria ? providerEmailScanPageSize : input.pageSize,
       ...(criteria ? { emailCriteria: criteria } : {}),
     };
-    const response = criteria
-      ? await this.searchAllEmailCandidates(searchContext, searchInput)
+    const response = criteria || input.metadataCodes?.length
+      ? await this.searchAllCandidates(searchContext, {
+          ...searchInput, page: 1, pageSize: providerEmailScanPageSize,
+        })
       : await this.searchService.search(searchContext, searchInput);
     const projected: AmicOsVaultExactProjection[] = [];
     // Bound each exact-version read and its header reads to one search page.
@@ -930,9 +936,13 @@ export class AmicOsVaultReadService {
         searchQuery,
       ));
     }
+    const codeFiltered = input.metadataCodes?.length
+      ? projected.filter((item) => input.metadataCodes?.includes(input.codeBasis === 'legacy'
+        ? item.metadata_code ?? '' : item.matter_code ?? ''))
+      : projected;
     const filtered = criteria
       ? orderEmailResults(
-          projected.filter((item) => {
+          codeFiltered.filter((item) => {
             const message = item.email_message;
             if (!message) return false;
             return (!criteria.direction || message.direction === criteria.direction)
@@ -940,9 +950,10 @@ export class AmicOsVaultReadService {
           }),
           criteria,
         )
-      : projected;
-    const pageStart = criteria ? (input.page - 1) * input.pageSize : 0;
-    const pageItems = criteria ? filtered.slice(pageStart, pageStart + input.pageSize) : filtered;
+      : codeFiltered;
+    const needsLocalPage = Boolean(criteria || input.metadataCodes?.length);
+    const pageStart = needsLocalPage ? (input.page - 1) * input.pageSize : 0;
+    const pageItems = needsLocalPage ? filtered.slice(pageStart, pageStart + input.pageSize) : filtered;
     return {
       authority_kind: 'amic-vault-api' as const,
       authority_ref: this.config.uploadAuthorityRef(),
@@ -954,7 +965,7 @@ export class AmicOsVaultReadService {
         returned_count: pageItems.length,
         current_version_only: true,
         omitted_result_count: null,
-        ...(criteria ? { has_more: pageStart + pageItems.length < filtered.length } : {}),
+        ...(needsLocalPage ? { has_more: pageStart + pageItems.length < filtered.length } : {}),
         ...(criteria ? {
           email_date_basis: criteria.dateBasis,
           email_sort: criteria.sort,
@@ -968,7 +979,7 @@ export class AmicOsVaultReadService {
     };
   }
 
-  private async searchAllEmailCandidates(
+  private async searchAllCandidates(
     context: { tenantId: string; userId: string; sessionId: null },
     input: SearchQueryWithEmailCriteria,
   ): Promise<{ results: SearchResultDto[] }> {
@@ -978,7 +989,7 @@ export class AmicOsVaultReadService {
       results.push(...response.results);
       if (response.results.length < providerEmailScanPageSize) break;
       if (page === providerEmailScanPageLimit) {
-        throw new BadRequestException({ code: 'VALIDATION_FAILED', reason: 'EMAIL_SEARCH_CANDIDATE_LIMIT' });
+        throw new BadRequestException({ code: 'VALIDATION_FAILED', reason: 'SEARCH_CANDIDATE_LIMIT' });
       }
     }
     return { results };
@@ -1056,6 +1067,8 @@ export class AmicOsVaultReadService {
             f.size_bytes::text,
             f.mime_type,
             f.normalized_filename,
+            d.amic_os_filename,
+            d.amic_os_metadata_code,
             d.created_at,
             d.updated_at,
             CASE WHEN email.email_id IS NOT NULL OR attachment_filing.filer_user_id IS NOT NULL
@@ -1208,6 +1221,8 @@ export class AmicOsVaultReadService {
           || !editedAt
           || editedAt < createdAt) return [];
       const clientDisplayName = displayText(exact.canonical_client_name, 1_000);
+      const filename = displayText(exact.amic_os_filename ?? exact.normalized_filename, 240);
+      if (!filename || /[\\/]/u.test(filename)) return [];
       const emailMessage = emailByDocument.get(item.documentId);
       const emailSource = exact.email_id ? emailSourceForRow(exact) : null;
       if (criteria && (!emailMessage || !emailSource)) return [];
@@ -1225,8 +1240,9 @@ export class AmicOsVaultReadService {
         client_id: safeExternalId(exact.canonical_client_id),
         client_name: displayText(clientDisplayName, 200),
         client_display_name: clientDisplayName,
-        // AMIC Vault has no authoritative legacy metadata-code field at this revision.
-        metadata_code: null,
+        metadata_code: exact.amic_os_metadata_code
+          && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u.test(exact.amic_os_metadata_code)
+          ? exact.amic_os_metadata_code : null,
         current_version_id: exact.version_id,
         version_id: exact.version_id,
         current_file_object_id: exact.file_object_id,
@@ -1237,7 +1253,7 @@ export class AmicOsVaultReadService {
         byte_size: size,
         current_mime_type: exact.mime_type,
         mime_type: exact.mime_type,
-        filename: exact.normalized_filename,
+        filename,
         created_at: createdAt,
         edited_at: editedAt,
         author_name: displayText(exact.editor_name, 200),

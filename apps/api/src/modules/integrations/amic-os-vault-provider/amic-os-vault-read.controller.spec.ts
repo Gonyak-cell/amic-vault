@@ -229,6 +229,8 @@ describe('AmicOsVaultReadController', () => {
       clientName: 'AMIC Client',
       tags: ['closing', 'executed'],
       sortBy: 'title_asc',
+      codeBasis: 'matter',
+      metadataCodes: [],
     });
   });
 
@@ -268,6 +270,8 @@ describe('AmicOsVaultReadController', () => {
       clientName: null,
       tags: null,
       sortBy: null,
+      codeBasis: null,
+      metadataCodes: null,
       emailDateBasis: 'received_at',
       emailSort: 'received_at',
       emailSortOrder: 'asc',
@@ -286,9 +290,25 @@ describe('AmicOsVaultReadController', () => {
     }
   });
 
+  it('passes bounded legacy metadata-code filters to the scoped read service', async () => {
+    const { controller, request, service } = createHarness();
+    const body = {
+      principal: { tenant_id: 'caller-tenant', user_id: principal.accountLedgerId },
+      query: '', lawos_matter_id: null, current_version_only: true,
+      date_from: null, date_to: null, page: 1, page_size: 25,
+      code_basis: 'legacy', metadata_codes: ['LEGACY.CODE'],
+    };
+    await controller.search(request, body);
+    expect(service.search).toHaveBeenCalledWith(principal, expect.objectContaining({
+      codeBasis: 'legacy', metadataCodes: ['LEGACY.CODE'],
+    }));
+  });
+
   it.each([
     { metadata_codes: ['LEGACY.CODE'] },
-    { code_basis: 'legacy' },
+    { code_basis: 'unknown' },
+    { code_basis: 'legacy', metadata_codes: ['LEGACY.CODE', 'LEGACY.CODE'] },
+    { code_basis: 'legacy', metadata_codes: ['bad code'] },
     { mime_type: ['application/pdf', 'application/pdf'] },
     { mime_type: `application/${'x'.repeat(252)}` },
     { tags: ['closing', 'closing'] },

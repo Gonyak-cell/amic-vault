@@ -138,6 +138,7 @@ describe('SearchIndexRepository', () => {
     });
     expect(String(client.query.mock.calls[0]?.[0])).toContain('FROM file_security_promotions promotion');
     expect(String(client.query.mock.calls[0]?.[0])).toContain("scan.state = 'promoted'");
+    expect(String(client.query.mock.calls[0]?.[0])).toContain('coalesce(d.amic_os_filename, d.title) AS title');
     expect(client.query.mock.calls[1]?.[1]).not.toContain('body');
     expect(client.query.mock.calls[6]?.[1]).toContain(childChunkId);
     expect(embeddingGateway.embedText).toHaveBeenCalledWith({ text: 'Confidential source body' });

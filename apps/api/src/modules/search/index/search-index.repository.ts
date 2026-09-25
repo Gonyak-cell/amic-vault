@@ -278,7 +278,8 @@ export class SearchIndexRepository {
             ORDER BY next_dv.version_no ASC, next_dv.created_at ASC, next_dv.version_id ASC
             LIMIT 1
           ) AS next_version_id,
-          d.document_type, d.status AS document_status, dv.version_status, d.title,
+          d.document_type, d.status AS document_status, dv.version_status,
+          coalesce(d.amic_os_filename, d.title) AS title,
           cd.body_text, cd.extraction_method, cd.confidence AS extraction_confidence,
           d.updated_at AS document_updated_at
         FROM document_versions dv
