@@ -14,7 +14,7 @@ describe('FileExtensionValidator', () => {
   it('includes Vault-native text editing extensions in the default allow-list', () => {
     const allowed = allowedDocumentExtensions();
 
-    for (const extension of ['txt', 'md', 'markdown', 'csv', 'json', 'html', 'htm', 'zip']) {
+    for (const extension of ['txt', 'md', 'markdown', 'csv', 'json', 'html', 'htm', 'zip', 'gif', 'webp']) {
       expect(allowed.has(extension)).toBe(true);
     }
   });
