@@ -89,7 +89,16 @@ jobs:
           package-manager-cache: false
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: docker compose -f infra/docker-compose.dev.yml up -d --wait postgres minio minio-init ingestion
+      - name: Build checksum-verified MinIO images for CI
+        run: |
+          mkdir -p .tmp/ci-minio
+          curl -fL --retry 3 --retry-delay 2 -o .tmp/ci-minio/minio https://github.com/minio/minio/releases/download/RELEASE.2025-09-07T16-13-09Z/minio.linux-amd64.RELEASE.2025-09-07T16-13-09Z
+          echo '7c5bd8512c6e966455b1d198209358b2d191c77a83ab377c4073281065fb855f  .tmp/ci-minio/minio' | sha256sum -c -
+          curl -fL --retry 3 --retry-delay 2 -o .tmp/ci-minio/mc https://github.com/minio/mc/releases/download/RELEASE.2025-08-13T08-35-41Z/mc.linux-amd64.RELEASE.2025-08-13T08-35-41Z
+          echo '01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891  .tmp/ci-minio/mc' | sha256sum -c -
+          docker build --platform linux/amd64 -f infra/ci-minio.Dockerfile --build-arg TOOL=minio -t amic-vault-ci-minio:local .tmp/ci-minio
+          docker build --platform linux/amd64 -f infra/ci-minio.Dockerfile --build-arg TOOL=mc -t amic-vault-ci-mc:local .tmp/ci-minio
+      - run: docker compose -f infra/docker-compose.dev.yml -f infra/docker-compose.ci-minio.yml up -d --wait postgres minio minio-init ingestion
       - run: node tools/db/check-migration-conventions.mjs
       - run: pnpm db:migrate
       - run: pnpm db:rollback
@@ -103,7 +112,7 @@ jobs:
       - run: pnpm test:integration -- search-permission
       - run: pnpm test:integration -- metadata-leakage
       - run: pnpm test:integration
-      - run: docker compose -f infra/docker-compose.dev.yml down -v
+      - run: docker compose -f infra/docker-compose.dev.yml -f infra/docker-compose.ci-minio.yml down -v
         if: always()
 
   docker-build:
