@@ -237,14 +237,20 @@ export class SearchFilterBuilder {
     }
     if (filters.tags?.length) {
       fragments.push({
-        sql: `EXISTS (
+        sql: `(EXISTS (
           SELECT 1
           FROM document_tags tag_filter
           WHERE tag_filter.tenant_id = idx.tenant_id
             AND tag_filter.document_id = idx.document_id
             AND tag_filter.tag = ANY(?::text[])
-        )`,
-        params: [filters.tags],
+        ) OR EXISTS (
+          SELECT 1
+          FROM documents metadata_tag_filter
+          WHERE metadata_tag_filter.tenant_id = idx.tenant_id
+            AND metadata_tag_filter.document_id = idx.document_id
+            AND jsonb_exists_any(metadata_tag_filter.amic_os_business_info -> 'tags', ?::text[])
+        ))`,
+        params: [filters.tags, filters.tags],
       });
     }
     if (filters.confidentialityLevel) {

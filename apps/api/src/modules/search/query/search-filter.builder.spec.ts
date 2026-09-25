@@ -159,13 +159,19 @@ describe('SearchFilterBuilder', () => {
     expect(built.whereSql).toContain('FROM document_versions mime_version_filter');
     expect(built.whereSql).toContain('mime_file_filter.mime_type = ANY($8::text[])');
     expect(built.whereSql).toContain('FROM document_tags tag_filter');
+    expect(built.whereSql).toContain('tag_filter.tenant_id = idx.tenant_id');
+    expect(built.whereSql).toContain('tag_filter.document_id = idx.document_id');
     expect(built.whereSql).toContain('tag_filter.tag = ANY($9::text[])');
+    expect(built.whereSql).toContain('FROM documents metadata_tag_filter');
+    expect(built.whereSql).toContain('metadata_tag_filter.tenant_id = idx.tenant_id');
+    expect(built.whereSql).toContain('metadata_tag_filter.document_id = idx.document_id');
+    expect(built.whereSql).toContain("jsonb_exists_any(metadata_tag_filter.amic_os_business_info -> 'tags', $10::text[])");
     expect(built.whereSql).toContain('FROM clients client_code_filter');
     expect(built.whereSql).toContain("metadata_json ->> 'lawosClientId'");
-    expect(built.whereSql).toContain('idx.updated_at >= $10');
-    expect(built.whereSql).toContain('idx.updated_at <= $11');
-    expect(built.whereSql).toContain('date_filter.created_at >= $12');
-    expect(built.whereSql).toContain('date_filter.created_at <= $13');
+    expect(built.whereSql).toContain('idx.updated_at >= $11');
+    expect(built.whereSql).toContain('idx.updated_at <= $12');
+    expect(built.whereSql).toContain('date_filter.created_at >= $13');
+    expect(built.whereSql).toContain('date_filter.created_at <= $14');
     expect(built.params).toEqual([
       tenantId,
       'deleted',
@@ -175,6 +181,7 @@ describe('SearchFilterBuilder', () => {
       '%lawos-client-1%',
       '%lawos-client-1%',
       ['application/pdf', 'text/plain'],
+      ['closing', 'executed'],
       ['closing', 'executed'],
       new Date('2026-01-01T00:00:00.000Z'),
       new Date('2026-08-29T23:59:59.000Z'),
