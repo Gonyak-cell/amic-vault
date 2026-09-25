@@ -140,6 +140,56 @@ describe('SearchFilterBuilder', () => {
     expect(built.params).toContain('%A\\%\\_\\\\B%');
   });
 
+  it('binds provider MIME, tag, client-code and created-or-modified date filters at query time', () => {
+    const built = new SearchFilterBuilder().build({
+      scope: tenantScope(),
+      filters: {
+        mimeType: ['application/pdf', 'text/plain'],
+        tags: ['closing', 'executed'],
+        clientCode: 'lawos-client-1',
+        dateBasis: 'created_or_modified',
+        dateFrom: '2026-01-01T00:00:00Z',
+        dateTo: '2026-08-29T23:59:59Z',
+      },
+    });
+
+    expect(built.whereSql).toContain('FROM document_versions mime_version_filter');
+    expect(built.whereSql).toContain('mime_file_filter.mime_type = ANY($8::text[])');
+    expect(built.whereSql).toContain('FROM document_tags tag_filter');
+    expect(built.whereSql).toContain('tag_filter.tag = ANY($9::text[])');
+    expect(built.whereSql).toContain('FROM clients client_code_filter');
+    expect(built.whereSql).toContain("metadata_json ->> 'lawosClientId'");
+    expect(built.whereSql).toContain('idx.updated_at >= $10');
+    expect(built.whereSql).toContain('idx.updated_at <= $11');
+    expect(built.whereSql).toContain('date_filter.created_at >= $12');
+    expect(built.whereSql).toContain('date_filter.created_at <= $13');
+    expect(built.params).toEqual([
+      tenantId,
+      'deleted',
+      'current',
+      '%lawos-client-1%',
+      '%lawos-client-1%',
+      '%lawos-client-1%',
+      '%lawos-client-1%',
+      ['application/pdf', 'text/plain'],
+      ['closing', 'executed'],
+      new Date('2026-01-01T00:00:00.000Z'),
+      new Date('2026-08-29T23:59:59.000Z'),
+      new Date('2026-01-01T00:00:00.000Z'),
+      new Date('2026-08-29T23:59:59.000Z'),
+    ]);
+  });
+
+  it('keeps the default date basis on the indexed modified timestamp', () => {
+    const built = new SearchFilterBuilder().build({
+      scope: tenantScope(),
+      filters: { dateFrom: '2026-01-01T00:00:00Z' },
+    });
+
+    expect(built.whereSql).toContain('idx.updated_at >= $4');
+    expect(built.whereSql).not.toContain('date_filter.created_at');
+  });
+
   it('filters extraction and OCR status with a bound status code', () => {
     const built = new SearchFilterBuilder().build({
       scope: tenantScope(),

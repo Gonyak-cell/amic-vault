@@ -41,6 +41,8 @@ export const searchSorts = [
   'type_asc',
 ] as const;
 export const searchSortSchema = z.enum(searchSorts);
+export const searchDateBasisValues = ['created', 'modified', 'created_or_modified'] as const;
+export const searchDateBasisSchema = z.enum(searchDateBasisValues);
 export const searchGroupBys = ['none', 'matter', 'client', 'type'] as const;
 export const searchGroupBySchema = z.enum(searchGroupBys);
 export const searchUrlPrivacyModes = ['plaintext_url', 'private_saved_ref'] as const;
@@ -48,6 +50,20 @@ export const searchUrlPrivacyModeSchema = z.enum(searchUrlPrivacyModes);
 export const savedSearchScopes = ['personal', 'matter-team', 'admin-shared'] as const;
 export const savedSearchScopeSchema = z.enum(savedSearchScopes);
 const searchTextFilterSchema = z.string().trim().min(1).max(128);
+const searchMimeTypeSchema = z.string()
+  .trim()
+  .min(1)
+  .max(255)
+  .regex(/^[A-Za-z0-9!#$&^_.+\-]+\/[A-Za-z0-9!#$&^_.+\-]+$/u);
+const searchMimeTypeFilterSchema = z.union([
+  searchMimeTypeSchema,
+  z.array(searchMimeTypeSchema).min(1).max(32),
+]);
+const searchTagsFilterSchema = z.array(z.string().trim().min(1).max(80)).max(20).superRefine((tags, ctx) => {
+  if (new Set(tags).size !== tags.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'tags must be unique' });
+  }
+});
 
 export const searchIsoDateTimeSchema = z
   .string()
@@ -64,8 +80,11 @@ export const searchFiltersSchema = z
     clientId: z.string().uuid().optional(),
     matterCode: searchTextFilterSchema.optional(),
     matterName: searchTextFilterSchema.optional(),
+    clientCode: searchTextFilterSchema.optional(),
     clientName: searchTextFilterSchema.optional(),
     title: searchTextFilterSchema.optional(),
+    mimeType: searchMimeTypeFilterSchema.optional(),
+    tags: searchTagsFilterSchema.optional(),
     confidentialityLevel: documentConfidentialityLevelSchema.optional(),
     documentType: searchDocumentTypeFilterSchema.optional(),
     extractionStatus: searchExtractionStatusSchema.optional(),
@@ -75,6 +94,7 @@ export const searchFiltersSchema = z
     privilegeStatus: documentPrivilegeStatusSchema.optional(),
     dateFrom: searchIsoDateTimeSchema.optional(),
     dateTo: searchIsoDateTimeSchema.optional(),
+    dateBasis: searchDateBasisSchema.optional(),
     versionStatus: searchVersionStatusSchema.optional(),
   })
   .strict()
@@ -342,6 +362,7 @@ export type SearchPrivilegeStatus = DocumentPrivilegeStatus;
 export type SearchMode = (typeof searchModes)[number];
 export type SearchTarget = (typeof searchTargets)[number];
 export type SearchSort = (typeof searchSorts)[number];
+export type SearchDateBasis = (typeof searchDateBasisValues)[number];
 export type SearchGroupBy = (typeof searchGroupBys)[number];
 export type SearchUrlPrivacyMode = (typeof searchUrlPrivacyModes)[number];
 export type SearchFolderScope = (typeof savedSearchScopes)[number];

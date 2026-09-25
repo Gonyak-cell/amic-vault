@@ -631,6 +631,29 @@ export class ExternalService {
     }
   }
 
+  /**
+   * Authorize a metadata-only current-version read for an internal AMIC OS
+   * consumer. This deliberately uses the document-read authority and keeps
+   * external-link management policy out of the decision.
+   */
+  async authorizeInternalLatestDocument(
+    ctx: PermissionContext,
+    matterId: string,
+    documentId: string,
+  ) {
+    await this.assertCanReadDocument(ctx, documentId);
+    const target = await this.findDocumentTarget(ctx.tenantId, documentId);
+    if (!target || target.matter_id !== matterId || !target.version_id
+        || target.document_status === 'deleted') {
+      throw permissionDenied();
+    }
+    const dlpEvaluation = await this.evaluateExternalDlp(ctx, target);
+    // Latest links have no DLP-warning acknowledgement channel. Fail closed
+    // for a finding, an unapproved review, or an unavailable assessment.
+    if (!dlpEvaluation.allowed || dlpEvaluation.findingCount > 0) throw permissionDenied();
+    return { versionId: target.version_id, policyRef: requiredDlpHash(dlpEvaluation) };
+  }
+
   private async documentShareTarget(ctx: PermissionContext, matterId: string, documentId: string, versionId?: string) {
     await this.assertCanReadDocument(ctx, documentId);
     const target = await this.findDocumentTarget(ctx.tenantId, documentId, versionId);

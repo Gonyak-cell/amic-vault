@@ -634,6 +634,53 @@ describe('AmicOsVaultReadService', () => {
     );
   });
 
+  it('passes every supported provider filter into the permission-scoped SearchService query', async () => {
+    const { searchService, service } = createHarness();
+
+    await service.search(principal, input({
+      query: null,
+      bodyQuery: 'OCR 계약',
+      dateBasis: 'created_or_modified',
+      dateFrom: '2026-01-01',
+      dateTo: '2026-08-29',
+      mimeTypes: ['application/pdf', 'text/plain'],
+      matterCode: 'AMIC-2026',
+      matterName: '공급계약',
+      clientCode: 'lawos-client-1',
+      clientName: 'AMIC Client',
+      tags: ['closing', 'executed'],
+      sortBy: 'title_asc',
+      page: 2,
+      pageSize: 10,
+    }));
+
+    expect(searchService.search).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId, sessionId: null },
+      {
+        query: 'OCR 계약',
+        mode: 'keyword',
+        target: 'body',
+        sortBy: 'title_asc',
+        groupBy: 'none',
+        filters: {
+          versionStatus: 'current',
+          matterId: vaultMatterId,
+          dateFrom: '2026-01-01T00:00:00.000Z',
+          dateTo: '2026-08-29T23:59:59.999Z',
+          dateBasis: 'created_or_modified',
+          mimeType: ['application/pdf', 'text/plain'],
+          matterCode: 'AMIC-2026',
+          matterName: '공급계약',
+          clientCode: 'lawos-client-1',
+          clientName: 'AMIC Client',
+          tags: ['closing', 'executed'],
+        },
+        page: 2,
+        pageSize: 10,
+      },
+    );
+  });
+
   it('reuses the permission-scoped document version service and returns exact file metadata', async () => {
     const { documentVersions, service } = createHarness();
     await expect(service.versions(principal, {

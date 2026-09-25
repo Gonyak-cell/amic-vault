@@ -187,6 +187,78 @@ describe('AmicOsVaultReadController', () => {
     expect(() => controller.search(request, { ...valid, extra: 'no' })).toThrow();
   });
 
+  it('maps supported body, MIME, label, tag, date-basis and sort filters without ignoring them', async () => {
+    const { controller, request, service } = createHarness();
+    const valid = {
+      principal: { tenant_id: 'caller-tenant', user_id: principal.accountLedgerId },
+      query: '',
+      body_q: 'OCR 계약',
+      lawos_matter_id: null,
+      current_version_only: true,
+      date_basis: 'created',
+      date_from: '2026-01-01',
+      date_to: '2026-08-29',
+      mime_type: ['APPLICATION/PDF', 'text/plain'],
+      matter_code: 'AMIC-2026',
+      matter_name: '공급계약',
+      client_code: 'lawos-client-1',
+      client_name: 'AMIC Client',
+      tags: ['closing', 'executed'],
+      sort_by: 'title_asc',
+      code_basis: 'matter',
+      metadata_codes: [],
+      page: 2,
+      page_size: 10,
+    };
+
+    await expect(controller.search(request, valid)).resolves.toBe(response);
+    expect(service.search).toHaveBeenCalledWith(principal, {
+      accountLedgerId: principal.accountLedgerId,
+      lawosMatterId: null,
+      page: 2,
+      pageSize: 10,
+      query: null,
+      bodyQuery: 'OCR 계약',
+      dateFrom: '2026-01-01',
+      dateTo: '2026-08-29',
+      dateBasis: 'created',
+      mimeTypes: ['application/pdf', 'text/plain'],
+      matterCode: 'AMIC-2026',
+      matterName: '공급계약',
+      clientCode: 'lawos-client-1',
+      clientName: 'AMIC Client',
+      tags: ['closing', 'executed'],
+      sortBy: 'title_asc',
+    });
+  });
+
+  it.each([
+    { metadata_codes: ['LEGACY.CODE'] },
+    { code_basis: 'legacy' },
+    { mime_type: ['application/pdf', 'application/pdf'] },
+    { mime_type: `application/${'x'.repeat(252)}` },
+    { tags: ['closing', 'closing'] },
+    { sort_by: 'unsupported' },
+    { date_basis: 'unsupported' },
+    { query: 'full text', body_q: 'body text' },
+  ])('rejects unsupported or conflicting search filters with no service call: %#', async (override) => {
+    const { controller, request, service } = createHarness();
+    const body = {
+      principal: { tenant_id: 'caller-tenant', user_id: principal.accountLedgerId },
+      query: '',
+      lawos_matter_id: null,
+      current_version_only: true,
+      date_from: null,
+      date_to: null,
+      page: 1,
+      page_size: 25,
+      ...override,
+    };
+
+    expect(() => controller.search(request, body)).toThrow();
+    expect(service.search).not.toHaveBeenCalled();
+  });
+
   it('does not call the service without the guard-bound principal', () => {
     const { controller, service } = createHarness();
     expect(() => controller.list({ headers: {} }, {

@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto';
 import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common';
-import type { SearchQueryDto, SearchResultDto, TenantId } from '@amic-vault/shared';
+import type {
+  SearchDateBasis,
+  SearchQueryDto,
+  SearchResultDto,
+  SearchSort,
+  TenantId,
+} from '@amic-vault/shared';
 import { AuditService, type QueryClient } from '../../audit/audit.service';
 import { SearchService } from '../../search/search.service';
 import { ExternalService } from '../../external/external.service';
@@ -15,6 +21,8 @@ import {
   type PreviewSessionTarget,
 } from '../../preview/preview-session.service';
 import { PREVIEW_CHUNK_BYTES, PreviewService, type PreviewArtifactRow } from '../../preview/preview.service';
+import { promotedDocumentExistsSql } from '../../file-security/promoted-file.guard';
+import { AMIC_OS_VAULT_MAX_UPLOAD_BYTES } from './amic-os-vault-upload.contract';
 import {
   AmicOsVaultProviderConfig,
   type AmicOsVaultProviderPrincipal,
@@ -29,6 +37,7 @@ const portalDocumentMimeTypes = new Set([
   'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet',
   'application/vnd.oasis.opendocument.presentation',
 ]);
+const vaultMimeTypePattern = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/u;
 
 export interface AmicOsVaultReadInput {
   accountLedgerId: string;
@@ -37,8 +46,17 @@ export interface AmicOsVaultReadInput {
   page: number;
   pageSize: number;
   query: string | null;
+  bodyQuery?: string | null;
   dateFrom: string | null;
   dateTo: string | null;
+  dateBasis?: SearchDateBasis;
+  mimeTypes?: readonly string[] | null;
+  matterCode?: string | null;
+  matterName?: string | null;
+  clientCode?: string | null;
+  clientName?: string | null;
+  tags?: readonly string[] | null;
+  sortBy?: SearchSort | null;
 }
 
 export interface AmicOsVaultVersionReadInput {
@@ -80,6 +98,27 @@ export interface AmicOsVaultVersionReadResponse {
   count_leak_prevented: true;
   raw_bytes_included: false;
   storage_locator_returned: false;
+}
+
+export interface AmicOsVaultLatestVersionProjection {
+  document_id: string;
+  version_id: string;
+  file_object_id: string;
+  sha256: string;
+  byte_size: number;
+  mime_type: string;
+}
+
+export interface AmicOsVaultLatestReadResponse {
+  authority_kind: 'amic-vault-api';
+  authority_ref: string;
+  provider_revision: string;
+  matter_id: string;
+  exact_version: AmicOsVaultLatestVersionProjection;
+  policy_ref: string;
+  raw_bytes_included: false;
+  storage_locator_returned: false;
+  history_included: false;
 }
 
 export interface AmicOsVaultPreviewInput {
@@ -175,6 +214,11 @@ export interface AmicOsVaultReadResponse {
 
 function permissionDenied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
+}
+
+function isSerializationFailure(error: unknown): boolean {
+  return typeof error === 'object' && error !== null
+    && 'code' in error && error.code === '40001';
 }
 
 function previewUnavailable(): BadRequestException {
@@ -360,6 +404,94 @@ export class AmicOsVaultReadService {
     };
   }
 
+  async latest(
+    principal: AmicOsVaultProviderPrincipal,
+    input: { accountLedgerId: string; lawosMatterId: string; documentId: string },
+  ): Promise<AmicOsVaultLatestReadResponse> {
+    this.assertPrincipal(principal, input.accountLedgerId);
+    try {
+      const outcome = await this.auditService.transaction<
+        AmicOsVaultLatestReadResponse | ForbiddenException
+      >(principal.tenantId, async (tx: QueryClient) => {
+        try {
+          const matterId = await this.resolveLawosMatter(principal.tenantId, input.lawosMatterId);
+          await this.lockLatestAuthority(tx, principal, matterId, input.documentId);
+          const authorization = await this.external.authorizeInternalLatestDocument(
+            { tenantId: principal.tenantId, userId: principal.actorUserId }, matterId, input.documentId,
+          );
+          const result = await tx.query(
+            `SELECT d.matter_id, v.document_id, v.version_id, v.file_object_id, v.file_hash AS sha256,
+                    f.size_bytes::text, f.mime_type
+             FROM documents d
+             JOIN document_versions v
+               ON v.tenant_id = d.tenant_id AND v.document_id = d.document_id
+             JOIN file_objects f
+               ON f.tenant_id = v.tenant_id AND f.file_object_id = v.file_object_id
+             WHERE d.tenant_id = $1::uuid AND d.document_id = $2::uuid
+               AND d.matter_id = $3::uuid AND d.status <> 'deleted'
+               AND v.version_id = $4::uuid AND v.version_status = 'current'
+               AND ${promotedDocumentExistsSql('d', 'v')}`,
+            [principal.tenantId, input.documentId, matterId, authorization.versionId],
+          );
+          const row = result.rows[0] as (ExactProjectionRow & { matter_id: string }) | undefined;
+          const size = Number(row?.size_bytes);
+          if (result.rows.length !== 1 || !row || row.document_id !== input.documentId
+              || row.matter_id !== matterId || row.version_id !== authorization.versionId
+              || !Number.isSafeInteger(size) || size < 1 || size > AMIC_OS_VAULT_MAX_UPLOAD_BYTES
+              || !vaultMimeTypePattern.test(row.mime_type)
+              || !/^[a-f0-9]{64}$/u.test(row.sha256)
+              || typeof authorization.policyRef !== 'string'
+              || !/^[a-f0-9]{64}$/u.test(authorization.policyRef)) throw permissionDenied();
+
+          return {
+            authority_kind: 'amic-vault-api' as const,
+            authority_ref: this.config.uploadAuthorityRef(),
+            provider_revision: this.config.uploadProviderRevision(),
+            matter_id: input.lawosMatterId,
+            exact_version: {
+              document_id: row.document_id,
+              version_id: row.version_id,
+              file_object_id: row.file_object_id,
+              sha256: row.sha256,
+              byte_size: size,
+              mime_type: row.mime_type,
+            },
+            policy_ref: authorization.policyRef,
+            raw_bytes_included: false,
+            storage_locator_returned: false,
+            history_included: false,
+          };
+        } catch (error) {
+          // DLP assessment/audit writes are part of the denied decision and must
+          // commit before the endpoint releases the fail-closed response.
+          if (error instanceof ForbiddenException) return error;
+          throw error;
+        }
+      }, { isolationLevel: 'serializable' });
+      if (outcome instanceof ForbiddenException) throw outcome;
+      return outcome;
+    } catch (error) {
+      if (isSerializationFailure(error)) throw permissionDenied();
+      throw error;
+    }
+  }
+
+  private async lockLatestAuthority(
+    tx: QueryClient,
+    principal: AmicOsVaultProviderPrincipal,
+    matterId: string,
+    documentId: string,
+  ): Promise<void> {
+    const result = await tx.query(
+      `SELECT app_lock_internal_latest_authority(
+         $1::uuid, $2::uuid, $3::uuid, $4::uuid
+       ) AS locked`,
+      [principal.tenantId, principal.actorUserId, documentId, matterId],
+    );
+    const row = result.rows[0] as { locked?: boolean } | undefined;
+    if (result.rows.length !== 1 || row?.locked !== true) throw permissionDenied();
+  }
+
   async preparePreview(
     principal: AmicOsVaultProviderPrincipal,
     input: AmicOsVaultPreviewInput,
@@ -486,7 +618,16 @@ export class AmicOsVaultReadService {
       ...(input.folderId ? { folderId: input.folderId } : {}),
       ...(input.dateFrom ? { dateFrom: `${input.dateFrom}T00:00:00.000Z` } : {}),
       ...(input.dateTo ? { dateTo: `${input.dateTo}T23:59:59.999Z` } : {}),
+      ...(input.dateBasis ? { dateBasis: input.dateBasis } : {}),
+      ...(input.mimeTypes?.length ? { mimeType: [...input.mimeTypes] } : {}),
+      ...(input.matterCode ? { matterCode: input.matterCode } : {}),
+      ...(input.matterName ? { matterName: input.matterName } : {}),
+      ...(input.clientCode ? { clientCode: input.clientCode } : {}),
+      ...(input.clientName ? { clientName: input.clientName } : {}),
+      ...(input.tags?.length ? { tags: [...input.tags] } : {}),
     };
+    const bodyQuery = input.bodyQuery?.trim() || null;
+    const searchQuery = bodyQuery ?? input.query;
     const response = await this.searchService.search(
       {
         tenantId: principal.tenantId,
@@ -494,10 +635,10 @@ export class AmicOsVaultReadService {
         sessionId: null,
       },
       {
-        ...(input.query ? { query: input.query } : {}),
+        ...(searchQuery ? { query: searchQuery } : {}),
         mode: 'keyword',
-        target: 'all',
-        sortBy: input.query ? 'relevance' : 'updated_desc',
+        target: bodyQuery ? 'body' : 'all',
+        sortBy: input.sortBy ?? (searchQuery ? 'relevance' : 'updated_desc'),
         groupBy: 'none',
         filters,
         page: input.page,
