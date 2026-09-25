@@ -463,14 +463,15 @@ describe('AMIC OS native document-copy PostgreSQL integration', () => {
     }
   });
 
-  it('does not reveal a historic Matter binding after document reassignment', async () => {
+  it('does not reveal a historic Matter binding when the current Matter code changes', async () => {
     const input = prepareBody();
     const prepared = await request('prepare', input);
     expect(prepared.response.status, prepared.text).toBe(200);
     await withClient(createOwnerClient(), (client) => client.query(
-      `UPDATE documents SET matter_id = $3
-       WHERE tenant_id = $1 AND document_id = $2`,
-      [tenantBetaId, exact.document_id, reassignedMatterId],
+      `UPDATE matters SET metadata_json = COALESCE(metadata_json, '{}'::jsonb) ||
+         jsonb_build_object('lawosMatterId', $3::text)
+       WHERE tenant_id = $1 AND matter_id = $2`,
+      [tenantBetaId, matterId, reassignedLawosMatterId],
     ));
     try {
       const listed = await request('list', {
@@ -484,9 +485,10 @@ describe('AMIC OS native document-copy PostgreSQL integration', () => {
       expect(listed.text).not.toContain(lawosMatterId);
     } finally {
       await withClient(createOwnerClient(), (client) => client.query(
-        `UPDATE documents SET matter_id = $3
-         WHERE tenant_id = $1 AND document_id = $2`,
-        [tenantBetaId, exact.document_id, matterId],
+        `UPDATE matters SET metadata_json = COALESCE(metadata_json, '{}'::jsonb) ||
+           jsonb_build_object('lawosMatterId', $3::text)
+         WHERE tenant_id = $1 AND matter_id = $2`,
+        [tenantBetaId, matterId, lawosMatterId],
       ));
     }
   });
