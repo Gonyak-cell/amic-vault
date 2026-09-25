@@ -14,7 +14,9 @@ import { ExternalService } from '../../external/external.service';
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '22222222-2222-4222-8222-222222222222';
 const vaultMatterId = '33333333-3333-4333-8333-333333333333';
+const vaultClientId = '33333333-3333-4333-8333-333333333334';
 const lawosMatterId = 'lawos-matter-1';
+const lawosClientId = 'lawos-client-1';
 const documentId = '44444444-4444-4444-8444-444444444444';
 const versionId = '55555555-5555-4555-8555-555555555555';
 const fileObjectId = '66666666-6666-4666-8666-666666666666';
@@ -65,11 +67,15 @@ function input(overrides: Partial<AmicOsVaultReadInput> = {}): AmicOsVaultReadIn
 function result(overrides: Partial<SearchResultDto> = {}): SearchResultDto {
   return {
     aiAllowed: false,
-    author: null,
+    author: { userId: actorUserId, displayName: '현재 편집자' },
+    clientId: vaultClientId,
+    clientDisplayName: 'AMIC Client',
     contentTruncated: false,
     documentId,
     versionId,
     matterId: vaultMatterId,
+    matterDisplayCode: 'LAWOS-LIVE-internal-projection',
+    matterDisplayName: '공급계약 자문',
     title: '공급계약서',
     snippet: '',
     highlights: [],
@@ -88,10 +94,37 @@ function result(overrides: Partial<SearchResultDto> = {}): SearchResultDto {
   };
 }
 
-function createHarness({ source: contextSource = 'amic-os-provider', external = {} as ExternalService } = {}) {
+interface ExactLabelOverrides {
+  matterCode?: string | null;
+  matterName?: string | null;
+  clientId?: string | null;
+  clientName?: string | null;
+}
+
+interface HarnessOptions {
+  source?: string;
+  external?: ExternalService;
+  exactMatterId?: string;
+  exactLabels?: ExactLabelOverrides;
+  exactQueryError?: boolean;
+}
+
+function createHarness({
+  source: contextSource = 'amic-os-provider',
+  external = {} as ExternalService,
+  exactMatterId = vaultMatterId,
+  exactLabels = {},
+  exactQueryError = false,
+}: HarnessOptions = {}) {
+  const {
+    matterCode = 'AMIC-2026-0001',
+    matterName = '공급계약 자문',
+    clientId = lawosClientId,
+    clientName = 'AMIC Client',
+  } = exactLabels;
   const incompleteDocumentId = '77777777-7777-4777-8777-777777777777';
   const mismatchedDocumentId = '88888888-8888-4888-8888-888888888888';
-  const query = vi.fn(async (sql: string) => {
+  const query = vi.fn(async (sql: string, params: unknown[] = []) => {
     if (sql.includes('INSERT INTO document_preview_artifacts')) return { rowCount: 1, rows: [] };
     if (sql.includes('FROM matters')) {
       return { rowCount: 1, rows: [{ matter_id: vaultMatterId }] };
@@ -104,11 +137,14 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
       return { rowCount: 1, rows: [{ file_object_id: fileObjectId, size_bytes: '4096', mime_type: 'application/pdf' }] };
     }
     if (sql.includes('FROM documents')) {
+      if (exactQueryError) throw new Error('exact projection unavailable');
+      const labelsReadable = (params[2] as string[] | undefined)?.includes(exactMatterId) === true;
       return {
         rowCount: 3,
         rows: [
           {
             document_id: documentId,
+            matter_id: exactMatterId,
             version_id: versionId,
             file_object_id: fileObjectId,
             sha256,
@@ -116,9 +152,17 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
             mime_type: 'application/pdf',
             normalized_filename: 'supply-contract.pdf',
             lawos_matter_id: lawosMatterId,
+            created_at: new Date('2026-08-20T00:00:00.000Z'),
+            updated_at: new Date('2026-08-29T00:00:00.000Z'),
+            creator_name: '최초 업로더',
+            canonical_matter_code: labelsReadable ? matterCode : null,
+            canonical_matter_name: labelsReadable ? matterName : null,
+            canonical_client_id: labelsReadable ? clientId : null,
+            canonical_client_name: labelsReadable ? clientName : null,
           },
           {
             document_id: incompleteDocumentId,
+            matter_id: vaultMatterId,
             version_id: '99999999-9999-4999-8999-999999999999',
             file_object_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
             sha256: 'b'.repeat(64),
@@ -126,9 +170,17 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
             mime_type: 'application/pdf',
             normalized_filename: 'unmapped.pdf',
             lawos_matter_id: null,
+            created_at: new Date('2026-08-20T00:00:00.000Z'),
+            updated_at: new Date('2026-08-29T00:00:00.000Z'),
+            creator_name: '최초 업로더',
+            canonical_matter_code: labelsReadable ? matterCode : null,
+            canonical_matter_name: labelsReadable ? matterName : null,
+            canonical_client_id: labelsReadable ? clientId : null,
+            canonical_client_name: labelsReadable ? clientName : null,
           },
           {
             document_id: mismatchedDocumentId,
+            matter_id: vaultMatterId,
             version_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
             file_object_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
             sha256: 'c'.repeat(64),
@@ -136,6 +188,13 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
             mime_type: 'application/pdf',
             normalized_filename: 'stale.pdf',
             lawos_matter_id: lawosMatterId,
+            created_at: new Date('2026-08-20T00:00:00.000Z'),
+            updated_at: new Date('2026-08-29T00:00:00.000Z'),
+            creator_name: '최초 업로더',
+            canonical_matter_code: labelsReadable ? matterCode : null,
+            canonical_matter_name: labelsReadable ? matterName : null,
+            canonical_client_id: labelsReadable ? clientId : null,
+            canonical_client_name: labelsReadable ? clientName : null,
           },
         ],
       };
@@ -162,6 +221,11 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
           versionId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
         }),
       ],
+    })),
+  };
+  const permissionService = {
+    canReadMatter: vi.fn(async () => ({
+      effect: 'ALLOW', reasonCode: 'ALLOWED', appliedRules: ['matter.read:role_allow'],
     })),
   };
   const previewSessions = {
@@ -200,6 +264,7 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
   const service = new AmicOsVaultReadService(
     auditService as never,
     searchService as never,
+    permissionService as never,
     {
       require: () => ({ tenantId, source: contextSource }),
     } as never,
@@ -214,7 +279,7 @@ function createHarness({ source: contextSource = 'amic-os-provider', external = 
     documentVersions as never,
     documentFolders as never,
   );
-  return { auditService, query, searchService, service, previewSessions, previews, previewQueue, documentVersions, documentFolders };
+  return { auditService, query, searchService, permissionService, service, previewSessions, previews, previewQueue, documentVersions, documentFolders };
 }
 
 describe('AmicOsVaultReadService', () => {
@@ -397,6 +462,12 @@ describe('AmicOsVaultReadService', () => {
         document_id: documentId,
         matter_id: lawosMatterId,
         title: '공급계약서',
+        matter_code: 'AMIC-2026-0001',
+        matter_name: '공급계약 자문',
+        client_id: lawosClientId,
+        client_name: 'AMIC Client',
+        client_display_name: 'AMIC Client',
+        metadata_code: null,
         current_version_id: versionId,
         version_id: versionId,
         current_file_object_id: fileObjectId,
@@ -408,6 +479,10 @@ describe('AmicOsVaultReadService', () => {
         current_mime_type: 'application/pdf',
         mime_type: 'application/pdf',
         filename: 'supply-contract.pdf',
+        created_at: '2026-08-20T00:00:00.000Z',
+        edited_at: '2026-08-29T00:00:00.000Z',
+        author_name: '현재 편집자',
+        creator_name: '최초 업로더',
         indexed_at: null,
         match_fields: ['title'],
       }],
@@ -436,6 +511,103 @@ describe('AmicOsVaultReadService', () => {
     expect(query).toHaveBeenCalledTimes(2);
     expect(JSON.stringify((await service.list(principal, input())).items))
       .not.toMatch(/storage_uri|storage_locator|raw_bytes|content_base64/u);
+  });
+
+  it('keeps related labels null when document access does not grant Matter label access', async () => {
+    const { permissionService, searchService, service } = createHarness();
+    permissionService.canReadMatter.mockResolvedValueOnce({
+      effect: 'DENY', reasonCode: 'PERMISSION_DENIED', appliedRules: ['matter_members:missing'],
+    });
+    searchService.search.mockResolvedValueOnce({
+      results: [result()],
+    });
+
+    await expect(service.list(principal, input())).resolves.toMatchObject({
+      items: [{
+        document_id: documentId,
+        matter_id: lawosMatterId,
+        matter_code: null,
+        matter_name: null,
+        client_id: null,
+        client_name: null,
+        client_display_name: null,
+        metadata_code: null,
+      }],
+    });
+    expect(permissionService.canReadMatter).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId },
+      vaultMatterId,
+    );
+  });
+
+  it('keeps related labels null when the Matter permission evaluator fails closed', async () => {
+    const { permissionService, searchService, service } = createHarness();
+    permissionService.canReadMatter.mockRejectedValueOnce(new Error('permission backend unavailable'));
+    searchService.search.mockResolvedValueOnce({ results: [result()] });
+
+    await expect(service.list(principal, input())).resolves.toMatchObject({
+      items: [{
+        document_id: documentId,
+        matter_code: null,
+        matter_name: null,
+        client_id: null,
+        client_name: null,
+        client_display_name: null,
+      }],
+    });
+  });
+
+  it('returns null instead of a Vault-internal UUID when a Client has no external mapping', async () => {
+    const { query, service } = createHarness({ exactLabels: { clientId: null } });
+
+    await expect(service.list(principal, input())).resolves.toMatchObject({
+      items: [{
+        document_id: documentId,
+        client_id: null,
+        client_name: 'AMIC Client',
+        client_display_name: 'AMIC Client',
+      }],
+    });
+    expect(query.mock.calls.map(([sql]) => sql).join('\n')).not.toContain('c.client_id::text');
+  });
+
+  it('normalizes valid labels and nulls malformed canonical label fields', async () => {
+    const { service } = createHarness({
+      exactLabels: {
+        matterCode: ' A\u030A-2026 ',
+        matterName: 'x'.repeat(1_001),
+        clientId: 'invalid client id',
+        clientName: 'bad\u0000name',
+      },
+    });
+
+    await expect(service.list(principal, input())).resolves.toMatchObject({
+      items: [{
+        document_id: documentId,
+        matter_code: 'Å-2026',
+        matter_name: null,
+        client_id: null,
+        client_name: null,
+        client_display_name: null,
+      }],
+    });
+  });
+
+  it('fails the request when the exact current-version projection query fails', async () => {
+    const { service } = createHarness({ exactQueryError: true });
+
+    await expect(service.list(principal, input())).rejects.toThrow('exact projection unavailable');
+  });
+
+  it('omits a document when its current Matter changes after the permission-scoped search', async () => {
+    const { service } = createHarness({
+      exactMatterId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    });
+
+    await expect(service.list(principal, input())).resolves.toMatchObject({
+      items: [],
+      page_info: { returned_count: 0 },
+    });
   });
 
   it('passes bounded query and date filters to the same permission-scoped search path', async () => {

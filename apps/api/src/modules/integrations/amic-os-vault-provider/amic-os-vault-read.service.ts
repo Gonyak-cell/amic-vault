@@ -6,6 +6,7 @@ import { SearchService } from '../../search/search.service';
 import { ExternalService } from '../../external/external.service';
 import { DocumentVersionService } from '../../document/document-version.service';
 import { DocumentFolderService } from '../../document/document-folder.service';
+import { PermissionService } from '../../permission/permission.service';
 import { TenantContextService } from '../../tenant/tenant-context';
 import { PreviewPrecreateQueueService } from '../../preview/preview-precreate-queue.service';
 import {
@@ -103,6 +104,7 @@ export interface AmicOsVaultPreviewChunkInput extends AmicOsVaultPreviewInput {
 
 interface ExactProjectionRow {
   document_id: string;
+  matter_id: string;
   version_id: string;
   file_object_id: string;
   sha256: string;
@@ -110,6 +112,13 @@ interface ExactProjectionRow {
   mime_type: string;
   normalized_filename: string;
   lawos_matter_id: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+  creator_name: string | null;
+  canonical_matter_code: string | null;
+  canonical_matter_name: string | null;
+  canonical_client_id: string | null;
+  canonical_client_name: string | null;
 }
 
 interface VersionFileRow {
@@ -122,6 +131,12 @@ export interface AmicOsVaultExactProjection {
   document_id: string;
   matter_id: string;
   title: string;
+  matter_code: string | null;
+  matter_name: string | null;
+  client_id: string | null;
+  client_name: string | null;
+  client_display_name: string | null;
+  metadata_code: null;
   current_version_id: string;
   version_id: string;
   current_file_object_id: string;
@@ -133,6 +148,10 @@ export interface AmicOsVaultExactProjection {
   current_mime_type: string;
   mime_type: string;
   filename: string;
+  created_at: string;
+  edited_at: string;
+  author_name: string | null;
+  creator_name: string | null;
   indexed_at: string | null;
   match_fields: string[];
 }
@@ -174,11 +193,32 @@ function lawosMatterId(row: ExactProjectionRow): string | null {
   return value && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u.test(value) ? value : null;
 }
 
+function safeExternalId(value: string | null): string | null {
+  const normalized = value?.trim() ?? '';
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u.test(normalized) ? normalized : null;
+}
+
+function canonicalInstant(value: Date | string): string | null {
+  const parsed = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
+function displayText(value: string | null | undefined, maximum: number): string | null {
+  const normalized = value?.normalize('NFC').trim() ?? '';
+  if (!normalized || normalized.length > maximum) return null;
+  for (const character of normalized) {
+    const codePoint = character.codePointAt(0);
+    if (codePoint !== undefined && (codePoint <= 0x1f || codePoint === 0x7f)) return null;
+  }
+  return normalized;
+}
+
 @Injectable()
 export class AmicOsVaultReadService {
   constructor(
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(SearchService) private readonly searchService: SearchService,
+    @Inject(PermissionService) private readonly permissionService: PermissionService,
     @Inject(TenantContextService) private readonly tenantContext: TenantContextService,
     @Inject(AmicOsVaultProviderConfig)
     private readonly config: AmicOsVaultProviderConfig,
@@ -530,17 +570,46 @@ export class AmicOsVaultReadService {
       .map((item) => item.documentId)
       .filter((value): value is string => typeof value === 'string'))];
     if (documentIds.length === 0) return [];
+    const matterIds = [...new Set(results
+      .map((item) => item.matterId)
+      .filter((value): value is string => typeof value === 'string'))];
+    const readableMatterIds = (await Promise.all(matterIds.map(async (matterId) => {
+      try {
+        const decision = await this.permissionService.canReadMatter(
+          { tenantId: principal.tenantId, userId: principal.actorUserId },
+          matterId,
+        );
+        return decision.effect === 'ALLOW' ? matterId : null;
+      } catch {
+        return null;
+      }
+    }))).filter((value): value is string => value !== null);
     const rows = await this.auditService.transaction(principal.tenantId, (tx: QueryClient) =>
       tx.query(
         `
           SELECT
             d.document_id,
+            d.matter_id,
             dv.version_id,
             dv.file_object_id,
             dv.file_hash AS sha256,
             f.size_bytes::text,
             f.mime_type,
             f.normalized_filename,
+            d.created_at,
+            d.updated_at,
+            creator.name AS creator_name,
+            CASE WHEN d.matter_id = ANY($3::uuid[]) THEN
+              coalesce(nullif(m.metadata_json ->> 'lawosMatterCode', ''), m.matter_code)
+            END AS canonical_matter_code,
+            CASE WHEN d.matter_id = ANY($3::uuid[]) THEN m.matter_name END AS canonical_matter_name,
+            CASE WHEN d.matter_id = ANY($3::uuid[]) THEN
+              coalesce(
+                nullif(c.metadata_json ->> 'lawosClientId', ''),
+                nullif(c.metadata_json ->> 'matterAppClientId', '')
+              )
+            END AS canonical_client_id,
+            CASE WHEN d.matter_id = ANY($3::uuid[]) THEN c.name END AS canonical_client_name,
             coalesce(
               nullif(m.metadata_json ->> 'lawosMatterId', ''),
               nullif(m.metadata_json ->> 'matterAppMatterId', '')
@@ -549,6 +618,10 @@ export class AmicOsVaultReadService {
           JOIN matters m
             ON m.tenant_id = d.tenant_id
            AND m.matter_id = d.matter_id
+          LEFT JOIN clients c
+            ON c.tenant_id = m.tenant_id
+           AND c.client_id = m.client_id
+           AND d.matter_id = ANY($3::uuid[])
           JOIN document_versions dv
             ON dv.tenant_id = d.tenant_id
            AND dv.document_id = d.document_id
@@ -556,6 +629,9 @@ export class AmicOsVaultReadService {
           JOIN file_objects f
             ON f.tenant_id = dv.tenant_id
            AND f.file_object_id = dv.file_object_id
+          LEFT JOIN users creator
+            ON creator.tenant_id = d.tenant_id
+           AND creator.user_id = d.created_by
           WHERE d.tenant_id = $1::uuid
             AND d.document_id = ANY($2::uuid[])
             AND d.status <> 'deleted'
@@ -568,7 +644,7 @@ export class AmicOsVaultReadService {
             )
           ORDER BY d.document_id
         `,
-        [principal.tenantId, documentIds],
+        [principal.tenantId, documentIds, readableMatterIds],
       ));
     const exactByDocument = new Map(
       (rows.rows as ExactProjectionRow[])
@@ -582,16 +658,31 @@ export class AmicOsVaultReadService {
       const exact = exactByDocument.get(item.documentId);
       const mappedMatterId = exact ? lawosMatterId(exact) : null;
       const size = Number(exact?.size_bytes);
+      const createdAt = exact ? canonicalInstant(exact.created_at) : null;
+      const editedAt = exact ? canonicalInstant(exact.updated_at) : null;
       if (!exact
           || !mappedMatterId
+          || exact.matter_id !== item.matterId
           || exact.version_id !== item.versionId
           || !Number.isSafeInteger(size)
-          || size < 1) return [];
+          || size < 1
+          || !createdAt
+          || !editedAt
+          || editedAt < createdAt) return [];
+      const clientDisplayName = displayText(exact.canonical_client_name, 1_000);
       emitted.add(item.documentId);
       return [{
         document_id: item.documentId,
         matter_id: mappedMatterId,
         title: item.title,
+        // The current Matter/Client relation is projected only after its own read check.
+        matter_code: displayText(exact.canonical_matter_code, 120),
+        matter_name: displayText(exact.canonical_matter_name, 1_000),
+        client_id: safeExternalId(exact.canonical_client_id),
+        client_name: displayText(clientDisplayName, 200),
+        client_display_name: clientDisplayName,
+        // AMIC Vault has no authoritative legacy metadata-code field at this revision.
+        metadata_code: null,
         current_version_id: exact.version_id,
         version_id: exact.version_id,
         current_file_object_id: exact.file_object_id,
@@ -603,6 +694,10 @@ export class AmicOsVaultReadService {
         current_mime_type: exact.mime_type,
         mime_type: exact.mime_type,
         filename: exact.normalized_filename,
+        created_at: createdAt,
+        edited_at: editedAt,
+        author_name: displayText(item.author?.displayName, 200),
+        creator_name: displayText(exact.creator_name, 200),
         indexed_at: null,
         match_fields: inputMatchFields(item),
       }];

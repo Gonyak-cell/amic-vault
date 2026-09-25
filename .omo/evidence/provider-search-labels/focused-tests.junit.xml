@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="42" failures="0" errors="0" time="0.913">
+    <testsuite name="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" timestamp="2026-09-25T09:28:22.352Z" hostname="MACui-MacBookPro.local" tests="21" failures="0" errors="0" skipped="0" time="0.005994875">
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; requires a bounded matter and guard principal for folder listing" time="0.0016415">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; parses exact preview targets and separates polling from explicit queue requests" time="0.001284083">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects unbounded or forged preparation without calling the service: 0" time="0.0001375">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects unbounded or forged preparation without calling the service: 1" time="0.00010125">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects unbounded or forged preparation without calling the service: 2" time="0.000112666">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects unbounded or forged preparation without calling the service: 3" time="0.000093417">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects unbounded or forged preparation without calling the service: 4" time="0.000127458">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects unbounded or forged preparation without calling the service: 5" time="0.000176708">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects unbounded or forged preparation without calling the service: 6" time="0.00015225">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects invalid session credentials, derivative bindings or chunk offsets: 0" time="0.000108833">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects invalid session credentials, derivative bindings or chunk offsets: 1" time="0.000101875">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects invalid session credentials, derivative bindings or chunk offsets: 2" time="0.000071416">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects invalid session credentials, derivative bindings or chunk offsets: 3" time="0.000066">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects invalid session credentials, derivative bindings or chunk offsets: 4" time="0.000065542">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects invalid session credentials, derivative bindings or chunk offsets: 5" time="0.000063666">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; rejects invalid session credentials, derivative bindings or chunk offsets: 6" time="0.000056166">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; requires the provider guard principal for every preview route" time="0.000137291">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; lets the workload provider guard authenticate read routes without a browser session cookie" time="0.000068292">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; accepts only the bounded document-list contract and normalizes the account binding" time="0.000324542">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; requires current versions, valid calendar dates, and no extra fields" time="0.000435542">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.controller.spec.ts" name="AmicOsVaultReadController &gt; does not call the service without the guard-bound principal" time="0.000077292">
+        </testcase>
+    </testsuite>
+    <testsuite name="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" timestamp="2026-09-25T09:28:22.360Z" hostname="MACui-MacBookPro.local" tests="21" failures="0" errors="0" skipped="0" time="0.011159625">
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; requires Matter permission before listing folders and constrains document search to an existing folder" time="0.002956375">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; authorizes delegated Portal documents through current sharing, owner, hold and external DLP policy" time="0.0029875">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; polls without writes and explicitly enqueues the authorized exact source in one transaction" time="0.000527417">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; exposes failed preparation until an explicit retry, without issuing an early view session" time="0.000218542">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; reuses a ready derivative and issues the native session with the exact source binding" time="0.000245083">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; blocks wrong account, Matter mapping and permission before preparing or enqueuing" time="0.000223333">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; binds chunks to the derivative and rechecks the native session after storage returns" time="0.000326291">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; rejects a changed PDF identity before opening its bytes: 0" time="0.000121">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; rejects a changed PDF identity before opening its bytes: 1" time="0.000214041">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; rejects a changed PDF identity before opening its bytes: 2" time="0.000123667">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; does not release a chunk when authorization is revoked during its storage read" time="0.000126583">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; uses permission-scoped search and returns only mapped exact current versions" time="0.000437042">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; keeps related labels null when document access does not grant Matter label access" time="0.000159125">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; keeps related labels null when the Matter permission evaluator fails closed" time="0.000403667">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; returns null instead of a Vault-internal UUID when a Client has no external mapping" time="0.000261417">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; normalizes valid labels and nulls malformed canonical label fields" time="0.000158333">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; fails the request when the exact current-version projection query fails" time="0.000173709">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; omits a document when its current Matter changes after the permission-scoped search" time="0.000130084">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; passes bounded query and date filters to the same permission-scoped search path" time="0.00030375">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; reuses the permission-scoped document version service and returns exact file metadata" time="0.000281125">
+        </testcase>
+        <testcase classname="src/modules/integrations/amic-os-vault-provider/amic-os-vault-read.service.spec.ts" name="AmicOsVaultReadService &gt; fails before search when the provider tenant context or account binding disagrees" time="0.000194583">
+        </testcase>
+    </testsuite>
+</testsuites>
