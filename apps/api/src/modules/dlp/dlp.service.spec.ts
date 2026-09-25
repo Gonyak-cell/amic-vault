@@ -395,6 +395,43 @@ describe('DlpService', () => {
     expect(JSON.stringify(auditLog.mock.calls)).not.toContain('M12345678');
   });
 
+  it('requires fresh client download permission and blocks unreviewed exact-version findings', async () => {
+    const documentId = '11111111-1111-4111-8111-11111111d251';
+    const versionId = '11111111-1111-4111-8111-11111111d252';
+    const canDownloadDocument = vi.fn().mockResolvedValue({ effect: 'DENY' });
+    const query = vi.fn();
+    const auditLog = vi.fn().mockResolvedValue({ eventId: sourceId, createdAt: new Date() });
+    const service = new DlpService(
+      { log: auditLog } as unknown as AuditService, new SensitiveDataDetector(),
+      { canDownloadDocument } as unknown as PermissionService,
+    );
+    const client: QueryClient = { query };
+    const source = { tenantId, documentId, versionId, userId: sourceId };
+    await expect(service.evaluateClientDocumentDownload(client, source)).rejects.toThrow();
+    expect(query).not.toHaveBeenCalled();
+
+    canDownloadDocument.mockResolvedValue({ effect: 'ALLOW' });
+    query.mockResolvedValueOnce({ rows: [{ version_id: versionId, extraction_status: 'ready',
+      extraction_method: 'pdf_text', failure_reason_code: null, body_length: 20,
+      scan_text: 'passport M12345678' }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [{ assessment_id: sourceId, tenant_id: tenantId,
+        source_type: 'document', source_id: versionId, matter_id: null, document_id: documentId,
+        version_id: versionId, scan_state: 'findings', reason_code: null, finding_count: 1,
+        restricted_finding_count: 1, requires_review: true, policy_version: 'sf20-dlp-v1',
+        result_hash: 'a'.repeat(64), created_at: new Date() }], rowCount: 1 })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+    await expect(service.evaluateClientDocumentDownload(client, source)).resolves.toMatchObject({
+      allowed: false, assessmentId: sourceId, requiresReview: true,
+    });
+    expect(canDownloadDocument).toHaveBeenCalledWith({ tenantId, userId: sourceId }, documentId,
+      'amic_os_client_document');
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'DLP_EGRESS_BLOCKED', matterId: null,
+      metadata: expect.objectContaining({ document_id: documentId, version_id: versionId }),
+    }), client);
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('M12345678');
+  });
+
   it('applies only an unexpired allow for the exact assessment and rejects an expired latest allow', async () => {
     const documentId = '11111111-1111-4111-8111-11111111d211';
     const versionId = '11111111-1111-4111-8111-11111111d212';

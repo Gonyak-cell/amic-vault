@@ -26,6 +26,7 @@ import { WallMembershipReader } from './wall-membership.reader';
 import { DocumentPermissionService } from './document-permission.service';
 import { BreakGlassOverrideReader } from '../break-glass/break-glass-override.reader';
 import { tenantQuery } from '../../common/db/tenant-query';
+import type { ClientDocumentAction } from './client-document-authority';
 import { DatabaseService } from '../../common/db/database.service';
 
 export interface ActorSnapshot {
@@ -133,6 +134,21 @@ export class PermissionService {
     return this.wrapper.evaluate(auditTarget(ctx, matterId), () =>
       this.evaluateCanManageMatterMembers(ctx, matterId),
     );
+  }
+
+  canAccessClientScope(ctx: PermissionContext, action: ClientDocumentAction, scopeId?: string): Promise<PermissionDecision> {
+    return this.documentPermissionService?.canAccessClientScope(ctx, action, scopeId)
+      ?? Promise.resolve(denyPermission('PERMISSION_DENIED', ['client_scope:unavailable']));
+  }
+
+  clientDocumentReadFilter(ctx: PermissionContext, scopeId: string) {
+    return this.documentPermissionService?.clientDocumentReadFilter(ctx, scopeId)
+      ?? Promise.resolve({ sql: 'FALSE', params: [] as unknown[] });
+  }
+
+  canWriteClientDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
+    return this.documentPermissionService?.canWriteClientDocument(ctx, documentId)
+      ?? Promise.resolve(denyPermission('PERMISSION_DENIED', ['client_scope:unavailable']));
   }
 
   canReadDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {

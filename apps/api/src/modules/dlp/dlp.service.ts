@@ -508,6 +508,21 @@ export class DlpService {
     });
   }
 
+  async evaluateClientDocumentDownload(client: QueryClient, source: {
+    tenantId: string; documentId: string; versionId: string; userId: string;
+  }): Promise<DlpEgressDecision> {
+    const decision = await this.permissionService.canDownloadDocument(
+      { tenantId: source.tenantId, userId: source.userId }, source.documentId, 'amic_os_client_document');
+    if (decision.effect !== 'ALLOW') throw permissionDenied();
+    const assessment = await this.ensureDocumentAssessment(client, {
+      tenantId: source.tenantId, matterId: null, documentId: source.documentId,
+      versionId: source.versionId,
+    });
+    return this.applyReviewGate(client, assessment, {
+      purpose: 'document_download', matterId: null, actor: { actorId: source.userId, sessionId: null },
+    });
+  }
+
   async evaluateEmailEgress(
     client: QueryClient,
     source: DlpEmailEgressSource,
@@ -758,7 +773,7 @@ export class DlpService {
 
   private async ensureDocumentAssessment(
     client: QueryClient,
-    source: DlpDocumentEgressSource,
+    source: Pick<DlpDocumentEgressSource, 'tenantId' | 'documentId' | 'versionId'> & { matterId: string | null },
   ): Promise<PersistedDlpAssessmentRow> {
     const sourceId = source.versionId ?? source.documentId;
     const canonical = await client.query(
@@ -931,7 +946,7 @@ export class DlpService {
     assessment: PersistedDlpAssessmentRow,
     input: {
       purpose: DlpEgressPurpose;
-      matterId: string;
+      matterId: string | null;
       actor: { actorId: string | null; sessionId: string | null };
     },
   ): Promise<DlpEgressDecision> {

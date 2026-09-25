@@ -121,7 +121,7 @@ def _assert_document_key(job: IngestionJobEnvelope) -> None:
         len(parts) != 7
         or parts[0] != "tenants"
         or parts[1] != job.tenantId
-        or parts[2] != "matters"
+        or parts[2] not in {"matters", "clients"}
         or parts[4] != "documents"
         or parts[5] != job.documentId
         or parts[6] != job.fileObjectId

@@ -41,7 +41,8 @@ export interface DocumentAnnotationExtractionInput {
 export interface ExtractionTarget {
   tenantId: string;
   documentId: string;
-  matterId: string;
+  matterId: string | null;
+  clientScopeId?: string | null;
   versionId: string;
   fileObjectId: string;
   storageUri: string;

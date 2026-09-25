@@ -25,6 +25,8 @@ import {
 } from './amic-os-vault-upload.controller';
 import { AmicOsVaultUploadService } from './amic-os-vault-upload.service';
 import { AmicOsVaultReadController } from './amic-os-vault-read.controller';
+import { AmicOsVaultClientController } from './amic-os-vault-client.controller';
+import { AmicOsVaultClientService } from './amic-os-vault-client.service';
 import { AmicOsVaultReadService } from './amic-os-vault-read.service';
 
 @Module({
@@ -43,6 +45,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     UserModule,
   ],
   controllers: [
+    AmicOsVaultClientController,
     AmicOsVaultProviderController,
     AmicOsVaultUploadController,
     AmicOsVaultCapabilityController,
@@ -50,6 +53,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultEditorController,
   ],
   providers: [
+    AmicOsVaultClientService,
     AmicOsVaultProviderConfig,
     AmicOsVaultProviderGuard,
     AmicOsVaultProviderService,
@@ -58,6 +62,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultEditorService,
   ],
   exports: [
+    AmicOsVaultClientService,
     AmicOsVaultProviderConfig,
     AmicOsVaultProviderService,
     AmicOsVaultUploadService,

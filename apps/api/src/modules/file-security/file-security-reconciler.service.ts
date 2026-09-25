@@ -24,6 +24,7 @@ type ReconciliationIssueCode =
 interface ReconciliationScanRow {
   scan_id: string;
   matter_id: string;
+  client_scope_id?: string | null;
   quarantine_ref: string;
   quarantine_storage_uri: string;
   expected_sha256: string;
@@ -38,6 +39,7 @@ interface RetryTarget {
   tenant_id: string;
   scan_id: string;
   matter_id: string;
+  client_scope_id?: string | null;
   quarantine_ref: string;
   quarantine_storage_uri: string;
   expected_sha256: string;
@@ -292,7 +294,7 @@ export class FileSecurityReconcilerService implements OnModuleInit {
 
   private async findScans(tenantId: string, limit: number): Promise<ReconciliationScanRow[]> {
     const result = await tenantQuery<ReconciliationScanRow>(this.databaseService, tenantId, `
-      SELECT s.scan_id, s.matter_id, s.quarantine_ref, s.quarantine_storage_uri, s.expected_sha256,
+      SELECT s.scan_id, s.matter_id, s.client_scope_id, s.quarantine_ref, s.quarantine_storage_uri, s.expected_sha256,
         s.state, s.result_code, s.signature_at, p.file_object_id AS promotion_file_object_id,
         f.storage_uri AS primary_storage_uri
       FROM file_security_scans s
@@ -319,7 +321,7 @@ export class FileSecurityReconcilerService implements OnModuleInit {
     if (!(await this.storageService.headByStorageUri(tenantId, scan.quarantine_storage_uri))) {
       issues.push('row_without_object');
     }
-    if (scan.state === 'clean' && !scan.promotion_file_object_id) issues.push('clean_without_promotion');
+    if (scan.state === 'clean' && !scan.client_scope_id && !scan.promotion_file_object_id) issues.push('clean_without_promotion');
     if (scan.promotion_file_object_id && (!scan.primary_storage_uri || !(await this.storageService.headByStorageUri(tenantId, scan.primary_storage_uri)))) {
       issues.push('primary_orphan');
     }
@@ -329,7 +331,7 @@ export class FileSecurityReconcilerService implements OnModuleInit {
 
   private async findScanIssue(tenantId: string, scanId: string): Promise<ReconciliationIssueCode> {
     const scans = await tenantQuery<ReconciliationScanRow>(this.databaseService, tenantId, `
-      SELECT s.tenant_id, s.scan_id, s.matter_id, s.quarantine_ref, s.quarantine_storage_uri, s.expected_sha256,
+      SELECT s.tenant_id, s.scan_id, s.matter_id, s.client_scope_id, s.quarantine_ref, s.quarantine_storage_uri, s.expected_sha256,
         s.state, s.result_code, s.signature_at, p.file_object_id AS promotion_file_object_id,
         f.storage_uri AS primary_storage_uri
       FROM file_security_scans s
@@ -360,7 +362,7 @@ export class FileSecurityReconcilerService implements OnModuleInit {
     lock = false,
   ): Promise<RetryTarget | null> {
     const sql = `
-      SELECT s.tenant_id, s.scan_id, s.matter_id, s.quarantine_ref, s.quarantine_storage_uri, s.expected_sha256,
+      SELECT s.tenant_id, s.scan_id, s.matter_id, s.client_scope_id, s.quarantine_ref, s.quarantine_storage_uri, s.expected_sha256,
         s.state, s.result_code, s.signature_at, m.legal_hold,
         p.file_object_id AS promotion_file_object_id
       FROM file_security_scans s

@@ -5,12 +5,14 @@ import { DocumentPermissionService } from './document-permission.service';
 import { DocumentPermissionStub } from './document-permission.stub';
 import { FailClosedPermissionWrapper } from './fail-closed.wrapper';
 import { PermissionQueryBuilder } from './permission-query.builder';
+import { ClientDocumentAuthorityContext } from './client-document-authority';
 import { PermissionService } from './permission.service';
 import { WallMembershipReader } from './wall-membership.reader';
 
 @Module({
   imports: [forwardRef(() => AuditModule), forwardRef(() => BreakGlassModule)],
   providers: [
+    ClientDocumentAuthorityContext,
     DocumentPermissionStub,
     DocumentPermissionService,
     FailClosedPermissionWrapper,
@@ -19,6 +21,7 @@ import { WallMembershipReader } from './wall-membership.reader';
     WallMembershipReader,
   ],
   exports: [
+    ClientDocumentAuthorityContext,
     DocumentPermissionStub,
     DocumentPermissionService,
     FailClosedPermissionWrapper,
