@@ -188,7 +188,9 @@ interface ExactProjectionRow {
   lawos_matter_id: string | null;
   created_at: Date | string;
   updated_at: Date | string;
+  creator_user_id: string | null;
   creator_name: string | null;
+  editor_user_id: string | null;
   editor_name: string | null;
   canonical_matter_code: string | null;
   canonical_matter_name: string | null;
@@ -236,8 +238,10 @@ export interface AmicOsVaultExactProjection {
   filename: string;
   created_at: string;
   edited_at: string;
+  creator_user_id: string | null;
   author_name: string | null;
   creator_name: string | null;
+  editor_user_id: string | null;
   indexed_at: string | null;
   match_fields: string[];
   email_message?: AmicOsVaultEmailMessageProjection;
@@ -965,7 +969,9 @@ export class AmicOsVaultReadService {
         returned_count: pageItems.length,
         current_version_only: true,
         omitted_result_count: null,
-        ...(needsLocalPage ? { has_more: pageStart + pageItems.length < filtered.length } : {}),
+        has_more: needsLocalPage
+          ? pageStart + pageItems.length < filtered.length
+          : response.total > input.page * input.pageSize,
         ...(criteria ? {
           email_date_basis: criteria.dateBasis,
           email_sort: criteria.sort,
@@ -1071,8 +1077,10 @@ export class AmicOsVaultReadService {
             d.amic_os_metadata_code,
             d.created_at,
             d.updated_at,
+            creator_identity.identity_value_normalized AS creator_user_id,
             CASE WHEN email.email_id IS NOT NULL OR attachment_filing.filer_user_id IS NOT NULL
               THEN filer.name ELSE creator.name END AS creator_name,
+            editor_identity.identity_value_normalized AS editor_user_id,
             editor.name AS editor_name,
             CASE WHEN d.matter_id = ANY($3::uuid[]) THEN
               coalesce(nullif(m.metadata_json ->> 'lawosMatterCode', ''), m.matter_code)
@@ -1121,6 +1129,11 @@ export class AmicOsVaultReadService {
           LEFT JOIN users editor
             ON editor.tenant_id = dv.tenant_id
            AND editor.user_id = dv.created_by
+          LEFT JOIN user_login_identities editor_identity
+            ON editor_identity.tenant_id = editor.tenant_id
+           AND editor_identity.user_id = editor.user_id
+           AND editor_identity.identity_type = 'account_ledger_id'
+           AND editor_identity.status = 'active'
           LEFT JOIN LATERAL (
             SELECT
               em.email_id,
@@ -1166,6 +1179,11 @@ export class AmicOsVaultReadService {
           LEFT JOIN users filer
             ON filer.tenant_id = d.tenant_id
            AND filer.user_id = coalesce(email.filer_user_id, attachment_filing.filer_user_id)
+          LEFT JOIN user_login_identities creator_identity
+            ON creator_identity.tenant_id = d.tenant_id
+           AND creator_identity.user_id = coalesce(email.filer_user_id, attachment_filing.filer_user_id, d.created_by)
+           AND creator_identity.identity_type = 'account_ledger_id'
+           AND creator_identity.status = 'active'
           WHERE d.tenant_id = $1::uuid
             AND d.document_id = ANY($2::uuid[])
             AND d.status <> 'deleted'
@@ -1256,8 +1274,10 @@ export class AmicOsVaultReadService {
         filename,
         created_at: createdAt,
         edited_at: editedAt,
+        creator_user_id: safeExternalId(exact.creator_user_id),
         author_name: displayText(exact.editor_name, 200),
         creator_name: displayText(exact.creator_name, 200),
+        editor_user_id: safeExternalId(exact.editor_user_id),
         indexed_at: null,
         match_fields: emailMatchFields(item, emailMessage, query),
         ...(emailMessage ? { email_message: emailMessage } : {}),

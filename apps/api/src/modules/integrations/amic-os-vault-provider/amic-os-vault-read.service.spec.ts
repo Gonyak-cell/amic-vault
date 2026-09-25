@@ -13,6 +13,8 @@ import { ExternalService } from '../../external/external.service';
 
 const tenantId = '11111111-1111-4111-8111-111111111111';
 const actorUserId = '22222222-2222-4222-8222-222222222222';
+const uploaderAccountLedgerId = 'user_vault_uploader';
+const editorAccountLedgerId = 'user_vault_editor';
 const vaultMatterId = '33333333-3333-4333-8333-333333333333';
 const vaultClientId = '33333333-3333-4333-8333-333333333334';
 const lawosMatterId = 'lawos-matter-1';
@@ -136,7 +138,9 @@ function emailProjectionRow(input: {
     created_at: new Date('2026-08-20T00:00:00.000Z'),
     updated_at: new Date('2026-08-29T00:00:00.000Z'),
     creator_name: '메일 업로더',
+    creator_user_id: uploaderAccountLedgerId,
     editor_name: '메일 편집자',
+    editor_user_id: editorAccountLedgerId,
     canonical_matter_code: 'AMIC-2026-0001',
     canonical_matter_name: '공급계약 자문',
     canonical_client_id: lawosClientId,
@@ -225,7 +229,9 @@ function createHarness({
             created_at: new Date('2026-08-20T00:00:00.000Z'),
             updated_at: new Date('2026-08-29T00:00:00.000Z'),
             creator_name: '최초 업로더',
+            creator_user_id: uploaderAccountLedgerId,
             editor_name: '현재 편집자',
+            editor_user_id: editorAccountLedgerId,
             canonical_matter_code: labelsReadable ? matterCode : null,
             canonical_matter_name: labelsReadable ? matterName : null,
             canonical_client_id: labelsReadable ? clientId : null,
@@ -283,7 +289,7 @@ function createHarness({
   const searchService = {
     search: vi.fn(async (_context: unknown, searchInput: { page?: number } = {}) => ({
       ...(emailSearchPages
-        ? { results: [...(emailSearchPages[(searchInput.page ?? 1) - 1] ?? [])] }
+        ? { results: [...(emailSearchPages[(searchInput.page ?? 1) - 1] ?? [])], total: 0 }
         : {
       results: [
         result(),
@@ -297,6 +303,7 @@ function createHarness({
           versionId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
         }),
       ],
+      total: 4,
         }),
     })),
   };
@@ -563,8 +570,10 @@ describe('AmicOsVaultReadService', () => {
         filename: 'supply-contract.pdf',
         created_at: '2026-08-20T00:00:00.000Z',
         edited_at: '2026-08-29T00:00:00.000Z',
+        creator_user_id: uploaderAccountLedgerId,
         author_name: '현재 편집자',
         creator_name: '최초 업로더',
+        editor_user_id: editorAccountLedgerId,
         indexed_at: null,
         match_fields: ['title'],
       }],
@@ -572,6 +581,7 @@ describe('AmicOsVaultReadService', () => {
         page: 1,
         page_size: 25,
         returned_count: 1,
+        has_more: false,
         current_version_only: true,
         omitted_result_count: null,
       },
@@ -593,6 +603,17 @@ describe('AmicOsVaultReadService', () => {
     expect(query).toHaveBeenCalledTimes(2);
     expect(JSON.stringify((await service.list(principal, input())).items))
       .not.toMatch(/storage_uri|storage_locator|raw_bytes|content_base64/u);
+  });
+
+  it('reports ordinary list pagination from the scoped search result without exposing totals', async () => {
+    const f = createHarness();
+    f.searchService.search.mockResolvedValueOnce({ results: [result()], total: 51 });
+    f.searchService.search.mockResolvedValueOnce({ results: [result()], total: 51 });
+    const first = await f.service.list(principal, input({ page: 1, pageSize: 50 }));
+    const second = await f.service.list(principal, input({ page: 2, pageSize: 50 }));
+    expect(first.page_info).toMatchObject({ page: 1, returned_count: 1, has_more: true });
+    expect(second.page_info).toMatchObject({ page: 2, returned_count: 1, has_more: false });
+    expect('total' in first.page_info).toBe(false);
   });
 
   it('projects the filing actor for email bodies and linked attachments, and the current version editor', async () => {
@@ -619,12 +640,17 @@ describe('AmicOsVaultReadService', () => {
     ]] });
     const listed = await f.service.list(principal, input());
     expect(listed.items).toHaveLength(2);
-    expect(listed.items.map((item) => ({ creator: item.creator_name, editor: item.author_name })))
-      .toEqual([{ creator: '메일 업로더', editor: '메일 편집자' },
-        { creator: '메일 업로더', editor: '메일 편집자' }]);
+    expect(listed.items.map((item) => ({ creator: item.creator_name, creatorId: item.creator_user_id,
+      editor: item.author_name, editorId: item.editor_user_id })))
+      .toEqual([{ creator: '메일 업로더', creatorId: uploaderAccountLedgerId,
+        editor: '메일 편집자', editorId: editorAccountLedgerId },
+      { creator: '메일 업로더', creatorId: uploaderAccountLedgerId,
+        editor: '메일 편집자', editorId: editorAccountLedgerId }]);
     expect(f.query).toHaveBeenCalledWith(expect.stringContaining('filing.created_by AS filer_user_id'), expect.anything());
     expect(f.query).toHaveBeenCalledWith(expect.stringContaining('FROM email_document_links link'), expect.anything());
     expect(f.query).toHaveBeenCalledWith(expect.stringContaining('editor.user_id = dv.created_by'), expect.anything());
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('creator_identity.user_id = coalesce(email.filer_user_id, attachment_filing.filer_user_id, d.created_by)'), expect.anything());
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('editor_identity.user_id = editor.user_id'), expect.anything());
   });
 
   it('keeps related labels null when document access does not grant Matter label access', async () => {
@@ -634,6 +660,7 @@ describe('AmicOsVaultReadService', () => {
     });
     searchService.search.mockResolvedValueOnce({
       results: [result()],
+      total: 1,
     });
 
     await expect(service.list(principal, input())).resolves.toMatchObject({
@@ -682,7 +709,7 @@ describe('AmicOsVaultReadService', () => {
   it('keeps related labels null when the Matter permission evaluator fails closed', async () => {
     const { permissionService, searchService, service } = createHarness();
     permissionService.canReadMatter.mockRejectedValueOnce(new Error('permission backend unavailable'));
-    searchService.search.mockResolvedValueOnce({ results: [result()] });
+    searchService.search.mockResolvedValueOnce({ results: [result()], total: 1 });
 
     await expect(service.list(principal, input())).resolves.toMatchObject({
       items: [{
