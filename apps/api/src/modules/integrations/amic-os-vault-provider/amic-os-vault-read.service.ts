@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { BadRequestException, ForbiddenException, Inject, Injectable, Optional } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Inject, Injectable, Optional, ServiceUnavailableException } from '@nestjs/common';
 import type {
   SearchDateBasis,
   SearchQueryDto,
@@ -890,10 +890,19 @@ export class AmicOsVaultReadService {
     // Raw EML uploads have no canonical body/chunk index. The searchable
     // text/plain document created by email filing is a separate version.
     if (bodyQuery && input.mimeTypes?.length === 1 && input.mimeTypes[0] === 'message/rfc822') {
-      throw new BadRequestException({
-        code: 'VALIDATION_FAILED',
+      throw new ServiceUnavailableException({
+        code: 'EML_BODY_SEARCH_UNAVAILABLE',
         reason: 'RAW_EML_BODY_SEARCH_UNAVAILABLE',
       });
+    }
+    if (bodyQuery && input.mimeTypes?.length === 1 && input.mimeTypes[0] === 'text/plain') {
+      const enabled = await this.auditService.transaction(principal.tenantId, (tx: QueryClient) => tx.query(
+        `SELECT settings_json->>'emailBodySearchEnabled' AS enabled FROM tenants WHERE tenant_id = $1::uuid LIMIT 1`,
+        [principal.tenantId],
+      ));
+      if (enabled.rows.length !== 1 || (enabled.rows[0] as { enabled: string | null }).enabled === 'false') {
+        throw new ServiceUnavailableException({ code: 'EML_BODY_SEARCH_UNAVAILABLE', reason: 'EMAIL_BODY_INDEX_DISABLED' });
+      }
     }
     const searchQuery = bodyQuery ?? input.query;
     const criteria = emailCriteria(input);

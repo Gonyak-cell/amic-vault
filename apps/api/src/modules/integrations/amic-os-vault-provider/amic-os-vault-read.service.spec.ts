@@ -197,6 +197,7 @@ function createHarness({
   const mismatchedDocumentId = '88888888-8888-4888-8888-888888888888';
   const query = vi.fn(async (sql: string, params: unknown[] = []) => {
     if (sql.includes('INSERT INTO document_preview_artifacts')) return { rowCount: 1, rows: [] };
+    if (sql.includes("emailBodySearchEnabled")) return { rowCount: 1, rows: [{ enabled: null }] };
     if (sql.includes('FROM matters')) {
       return { rowCount: 1, rows: [{ matter_id: vaultMatterId }] };
     }
@@ -869,8 +870,18 @@ describe('AmicOsVaultReadService', () => {
       bodyQuery: 'late phrase after one megabyte',
       mimeTypes: ['message/rfc822'],
     }))).rejects.toMatchObject({
-      response: { code: 'VALIDATION_FAILED', reason: 'RAW_EML_BODY_SEARCH_UNAVAILABLE' },
+      response: { code: 'EML_BODY_SEARCH_UNAVAILABLE', reason: 'RAW_EML_BODY_SEARCH_UNAVAILABLE' },
     });
+    expect(searchService.search).not.toHaveBeenCalled();
+  });
+
+  it('reports a disabled filed-email body index instead of an empty search', async () => {
+    const { query, searchService, service } = createHarness();
+    query.mockImplementation(async (sql: string) => sql.includes('emailBodySearchEnabled')
+      ? { rowCount: 1, rows: [{ enabled: 'false' }] }
+      : { rowCount: 1, rows: [{ matter_id: vaultMatterId }] });
+    await expect(service.search(principal, input({ bodyQuery: 'late phrase', mimeTypes: ['text/plain'] })))
+      .rejects.toMatchObject({ response: { code: 'EML_BODY_SEARCH_UNAVAILABLE', reason: 'EMAIL_BODY_INDEX_DISABLED' } });
     expect(searchService.search).not.toHaveBeenCalled();
   });
 
