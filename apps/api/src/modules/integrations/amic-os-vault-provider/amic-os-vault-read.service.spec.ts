@@ -951,6 +951,7 @@ describe('AmicOsVaultReadService', () => {
       page: 1,
       page_size: 1,
       returned_count: 1,
+      has_more: true,
       email_date_basis: 'event_at',
       email_sort: 'event_at',
       email_sort_order: 'desc',
@@ -969,6 +970,7 @@ describe('AmicOsVaultReadService', () => {
       pageSize: 1,
     }));
     expect(second.items).toHaveLength(1);
+    expect(second.page_info.has_more).toBe(false);
     expect(second.items[0]).toMatchObject({
       document_id: sentEmailDocumentId,
       email_message: {
@@ -1003,6 +1005,7 @@ describe('AmicOsVaultReadService', () => {
     expect(receivedOnly.items).toHaveLength(1);
     expect(receivedOnly.items[0]).toMatchObject({ document_id: receivedEmailDocumentId });
     expect(receivedOnly.page_info).toMatchObject({
+      has_more: false,
       email_date_basis: 'received_at',
       email_sort: 'received_at',
       email_sort_order: 'asc',
@@ -1054,6 +1057,51 @@ describe('AmicOsVaultReadService', () => {
     expect(f.searchService.search).toHaveBeenCalledTimes(3);
     expect(response.items).toHaveLength(1);
     expect(response.items[0]?.document_id).toBe(fixtures[101]?.result.documentId);
+  });
+
+  it('reports has_more across the 50/51 email page boundary after exact projection', async () => {
+    const fixtures = Array.from({ length: 51 }, (_, index) => {
+      const suffix = String(index + 200).padStart(12, '0');
+      const currentDocumentId = `aaaabbbb-aaaa-4aaa-8aaa-${suffix}`;
+      const currentVersionId = `bbbbcccc-bbbb-4bbb-8bbb-${suffix}`;
+      const currentFileObjectId = `ccccdddd-cccc-4ccc-8ccc-${suffix}`;
+      return {
+        result: result({ documentId: currentDocumentId, versionId: currentVersionId, documentType: 'email' }),
+        row: emailProjectionRow({
+          documentId: currentDocumentId,
+          versionId: currentVersionId,
+          fileObjectId: currentFileObjectId,
+          emailId: `ddddaaaa-dddd-4ddd-8ddd-${suffix}`,
+          subject: `Email ${index}`,
+          sentAt: `2026-08-${String(1 + Math.floor(index / 24)).padStart(2, '0')}T${String(index % 24).padStart(2, '0')}:00:00.000Z`,
+          receivedAt: null,
+          filedAt: '2026-08-31T00:00:00.000Z',
+          storageUri: `s3://private/email-${index}.eml`,
+          mimeType: 'text/plain',
+          rawFileObjectId: currentFileObjectId,
+          rawSha256: 'a'.repeat(64),
+          rawSizeBytes: '64',
+          rawMimeType: 'message/rfc822',
+          rawFilename: `email-${index}.eml`,
+        }),
+      };
+    });
+    const f = createHarness({
+      exactRows: fixtures.map(({ row }) => row),
+      emailSearchPages: [
+        fixtures.slice(0, 50).map(({ result: item }) => item),
+        fixtures.slice(50).map(({ result: item }) => item),
+      ],
+      storageBody: Buffer.from('Message-ID: <fixture@example.test>\r\nFrom: sender@example.test\r\nTo: recipient@example.test\r\n\r\n'),
+    });
+    const first = await f.service.search(principal, input({ emailSort: 'event_at', page: 1, pageSize: 50 }));
+    const second = await f.service.search(principal, input({ emailSort: 'event_at', page: 2, pageSize: 50 }));
+    expect(first.items).toHaveLength(50);
+    expect(first.page_info).toMatchObject({ page: 1, returned_count: 50, has_more: true, omitted_result_count: null });
+    expect(second.items).toHaveLength(1);
+    expect(second.page_info).toMatchObject({ page: 2, returned_count: 1, has_more: false, omitted_result_count: null });
+    expect(second.items[0]?.document_id).toBe(fixtures[0]?.result.documentId);
+    expect(f.searchService.search).toHaveBeenCalledTimes(4);
   });
 
   it('omits email search hits when the filed EML source or its headers cannot be read', async () => {

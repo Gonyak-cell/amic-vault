@@ -268,6 +268,7 @@ export interface AmicOsVaultReadResponse {
     returned_count: number;
     current_version_only: true;
     omitted_result_count: null;
+    has_more?: boolean;
     email_date_basis?: EmailTimeField;
     email_sort?: EmailTimeField;
     email_sort_order?: 'asc' | 'desc';
@@ -953,6 +954,7 @@ export class AmicOsVaultReadService {
         returned_count: pageItems.length,
         current_version_only: true,
         omitted_result_count: null,
+        ...(criteria ? { has_more: pageStart + pageItems.length < filtered.length } : {}),
         ...(criteria ? {
           email_date_basis: criteria.dateBasis,
           email_sort: criteria.sort,
