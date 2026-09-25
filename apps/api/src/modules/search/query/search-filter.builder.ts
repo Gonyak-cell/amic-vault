@@ -116,6 +116,20 @@ export class SearchFilterBuilder {
       input.scope ?? denyAllSearchScope,
       { sql: 'idx.document_status <> ?', params: ['deleted'] },
       { sql: promotedDocumentExistsSql('idx', 'idx'), params: [] },
+      { sql: `EXISTS (
+        SELECT 1
+        FROM documents current_document
+        JOIN document_versions current_version
+          ON current_version.tenant_id = current_document.tenant_id
+          AND current_version.document_id = current_document.document_id
+          AND current_version.version_id = idx.version_id
+        WHERE current_document.tenant_id = idx.tenant_id
+          AND current_document.document_id = idx.document_id
+          AND current_document.matter_id = idx.matter_id
+          AND current_document.status = idx.document_status
+          AND current_document.status <> 'deleted'
+          AND current_version.version_status = idx.version_status
+      )`, params: [] },
     ];
 
     const versionStatus: SearchVersionStatus = filters.versionStatus ?? 'current';

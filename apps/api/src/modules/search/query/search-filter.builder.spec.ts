@@ -30,6 +30,17 @@ describe('SearchFilterBuilder', () => {
     expect(built.params).toEqual(['deleted', 'current']);
   });
 
+  it('rechecks live document placement, status, and version before returning indexed text', () => {
+    const built = new SearchFilterBuilder().build({ scope: tenantScope() });
+    expect(built.whereSql).toContain('current_document.tenant_id = idx.tenant_id');
+    expect(built.whereSql).toContain('current_document.document_id = idx.document_id');
+    expect(built.whereSql).toContain('current_document.matter_id = idx.matter_id');
+    expect(built.whereSql).toContain('current_document.status = idx.document_status');
+    expect(built.whereSql).toContain('current_version.version_id = idx.version_id');
+    expect(built.whereSql).toContain('current_version.version_status = idx.version_status');
+    expect(built.params).toEqual([tenantId, 'deleted', 'current']);
+  });
+
   it('AND-combines scope and metadata filters with bound parameters', () => {
     const built = new SearchFilterBuilder().build({
       scope: tenantScope(),
@@ -63,6 +74,20 @@ describe('SearchFilterBuilder', () => {
         '      AND promotion.document_id = idx.document_id',
         '      AND promotion.version_id = idx.version_id',
         '  ))',
+        '  AND (EXISTS (',
+        '        SELECT 1',
+        '        FROM documents current_document',
+        '        JOIN document_versions current_version',
+        '          ON current_version.tenant_id = current_document.tenant_id',
+        '          AND current_version.document_id = current_document.document_id',
+        '          AND current_version.version_id = idx.version_id',
+        '        WHERE current_document.tenant_id = idx.tenant_id',
+        '          AND current_document.document_id = idx.document_id',
+        '          AND current_document.matter_id = idx.matter_id',
+        '          AND current_document.status = idx.document_status',
+        "          AND current_document.status <> 'deleted'",
+        '          AND current_version.version_status = idx.version_status',
+        '      ))',
         '  AND (idx.version_status = $3)',
         '  AND (idx.matter_id = $4)',
         '  AND (idx.client_id = $5)',

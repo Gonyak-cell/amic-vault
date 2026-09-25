@@ -58,6 +58,7 @@ interface SearchIndexSourceRow {
   next_version_id: string | null;
   title: string;
   body_text: string | null;
+  extraction_status: string | null;
   extraction_method: string | null;
   extraction_confidence: number | string | null;
   document_updated_at: Date;
@@ -157,9 +158,9 @@ export class SearchIndexRepository {
   ): Promise<SearchIndexRow | null> {
     const source = await this.findSource(client, input);
     if (!source) return null;
-    const contentText = source.body_text ?? '';
-    const extractionConfidence =
-      source.extraction_confidence === null ? null : Number(source.extraction_confidence);
+    const contentText = source.extraction_status === 'ready' ? source.body_text ?? '' : '';
+    const extractionConfidence = source.extraction_status === 'ready' && source.extraction_confidence !== null
+      ? Number(source.extraction_confidence) : null;
     const ocrLowConfidence =
       source.extraction_method === 'ocr' &&
       extractionConfidence !== null &&
@@ -280,7 +281,8 @@ export class SearchIndexRepository {
           ) AS next_version_id,
           d.document_type, d.status AS document_status, dv.version_status,
           coalesce(d.amic_os_filename, d.title) AS title,
-          cd.body_text, cd.extraction_method, cd.confidence AS extraction_confidence,
+          cd.body_text, cd.extraction_status, cd.extraction_method,
+          cd.confidence AS extraction_confidence,
           d.updated_at AS document_updated_at
         FROM document_versions dv
         JOIN documents d
