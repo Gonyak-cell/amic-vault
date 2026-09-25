@@ -462,18 +462,25 @@ describe('DlpService', () => {
     new SensitiveDataDetector(), { canReadDocument: vi.fn(async () => ({ effect: 'ALLOW' })) } as unknown as PermissionService);
     const request = { decision: 'allow' as const, reasonCode: 'business_justified' as const,
       expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    const providerScope = { documentId, versionId, requestId: 'synthetic-provider-request',
+      decisionRef: 'synthetic-os-decision' };
     await expect(service.createClientDocumentReview({ tenantId, userId: sourceId }, assessmentId, request,
-      { documentId, versionId }, tx)).resolves.toMatchObject({ review: { assessmentId, reviewId }, auditEventId: sourceId });
+      providerScope, tx)).resolves.toMatchObject({ review: { assessmentId, reviewId }, auditEventId: sourceId });
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ action: 'DLP_REVIEW_RECORDED',
+      metadata: expect.objectContaining({ request_id: providerScope.requestId,
+        correlation_id: providerScope.requestId, decision_ref: providerScope.decisionRef,
+        document_id: documentId, version_id: versionId, dlp_assessment_id: assessmentId,
+        dlp_review_id: reviewId }) }), tx);
     expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO dlp_review_decisions'))).toBe(true);
     query.mockClear();
     currentId = reviewId;
     await expect(service.createClientDocumentReview({ tenantId, userId: sourceId }, assessmentId, request,
-      { documentId, versionId }, tx)).rejects.toThrow();
+      providerScope, tx)).rejects.toThrow();
     expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO dlp_review_decisions'))).toBe(false);
     query.mockClear();
     currentId = assessmentId;
     await expect(service.createClientDocumentReview({ tenantId, userId: sourceId }, assessmentId, request,
-      { documentId: versionId, versionId }, tx)).rejects.toThrow();
+      { ...providerScope, documentId: versionId }, tx)).rejects.toThrow();
     expect(query.mock.calls.some(([sql]) => sql.includes('INSERT INTO dlp_review_decisions'))).toBe(false);
   });
 

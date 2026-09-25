@@ -417,13 +417,17 @@ export class DlpService {
   }
 
   async createClientDocumentReview(ctx: PermissionContext, assessmentId: string,
-    input: CreateDlpReviewRequestDto, clientDocument: { documentId: string; versionId: string },
+    input: CreateDlpReviewRequestDto, clientDocument: {
+      documentId: string; versionId: string; requestId: string; decisionRef: string;
+    },
     client: QueryClient): Promise<{ review: DlpReviewResponseDto; auditEventId: string }> {
     return this.recordReview(ctx, assessmentId, input, clientDocument, client);
   }
 
   private async recordReview(ctx: PermissionContext, assessmentId: string,
-    input: CreateDlpReviewRequestDto, clientDocument?: { documentId: string; versionId: string },
+    input: CreateDlpReviewRequestDto, clientDocument?: {
+      documentId: string; versionId: string; requestId: string; decisionRef: string;
+    },
     providedClient?: QueryClient): Promise<{ review: DlpReviewResponseDto; auditEventId: string }> {
     if (!uuidPattern.test(assessmentId)) throw validationFailed('DLP_ASSESSMENT_ID_INVALID');
     if (
@@ -492,11 +496,10 @@ export class DlpService {
           targetType: 'dlp_assessment',
           targetId: assessment.assessment_id,
           matterId: assessment.matter_id,
-          metadata: this.egressAuditMetadata(assessment, {
-            purpose: 'manual_review',
-            review,
-            reasonCode: review.reason_code,
-          }),
+          metadata: { ...this.egressAuditMetadata(assessment, {
+            purpose: 'manual_review', review, reasonCode: review.reason_code,
+          }), ...(clientDocument ? { request_id: clientDocument.requestId,
+            correlation_id: clientDocument.requestId, decision_ref: clientDocument.decisionRef } : {}) },
         },
         client,
       );

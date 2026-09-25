@@ -93,7 +93,8 @@ export class AmicOsVaultClientService {
         await this.entryRow(tx, authority, scope, documentId, versionId);
         const { review, auditEventId } = await this.dlp.createClientDocumentReview(
           { tenantId: authority.tenantId, userId: authority.actorUserId },
-          String(envelope.input.assessment_id), input, { documentId, versionId }, tx);
+          String(envelope.input.assessment_id), input,
+          { documentId, versionId, requestId: authority.requestId, decisionRef: authority.decisionRef }, tx);
         return this.respond(tx, authority, envelope,
           { document_id: documentId, version_id: versionId, assessment_id: review.assessmentId,
             review_id: review.reviewId, decision: review.decision, reason_code: review.reasonCode,

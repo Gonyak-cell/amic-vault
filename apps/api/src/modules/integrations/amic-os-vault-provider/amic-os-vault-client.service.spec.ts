@@ -96,7 +96,9 @@ describe('AMIC OS Client exact-version provider', () => {
       .toMatchObject({ document_id: documentId, version_id: versionId, assessment_id: scopeId,
         expires_at: expiresAt });
     expect(dlp.createClientDocumentReview).toHaveBeenCalledWith({ tenantId, userId: actorUserId }, scopeId,
-      { decision: 'allow', reasonCode: 'business_justified', expiresAt }, { documentId, versionId }, expect.anything());
+      { decision: 'allow', reasonCode: 'business_justified', expiresAt },
+      { documentId, versionId, requestId: envelope.request_id,
+        decisionRef: envelope.authorization.decision_ref }, expect.anything());
     expect(audit.log).not.toHaveBeenCalled();
     expect((response.body as { audit: { event_id: string } }).audit.event_id).toBe(scopeId);
     expect(getByStorageUri).not.toHaveBeenCalled();
