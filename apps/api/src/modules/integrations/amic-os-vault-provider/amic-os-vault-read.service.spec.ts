@@ -136,6 +136,7 @@ function emailProjectionRow(input: {
     created_at: new Date('2026-08-20T00:00:00.000Z'),
     updated_at: new Date('2026-08-29T00:00:00.000Z'),
     creator_name: '메일 업로더',
+    editor_name: '메일 편집자',
     canonical_matter_code: 'AMIC-2026-0001',
     canonical_matter_name: '공급계약 자문',
     canonical_client_id: lawosClientId,
@@ -222,6 +223,7 @@ function createHarness({
             created_at: new Date('2026-08-20T00:00:00.000Z'),
             updated_at: new Date('2026-08-29T00:00:00.000Z'),
             creator_name: '최초 업로더',
+            editor_name: '현재 편집자',
             canonical_matter_code: labelsReadable ? matterCode : null,
             canonical_matter_name: labelsReadable ? matterName : null,
             canonical_client_id: labelsReadable ? clientId : null,
@@ -240,6 +242,7 @@ function createHarness({
             created_at: new Date('2026-08-20T00:00:00.000Z'),
             updated_at: new Date('2026-08-29T00:00:00.000Z'),
             creator_name: '최초 업로더',
+            editor_name: '현재 편집자',
             canonical_matter_code: labelsReadable ? matterCode : null,
             canonical_matter_name: labelsReadable ? matterName : null,
             canonical_client_id: labelsReadable ? clientId : null,
@@ -258,6 +261,7 @@ function createHarness({
             created_at: new Date('2026-08-20T00:00:00.000Z'),
             updated_at: new Date('2026-08-29T00:00:00.000Z'),
             creator_name: '최초 업로더',
+            editor_name: '현재 편집자',
             canonical_matter_code: labelsReadable ? matterCode : null,
             canonical_matter_name: labelsReadable ? matterName : null,
             canonical_client_id: labelsReadable ? clientId : null,
@@ -587,6 +591,38 @@ describe('AmicOsVaultReadService', () => {
     expect(query).toHaveBeenCalledTimes(2);
     expect(JSON.stringify((await service.list(principal, input())).items))
       .not.toMatch(/storage_uri|storage_locator|raw_bytes|content_base64/u);
+  });
+
+  it('projects the filing actor for email bodies and linked attachments, and the current version editor', async () => {
+    const body = emailProjectionRow({
+      documentId: receivedEmailDocumentId,
+      versionId: receivedEmailVersionId,
+      fileObjectId: receivedEmailFileObjectId,
+      emailId: receivedEmailId,
+      subject: '받은 메일',
+      sentAt: null,
+      receivedAt: '2026-08-28T15:00:00.000Z',
+      filedAt: '2026-08-28T16:00:00.000Z',
+      storageUri: 's3://private/received.eml',
+      mimeType: 'text/plain',
+    });
+    const attachment = { ...body, document_id: sentEmailDocumentId, version_id: sentEmailVersionId,
+      file_object_id: sentEmailFileObjectId, email_id: null, normalized_filename: 'attachment.pdf',
+      mime_type: 'application/pdf' };
+    const f = createHarness({ exactRows: [body, attachment], emailSearchPages: [[
+      result({ documentId: receivedEmailDocumentId, versionId: receivedEmailVersionId,
+        documentType: 'email', author: { userId: actorUserId, displayName: '오래된 검색 인덱스 작성자' } }),
+      result({ documentId: sentEmailDocumentId, versionId: sentEmailVersionId,
+        author: { userId: actorUserId, displayName: '오래된 검색 인덱스 작성자' } }),
+    ]] });
+    const listed = await f.service.list(principal, input());
+    expect(listed.items).toHaveLength(2);
+    expect(listed.items.map((item) => ({ creator: item.creator_name, editor: item.author_name })))
+      .toEqual([{ creator: '메일 업로더', editor: '메일 편집자' },
+        { creator: '메일 업로더', editor: '메일 편집자' }]);
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('filing.created_by AS filer_user_id'), expect.anything());
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('FROM email_document_links link'), expect.anything());
+    expect(f.query).toHaveBeenCalledWith(expect.stringContaining('editor.user_id = dv.created_by'), expect.anything());
   });
 
   it('keeps related labels null when document access does not grant Matter label access', async () => {

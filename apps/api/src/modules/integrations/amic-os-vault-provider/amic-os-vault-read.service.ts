@@ -185,6 +185,7 @@ interface ExactProjectionRow {
   created_at: Date | string;
   updated_at: Date | string;
   creator_name: string | null;
+  editor_name: string | null;
   canonical_matter_code: string | null;
   canonical_matter_name: string | null;
   canonical_client_id: string | null;
@@ -1055,7 +1056,9 @@ export class AmicOsVaultReadService {
             f.normalized_filename,
             d.created_at,
             d.updated_at,
-            creator.name AS creator_name,
+            CASE WHEN email.email_id IS NOT NULL OR attachment_filing.filer_user_id IS NOT NULL
+              THEN filer.name ELSE creator.name END AS creator_name,
+            editor.name AS editor_name,
             CASE WHEN d.matter_id = ANY($3::uuid[]) THEN
               coalesce(nullif(m.metadata_json ->> 'lawosMatterCode', ''), m.matter_code)
             END AS canonical_matter_code,
@@ -1100,9 +1103,13 @@ export class AmicOsVaultReadService {
           LEFT JOIN users creator
             ON creator.tenant_id = d.tenant_id
            AND creator.user_id = d.created_by
+          LEFT JOIN users editor
+            ON editor.tenant_id = dv.tenant_id
+           AND editor.user_id = dv.created_by
           LEFT JOIN LATERAL (
             SELECT
               em.email_id,
+              filing.created_by AS filer_user_id,
               em.subject,
               em.sent_at,
               em.received_at,
@@ -1126,9 +1133,24 @@ export class AmicOsVaultReadService {
             WHERE filing.tenant_id = d.tenant_id
               AND filing.matter_id = d.matter_id
               AND filing.body_document_id = d.document_id
-            ORDER BY filing.created_at DESC, em.email_id ASC
+            ORDER BY filing.created_at ASC, filing.filing_id ASC
             LIMIT 1
           ) email ON true
+          LEFT JOIN LATERAL (
+            SELECT filing.created_by AS filer_user_id
+            FROM email_document_links link
+            JOIN email_matter_filings filing
+              ON filing.tenant_id = link.tenant_id
+             AND filing.email_id = link.email_id
+             AND filing.matter_id = d.matter_id
+            WHERE link.tenant_id = d.tenant_id
+              AND link.document_id = d.document_id
+            ORDER BY filing.created_at ASC, filing.filing_id ASC
+            LIMIT 1
+          ) attachment_filing ON true
+          LEFT JOIN users filer
+            ON filer.tenant_id = d.tenant_id
+           AND filer.user_id = coalesce(email.filer_user_id, attachment_filing.filer_user_id)
           WHERE d.tenant_id = $1::uuid
             AND d.document_id = ANY($2::uuid[])
             AND d.status <> 'deleted'
@@ -1216,7 +1238,7 @@ export class AmicOsVaultReadService {
         filename: exact.normalized_filename,
         created_at: createdAt,
         edited_at: editedAt,
-        author_name: displayText(item.author?.displayName, 200),
+        author_name: displayText(exact.editor_name, 200),
         creator_name: displayText(exact.creator_name, 200),
         indexed_at: null,
         match_fields: emailMatchFields(item, emailMessage, query),
