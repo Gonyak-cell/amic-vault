@@ -23,7 +23,7 @@ type ReconciliationIssueCode =
 
 interface ReconciliationScanRow {
   scan_id: string;
-  matter_id: string;
+  matter_id: string | null;
   client_scope_id?: string | null;
   quarantine_ref: string;
   quarantine_storage_uri: string;
@@ -38,7 +38,7 @@ interface ReconciliationScanRow {
 interface RetryTarget {
   tenant_id: string;
   scan_id: string;
-  matter_id: string;
+  matter_id: string | null;
   client_scope_id?: string | null;
   quarantine_ref: string;
   quarantine_storage_uri: string;
@@ -242,7 +242,7 @@ export class FileSecurityReconcilerService implements OnModuleInit {
       if (!current || current.tenant_id !== input.tenantId) throw permissionDenied();
       if (current.legal_hold) throw documentLocked();
       if (current.state === 'infected' || current.state === 'promoted') throw permissionDenied();
-      const canPromote = current.state === 'clean'
+      const canPromote = !current.client_scope_id && current.state === 'clean'
         && current.result_code === 'clean'
         && !current.promotion_file_object_id
         && fileSecuritySignatureIsFresh(current.signature_at);
@@ -256,7 +256,7 @@ export class FileSecurityReconcilerService implements OnModuleInit {
           action: 'FILE_SECURITY_RECONCILIATION_RETRY_REQUESTED',
           targetType: 'file_security_scan',
           targetId: current.scan_id,
-          matterId: current.matter_id,
+          ...(current.matter_id ? { matterId: current.matter_id } : {}),
           result: 'success',
           metadata: { hash: current.expected_sha256, reason_code: input.reasonCode },
         },
@@ -374,7 +374,22 @@ export class FileSecurityReconcilerService implements OnModuleInit {
     const result = client
       ? await client.query(sql, [tenantId, scanId])
       : await tenantQuery<RetryTarget>(this.databaseService, tenantId, sql, [tenantId, scanId]);
-    return (result.rows[0] as RetryTarget | undefined) ?? null;
+    if (result.rows[0]) return result.rows[0] as RetryTarget;
+    const clientSql = `
+      SELECT s.tenant_id, s.scan_id, s.matter_id, s.client_scope_id, s.quarantine_ref,
+        s.quarantine_storage_uri, s.expected_sha256, s.state, s.result_code, s.signature_at,
+        false AS legal_hold, p.file_object_id AS promotion_file_object_id
+      FROM file_security_scans s
+      JOIN client_document_scopes c ON c.tenant_id = s.tenant_id AND c.client_scope_id = s.client_scope_id
+        AND c.status = 'active'
+      LEFT JOIN file_security_promotions p ON p.tenant_id = s.tenant_id AND p.scan_id = s.scan_id
+      WHERE s.tenant_id = $1 AND s.scan_id = $2 AND s.matter_id IS NULL
+      LIMIT 1${lock ? ' FOR UPDATE OF s, c' : ''}
+    `;
+    const clientResult = client
+      ? await client.query(clientSql, [tenantId, scanId])
+      : await tenantQuery<RetryTarget>(this.databaseService, tenantId, clientSql, [tenantId, scanId]);
+    return (clientResult.rows[0] as RetryTarget | undefined) ?? null;
   }
 
   private async assertSecurityAdmin(tenantId: string, actorUserId: string): Promise<void> {

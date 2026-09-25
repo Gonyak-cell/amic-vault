@@ -339,9 +339,11 @@ export class AmicOsVaultClientService {
       sha256: row.sha256, byte_size: size, mime_type: row.mime_type };
   }
   private entry(authority: Readonly<ClientDocumentAuthority>, row: EntryRow) {
+    const status = row.legal_hold || row.status === 'disposal_locked' ? 'held'
+      : row.status === 'archived' ? 'archived' : 'active';
     return { document: { tenant_id: authority.osTenantId, document_id: row.document_id,
       workspace_id: authority.workspaceRef, party_id: authority.partyId, matter_id: null,
-      title: row.title, status: row.status, current_version_id: row.current_version_id,
+      title: row.title, status, current_version_id: row.current_version_id,
       metadata_revision: row.client_metadata_revision, client_document: row.client_document_metadata,
       created_at: row.created_at.toISOString(), updated_at: (row.updated_at ?? row.created_at).toISOString() },
     exact_version: this.exact(row), version_number: row.version_no };

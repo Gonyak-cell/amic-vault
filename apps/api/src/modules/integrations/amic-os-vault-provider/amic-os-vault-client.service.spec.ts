@@ -5,7 +5,7 @@ import type { AuditService, QueryClient } from '../../audit/audit.service';
 import type { DlpService } from '../../dlp/dlp.service';
 import type { DocumentVersionService } from '../../document/document-version.service';
 import type { FileScanQueueService } from '../../file-security/file-scan-queue.service';
-import type { ClientDocumentAuthorityContext } from '../../permission/client-document-authority';
+import type { ClientDocumentAction, ClientDocumentAuthorityContext } from '../../permission/client-document-authority';
 import type { PermissionService } from '../../permission/permission.service';
 import type { FileObjectService } from '../../storage/file-object.service';
 import type { StorageService } from '../../storage/storage.service';
@@ -23,9 +23,9 @@ const bytes = Buffer.from('synthetic exact client document bytes');
 const digest = createHash('sha256').update(bytes).digest('hex');
 const storageUri = `s3://synthetic/tenants/${tenantId}/clients/${scopeId}/documents/${documentId}/${fileObjectId}`;
 
-function fixture() {
+function fixture(action: ClientDocumentAction = 'dms:document:download') {
   const authority = { tenantId, actorUserId, osTenantId: 'lawos-test', partyId: 'party-1',
-    workspaceRef: clientWorkspaceRef('lawos-test', 'party-1'), action: 'dms:document:download' as const,
+    workspaceRef: clientWorkspaceRef('lawos-test', 'party-1'), action,
     decisionRef: 'synthetic-decision', requestId: 'synthetic-request' };
   const envelope = { schema_version: 'amic-os.client-documents.v1', request_id: authority.requestId,
     principal: { tenant_id: authority.osTenantId, user_id: 'account-ledger-1' },
@@ -48,6 +48,7 @@ function fixture() {
   const audit = { transaction: vi.fn(async (_tenantId: string, run: (client: QueryClient) => Promise<unknown>) => run(tx)),
     log: vi.fn(async () => ({ eventId: '11111111-1111-4111-8111-111111111117' })) };
   const permissions = { canAccessClientScope: vi.fn(async () => ({ effect: 'ALLOW' })),
+    canReadDocument: vi.fn(async () => ({ effect: 'ALLOW' })),
     canDownloadDocument: vi.fn(async () => ({ effect: 'ALLOW' })) };
   const getByStorageUri = vi.fn(async () => ({ body: Readable.from([bytes]), contentLength: bytes.length,
     contentType: 'application/pdf' }));
@@ -58,10 +59,26 @@ function fixture() {
     { current: () => authority } as unknown as ClientDocumentAuthorityContext,
     storage as unknown as StorageService, {} as FileObjectService, {} as DocumentVersionService,
     dlp as unknown as DlpService, {} as FileScanQueueService);
-  return { service, envelope, permissions, getByStorageUri, dlp, audit, entry };
+  return { service, envelope, authority, permissions, getByStorageUri, dlp, audit, entry };
 }
 
 describe('AMIC OS Client exact-version provider', () => {
+  it('projects Vault lifecycle to the OS contract without changing document visibility', async () => {
+    const { service, envelope, entry, permissions } = fixture('dms:document:read');
+    envelope.input = { document_id: documentId };
+    for (const [vaultStatus, legalHold, expected] of [
+      ['draft', false, 'active'], ['internal_review', false, 'active'],
+      ['draft', true, 'held'], ['disposal_locked', false, 'held'],
+      ['archived', false, 'archived'],
+    ] as const) {
+      entry.status = vaultStatus;
+      entry.legal_hold = legalHold;
+      const response = await service.execute('metadata/read', envelope);
+      expect((response.body as { result: { document: { status: string } } }).result.document.status).toBe(expected);
+    }
+    expect(permissions.canReadDocument).toHaveBeenCalledTimes(5);
+  });
+
   it('returns exact bytes with digest and audit only after current permission and DLP allow', async () => {
     const { service, envelope, getByStorageUri, dlp, audit } = fixture();
     const response = await service.execute('documents/download', envelope);
