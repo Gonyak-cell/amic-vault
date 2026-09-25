@@ -432,6 +432,17 @@ function emailMatchFields(
   return fields.length > 0 ? fields : inputMatchFields(item);
 }
 
+function emailHeaderMatchesQuery(
+  message: AmicOsVaultEmailMessageProjection,
+  query: string | null,
+): boolean {
+  if (!query?.trim()) return true;
+  const needle = query.normalize('NFC').trim().toLocaleLowerCase();
+  return Boolean(message.subject?.normalize('NFC').toLocaleLowerCase().includes(needle)
+    || message.from?.toLocaleLowerCase().includes(needle)
+    || message.to.some((address) => address.toLocaleLowerCase().includes(needle)));
+}
+
 async function readEmailHeaderPrefix(body: NodeJS.ReadableStream | Buffer): Promise<string | null> {
   const bytes: Buffer[] = [];
   let length = 0;
@@ -1167,6 +1178,8 @@ export class AmicOsVaultReadService {
       const emailMessage = emailByDocument.get(item.documentId);
       const emailSource = exact.email_id ? emailSourceForRow(exact) : null;
       if (criteria && (!emailMessage || !emailSource)) return [];
+      if (criteria && emailMessage && !emailHeaderMatchesQuery(emailMessage, query)
+          && !item.snippet?.trim()) return [];
       emitted.add(item.documentId);
       return [{
         document_id: item.documentId,
