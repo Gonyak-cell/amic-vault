@@ -32,6 +32,15 @@ client = TestClient(app)
 _stored_objects: dict[str, WorkerStoredObject] = {}
 
 
+def test_hwp_mime_aliases_keep_binary_extraction_and_generic_ole_fails_closed() -> None:
+    source = _hwp_binary_fixture()
+    for mime in ("application/haansofthwp", "application/x-ole-storage"):
+        assert extract_router._extension_from_stored_object(WorkerStoredObject(source, mime)) == "hwp"
+    assert extract_router._extension_from_stored_object(
+        WorkerStoredObject(b"\xd0\xcf\x11\xe0not-hwp", "application/x-ole-storage")
+    ) == ""
+
+
 def _fake_read_ingestion_object(job):
     return _stored_objects[job.objectKey]
 
