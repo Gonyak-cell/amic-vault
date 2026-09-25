@@ -23,6 +23,7 @@ type PromotionRow = {
   scan_id: string;
   tenant_id: string;
   matter_id: string;
+  client_scope_id?: string | null;
   quarantine_storage_uri: string;
   expected_sha256: string;
   observed_sha256: string | null;
@@ -121,6 +122,8 @@ export class FilePromotionService {
   async promote(payload: FileSecurityScanJobPayload): Promise<FilePromotionResult | null> {
     const row = await this.findPromotionRow(payload);
     if (!row) throw promotionFailure('FILE_SECURITY_SCAN_NOT_FOUND');
+    // Client promotion requires a fresh guarded completion command; workers never grant it.
+    if (row.client_scope_id) return null;
     if (row.state === 'promoted') return this.existingPromotion(row);
     if (row.state !== 'clean') return null;
     if (
@@ -250,7 +253,7 @@ export class FilePromotionService {
       this.databaseService,
       payload.tenantId,
       `
-        SELECT s.scan_id, s.tenant_id, s.matter_id, s.quarantine_storage_uri,
+        SELECT s.scan_id, s.tenant_id, s.matter_id, s.client_scope_id, s.quarantine_storage_uri,
           s.expected_sha256, s.observed_sha256, s.size_bytes::text, s.state, s.result_code,
           s.signature_at, i.original_filename, i.normalized_filename, i.mime_type,
           i.source_system, i.created_by, i.fields_json, t.slug, t.status AS tenant_status,

@@ -10,6 +10,15 @@
     "REJECTED": "cannot be used by a downstream implementation"
   },
   "l0IneligiblePaths": [
+    "infra/ci-minio.Dockerfile",
+    "infra/docker-compose.ci-minio.yml",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-client.contract.spec.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-client.contract.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-client.controller.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-client.service.spec.ts",
+    "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-client.service.ts",
+    "apps/api/src/modules/permission/client-document-authority.ts",
+    "db/migrations/0216_create_client_document_scopes.sql",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.contract.ts",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.ts",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.service.ts",

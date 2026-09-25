@@ -60,17 +60,19 @@ def _profile(**overrides: str) -> WorkerStorageProfile:
 
 
 class FakeS3:
-    def __init__(self, *, status: int | None = None, payload: bytes = PAYLOAD, version: str = RAW_VERSION) -> None:
+    def __init__(self, *, status: int | None = None, payload: bytes = PAYLOAD, version: str = RAW_VERSION,
+                 key: str = OBJECT_KEY) -> None:
         self.status = status
         self.payload = payload
         self.version = version
+        self.key = key
         self.calls: list[dict[str, object]] = []
 
     def list_object_versions(self, **kwargs: object) -> dict[str, object]:
         self.calls.append(kwargs)
         if self.status:
             raise ClientError({"ResponseMetadata": {"HTTPStatusCode": self.status}}, "ListObjectVersions")
-        return {"Versions": [{"Key": OBJECT_KEY, "VersionId": self.version}]}
+        return {"Versions": [{"Key": self.key, "VersionId": self.version}]}
 
     def get_object(self, **kwargs: object) -> dict[str, object]:
         self.calls.append(kwargs)
@@ -94,6 +96,19 @@ def test_reads_only_the_exact_version_bound_to_the_envelope() -> None:
         {"Bucket": "amic-vault-documents", "Prefix": OBJECT_KEY, "MaxKeys": 2},
         {"Bucket": "amic-vault-documents", "Key": OBJECT_KEY, "VersionId": RAW_VERSION},
     ]
+
+
+def test_client_document_key_reads_only_exact_version_without_matter() -> None:
+    scope_id = "22222222-2222-4222-8222-222222222222"
+    key = f"tenants/{TENANT_ID}/clients/{scope_id}/documents/{DOCUMENT_ID}/{FILE_OBJECT_ID}"
+    client = FixedProfileStorageClient(_profile(), FakeS3(key=key))
+
+    assert client.read(_job(objectKey=key)).body == PAYLOAD
+    assert client._client.calls[1] == {
+        "Bucket": "amic-vault-documents", "Key": key, "VersionId": RAW_VERSION,
+    }
+    with pytest.raises(WorkerStorageAccessDenied):
+        client.read(_job(objectKey=key).model_copy(update={"objectKey": key.replace(scope_id, "../")}))
 
 
 @pytest.mark.parametrize(

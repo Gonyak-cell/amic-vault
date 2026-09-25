@@ -5,6 +5,13 @@ export interface StorageObjectIds {
   fileObjectId: string;
 }
 
+export interface ClientStorageObjectIds {
+  tenantId: string;
+  clientScopeId: string;
+  documentId: string;
+  fileObjectId: string;
+}
+
 export interface EmailRawStorageObjectIds {
   tenantId: string;
   emailId: string;
@@ -22,6 +29,7 @@ export interface QuarantineStorageObjectIds {
 }
 
 export type ParsedStorageObjectKey =
+  | (ClientStorageObjectIds & { objectType: 'client_document'; key: string })
   | (StorageObjectIds & {
       objectType: 'document';
       key: string;
@@ -87,6 +95,10 @@ export class StoragePathResolver {
     return `tenants/${tenantId}/matters/${matterId}/documents/${documentId}/${fileObjectId}`;
   }
 
+  buildClientObjectKey(input: ClientStorageObjectIds): string {
+    return `tenants/${assertUuid('tenantId', input.tenantId)}/clients/${assertUuid('clientScopeId', input.clientScopeId)}/documents/${assertUuid('documentId', input.documentId)}/${assertUuid('fileObjectId', input.fileObjectId)}`;
+  }
+
   buildEmailRawObjectKey(input: EmailRawStorageObjectIds): string {
     const tenantId = assertUuid('tenantId', input.tenantId);
     const emailId = assertUuid('emailId', input.emailId);
@@ -148,6 +160,17 @@ export class StoragePathResolver {
         objectType: 'document',
         tenantId: assertUuid('tenantId', parts[1] ?? ''),
         matterId: assertUuid('matterId', parts[3] ?? ''),
+        documentId: assertUuid('documentId', parts[5] ?? ''),
+        fileObjectId: assertUuid('fileObjectId', parts[6] ?? ''),
+        key: decoded,
+      };
+    }
+
+    if (parts.length === 7 && parts[2] === 'clients' && parts[4] === 'documents') {
+      return {
+        objectType: 'client_document',
+        tenantId: assertUuid('tenantId', parts[1] ?? ''),
+        clientScopeId: assertUuid('clientScopeId', parts[3] ?? ''),
         documentId: assertUuid('documentId', parts[5] ?? ''),
         fileObjectId: assertUuid('fileObjectId', parts[6] ?? ''),
         key: decoded,

@@ -34,6 +34,9 @@ export const r1AuditActions = [
 const r0CompatibilityActions = ['SESSION_REVOKED', 'PERMISSION_DENIED_HIT'] as const;
 
 export const r2DocumentAuditActions = [
+  'CLIENT_DOCUMENT_SCOPE_RESOLVED',
+  'CLIENT_DOCUMENT_LISTED',
+  'CLIENT_DOCUMENT_UPLOAD_READBACK',
   'DOCUMENT_UPLOADED',
   'DOCUMENT_VIEWED',
   'DOCUMENT_DOWNLOADED',

@@ -413,6 +413,22 @@ export class DlpService {
     assessmentId: string,
     input: CreateDlpReviewRequestDto,
   ): Promise<DlpReviewResponseDto> {
+    return (await this.recordReview(ctx, assessmentId, input)).review;
+  }
+
+  async createClientDocumentReview(ctx: PermissionContext, assessmentId: string,
+    input: CreateDlpReviewRequestDto, clientDocument: {
+      documentId: string; versionId: string; requestId: string; decisionRef: string;
+    },
+    client: QueryClient): Promise<{ review: DlpReviewResponseDto; auditEventId: string }> {
+    return this.recordReview(ctx, assessmentId, input, clientDocument, client);
+  }
+
+  private async recordReview(ctx: PermissionContext, assessmentId: string,
+    input: CreateDlpReviewRequestDto, clientDocument?: {
+      documentId: string; versionId: string; requestId: string; decisionRef: string;
+    },
+    providedClient?: QueryClient): Promise<{ review: DlpReviewResponseDto; auditEventId: string }> {
     if (!uuidPattern.test(assessmentId)) throw validationFailed('DLP_ASSESSMENT_ID_INVALID');
     if (
       (input.decision === 'allow' && input.reasonCode === 'sensitive_content_denied') ||
@@ -430,7 +446,7 @@ export class DlpService {
       throw validationFailed('DLP_REVIEW_EXPIRY_INVALID');
     }
 
-    return this.auditService.transaction(ctx.tenantId, async (client) => {
+    const work = async (client: QueryClient) => {
       const assessment = await this.findAssessmentById(client, ctx.tenantId, assessmentId);
       if (!assessment) throw permissionDenied();
       if (!assessment.requires_review) {
@@ -439,6 +455,17 @@ export class DlpService {
 
       await this.assertActiveReviewer(client, ctx);
       await this.assertAssessmentAccess(client, ctx, assessment);
+      if (clientDocument) {
+        if (assessment.source_type !== 'document' || assessment.matter_id !== null
+          || assessment.document_id !== clientDocument.documentId
+          || assessment.version_id !== clientDocument.versionId
+          || assessment.source_id !== clientDocument.versionId) throw permissionDenied();
+        const current = await this.ensureDocumentAssessment(client, {
+          tenantId: ctx.tenantId, matterId: null,
+          documentId: clientDocument.documentId, versionId: clientDocument.versionId,
+        });
+        if (current.assessment_id !== assessment.assessment_id) throw permissionDenied();
+      }
 
       const inserted = await client.query(
         `
@@ -460,7 +487,7 @@ export class DlpService {
       const review = inserted.rows[0] as DlpReviewRow | undefined;
       if (!review) throw new Error('dlp review insert returned no row');
 
-      await this.auditService.log(
+      const event = await this.auditService.log(
         {
           tenantId: ctx.tenantId,
           actorId: ctx.userId,
@@ -469,24 +496,24 @@ export class DlpService {
           targetType: 'dlp_assessment',
           targetId: assessment.assessment_id,
           matterId: assessment.matter_id,
-          metadata: this.egressAuditMetadata(assessment, {
-            purpose: 'manual_review',
-            review,
-            reasonCode: review.reason_code,
-          }),
+          metadata: { ...this.egressAuditMetadata(assessment, {
+            purpose: 'manual_review', review, reasonCode: review.reason_code,
+          }), ...(clientDocument ? { request_id: clientDocument.requestId,
+            correlation_id: clientDocument.requestId, decision_ref: clientDocument.decisionRef } : {}) },
         },
         client,
       );
 
-      return dlpReviewResponseSchema.parse({
+      return { review: dlpReviewResponseSchema.parse({
         assessmentId: assessment.assessment_id,
         reviewId: review.review_id,
         decision: review.decision,
         reasonCode: review.reason_code,
         expiresAt: iso(review.expires_at),
         reviewedAt: iso(review.reviewed_at),
-      });
-    });
+      }), auditEventId: event.eventId };
+    };
+    return providedClient ? work(providedClient) : this.auditService.transaction(ctx.tenantId, work);
   }
 
   async evaluateDocumentEgress(
@@ -506,6 +533,38 @@ export class DlpService {
             }
           : { actorId: null, sessionId: null },
     });
+  }
+
+  async evaluateClientDocumentDownload(client: QueryClient, source: {
+    tenantId: string; documentId: string; versionId: string; userId: string;
+  }): Promise<DlpEgressDecision> {
+    const decision = await this.permissionService.canDownloadDocument(
+      { tenantId: source.tenantId, userId: source.userId }, source.documentId, 'amic_os_client_document');
+    if (decision.effect !== 'ALLOW') throw permissionDenied();
+    const assessment = await this.ensureDocumentAssessment(client, {
+      tenantId: source.tenantId, matterId: null, documentId: source.documentId,
+      versionId: source.versionId,
+    });
+    return this.applyReviewGate(client, assessment, {
+      purpose: 'document_download', matterId: null, actor: { actorId: source.userId, sessionId: null },
+    });
+  }
+
+  async inspectClientDocumentAssessment(client: QueryClient, source: {
+    tenantId: string; documentId: string; versionId: string; userId: string;
+  }): Promise<DlpEgressDecision> {
+    const ctx = { tenantId: source.tenantId, userId: source.userId };
+    await this.assertActiveReviewer(client, ctx);
+    const decision = await this.permissionService.canReadDocument(ctx, source.documentId);
+    if (decision.effect !== 'ALLOW') throw permissionDenied();
+    const assessment = await this.ensureDocumentAssessment(client, {
+      tenantId: source.tenantId, matterId: null, documentId: source.documentId,
+      versionId: source.versionId,
+    });
+    if (!assessment.requires_review) return this.mapEgressDecision(assessment, true, null);
+    const review = await this.latestReview(client, assessment);
+    return this.mapEgressDecision(assessment,
+      review?.decision === 'allow' && review.is_unexpired === true, review?.review_id ?? null);
   }
 
   async evaluateEmailEgress(
@@ -758,7 +817,7 @@ export class DlpService {
 
   private async ensureDocumentAssessment(
     client: QueryClient,
-    source: DlpDocumentEgressSource,
+    source: Pick<DlpDocumentEgressSource, 'tenantId' | 'documentId' | 'versionId'> & { matterId: string | null },
   ): Promise<PersistedDlpAssessmentRow> {
     const sourceId = source.versionId ?? source.documentId;
     const canonical = await client.query(
@@ -931,7 +990,7 @@ export class DlpService {
     assessment: PersistedDlpAssessmentRow,
     input: {
       purpose: DlpEgressPurpose;
-      matterId: string;
+      matterId: string | null;
       actor: { actorId: string | null; sessionId: string | null };
     },
   ): Promise<DlpEgressDecision> {
@@ -939,19 +998,7 @@ export class DlpService {
       return this.mapEgressDecision(assessment, true, null);
     }
 
-    const result = await client.query(
-      `
-        SELECT review_id, decision, reason_code, reviewed_at, expires_at,
-          (expires_at > now()) AS is_unexpired
-        FROM dlp_review_decisions
-        WHERE tenant_id = $1
-          AND assessment_id = $2
-        ORDER BY reviewed_at DESC, (decision = 'deny') DESC, review_id DESC
-        LIMIT 1
-      `,
-      [assessment.tenant_id, assessment.assessment_id],
-    );
-    const review = result.rows[0] as DlpReviewRow | undefined;
+    const review = await this.latestReview(client, assessment);
     const metadata = this.egressAuditMetadata(assessment, {
       purpose: input.purpose,
       matterId: input.matterId,
@@ -1001,6 +1048,22 @@ export class DlpService {
       client,
     );
     return this.mapEgressDecision(assessment, true, review.review_id);
+  }
+
+  private async latestReview(client: QueryClient, assessment: PersistedDlpAssessmentRow): Promise<DlpReviewRow | undefined> {
+    const result = await client.query(
+      `
+        SELECT review_id, decision, reason_code, reviewed_at, expires_at,
+          (expires_at > now()) AS is_unexpired
+        FROM dlp_review_decisions
+        WHERE tenant_id = $1
+          AND assessment_id = $2
+        ORDER BY reviewed_at DESC, (decision = 'deny') DESC, review_id DESC
+        LIMIT 1
+      `,
+      [assessment.tenant_id, assessment.assessment_id],
+    );
+    return result.rows[0] as DlpReviewRow | undefined;
   }
 
   private mapEgressDecision(

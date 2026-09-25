@@ -282,7 +282,7 @@ Each item requires:
    - `pnpm launch:execution`
    - `pnpm lint`
    - `pnpm typecheck`
-3. Request Claude Code ultrareview against the planning diff.
+3. Review the planning diff and record any actionable findings.
 4. Address findings in the plan before implementation.
 5. Open a PR labeled as planning/architecture only.
 6. After approval, start PWA implementation on a new branch.

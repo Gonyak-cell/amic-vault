@@ -1,0 +1,8 @@
+services:
+  minio:
+    image: amic-vault-ci-minio:local
+    entrypoint: ['/usr/local/bin/minio']
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://localhost:9000/minio/health/live']
+  minio-init:
+    image: amic-vault-ci-mc:local

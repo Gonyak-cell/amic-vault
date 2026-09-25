@@ -10,6 +10,7 @@ const tenantId = '11111111-1111-4111-8111-111111111111';
 const otherTenantId = '22222222-2222-4222-8222-222222222222';
 const scanId = '33333333-3333-4333-8333-333333333333';
 const matterId = '44444444-4444-4444-8444-444444444444';
+const clientScopeId = '44444444-4444-4444-8444-444444444445';
 const quarantineRef = '55555555-5555-4555-8555-555555555555';
 const expectedSha256 = 'a'.repeat(64);
 
@@ -123,6 +124,56 @@ describe('FileSecurityReconcilerService', () => {
       metadata: { hash: expectedSha256, reason_code: 'SCANNER_RECOVERED' },
     }), expect.anything());
     expect(queue.enqueue).toHaveBeenCalledWith({ tenantId, quarantineRef, expectedSha256 }, expect.anything());
+  });
+
+  it('resubmits an active Client scope error scan, but never promotes a clean Client scan', async () => {
+    const clientScan: Record<string, unknown> = row({ matter_id: null, client_scope_id: clientScopeId });
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('SELECT role, status FROM users')) return { rows: [{ role: 'security_admin', status: 'active' }] };
+      if (sql.includes('JOIN matters m')) return { rows: [] };
+      if (sql.includes('JOIN client_document_scopes c')) return { rows: [clientScan] };
+      return { rows: [] };
+    });
+    const db = database(query);
+    const audited = audit({ query });
+    const queue = { enqueue: vi.fn(async () => 'job') };
+    const promotion = { promote: vi.fn() };
+    const service = new FileSecurityReconcilerService(audited as never, db as never, promotion, queue,
+      {} as never, { listQuarantineRefs: vi.fn(), headByStorageUri: vi.fn(async () => ({ contentLength: 1 })) } as never);
+
+    for (const state of ['error', 'quarantined', 'security_hold']) {
+      clientScan.state = state;
+      await expect(service.retry({ tenantId, actorUserId: scanId, scanId, reasonCode: 'SCANNER_RECOVERED' }))
+        .resolves.toEqual({ action: 'rescan' });
+    }
+    expect(query.mock.calls.some(([sql]) => sql.includes('FOR UPDATE OF s, c'))).toBe(true);
+    expect(audited.log).toHaveBeenCalledWith(expect.not.objectContaining({ matterId: expect.anything() }), expect.anything());
+    expect(queue.enqueue).toHaveBeenCalledTimes(3);
+    expect(promotion.promote).not.toHaveBeenCalled();
+
+    clientScan.state = 'clean';
+    clientScan.result_code = 'clean';
+    clientScan.signature_at = new Date();
+    await expect(service.retry({ tenantId, actorUserId: scanId, scanId, reasonCode: 'MANUAL_REVIEW' }))
+      .rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+    expect(queue.enqueue).toHaveBeenCalledTimes(3);
+    expect(promotion.promote).not.toHaveBeenCalled();
+  });
+
+  it('denies retry when the Client scope is not active', async () => {
+    const query = vi.fn(async (sql: string) => {
+      if (sql.includes('SELECT role, status FROM users')) return { rows: [{ role: 'security_admin', status: 'active' }] };
+      return { rows: [] };
+    });
+    const queue = { enqueue: vi.fn() };
+    const promotion = { promote: vi.fn() };
+    const service = new FileSecurityReconcilerService(audit({ query }) as never, database(query) as never,
+      promotion, queue, {} as never,
+      { listQuarantineRefs: vi.fn(), headByStorageUri: vi.fn(async () => ({ contentLength: 1 })) } as never);
+    await expect(service.retry({ tenantId, actorUserId: scanId, scanId, reasonCode: 'MANUAL_REVIEW' }))
+      .rejects.toMatchObject({ response: { code: 'PERMISSION_DENIED' } });
+    expect(queue.enqueue).not.toHaveBeenCalled();
+    expect(promotion.promote).not.toHaveBeenCalled();
   });
 
   it('fails closed for a non-admin, legal hold, and audit failure without enqueuing', async () => {
