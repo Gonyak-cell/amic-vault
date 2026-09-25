@@ -26,6 +26,8 @@ import {
 } from './amic-os-vault-upload.controller';
 import { AmicOsVaultUploadService } from './amic-os-vault-upload.service';
 import { AmicOsVaultReadController } from './amic-os-vault-read.controller';
+import { AmicOsVaultClientController } from './amic-os-vault-client.controller';
+import { AmicOsVaultClientService } from './amic-os-vault-client.service';
 import { AmicOsVaultReadService } from './amic-os-vault-read.service';
 import { AmicOsVaultMetadataController } from './amic-os-vault-metadata.controller';
 import { AmicOsVaultMetadataService } from './amic-os-vault-metadata.service';
@@ -48,6 +50,7 @@ import { AmicOsVaultOcrService } from './amic-os-vault-ocr.service';
     UserModule,
   ],
   controllers: [
+    AmicOsVaultClientController,
     AmicOsVaultProviderController,
     AmicOsVaultUploadController,
     AmicOsVaultCapabilityController,
@@ -57,6 +60,7 @@ import { AmicOsVaultOcrService } from './amic-os-vault-ocr.service';
     AmicOsVaultOcrController,
   ],
   providers: [
+    AmicOsVaultClientService,
     AmicOsVaultProviderConfig,
     AmicOsVaultProviderGuard,
     AmicOsVaultProviderService,
@@ -68,6 +72,7 @@ import { AmicOsVaultOcrService } from './amic-os-vault-ocr.service';
     AmicOsVaultOcrService,
   ],
   exports: [
+    AmicOsVaultClientService,
     AmicOsVaultProviderConfig,
     AmicOsVaultProviderService,
     AmicOsVaultUploadService,

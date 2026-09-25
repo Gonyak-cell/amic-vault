@@ -33,9 +33,11 @@ export async function createIngestionWorkerRequest(input: {
   const now = input.now ?? new Date();
   const parsed = input.storagePathResolver.parseStorageUri(input.target.storageUri);
   if (
-    parsed.objectType !== 'document' ||
     parsed.tenantId !== input.target.tenantId ||
-    parsed.matterId !== input.target.matterId ||
+    !((parsed.objectType === 'document' && parsed.matterId === input.target.matterId
+        && input.target.clientScopeId == null)
+      || (parsed.objectType === 'client_document' && parsed.clientScopeId === input.target.clientScopeId
+        && input.target.matterId == null)) ||
     parsed.documentId !== input.target.documentId ||
     parsed.fileObjectId !== input.target.fileObjectId
   ) {

@@ -68,6 +68,7 @@ export interface CreateInitialDocumentVersionInput {
   versionSignificance?: DocumentVersionSignificance | undefined;
   renditionType?: DocumentVersionRenditionType | undefined;
   baseCleanVersionId?: string | null;
+  clientScopeId?: string;
 }
 
 export type AddNextDocumentVersionInput = CreateInitialDocumentVersionInput;
@@ -140,6 +141,7 @@ export class DocumentVersionService {
     input: CreateInitialDocumentVersionInput,
     client: PoolClient,
   ): Promise<DocumentVersionDto> {
+    if (input.clientScopeId) await this.assertClientTarget(input, client, false);
     const result = await client.query(
       `
         INSERT INTO document_versions (
@@ -178,7 +180,7 @@ export class DocumentVersionService {
       },
       client,
     );
-    await this.previewPrecreateQueue?.enqueueVersionCreated(
+    if (!input.clientScopeId) await this.previewPrecreateQueue?.enqueueVersionCreated(
       {
         tenantId: input.tenantId,
         documentId: input.documentId,
@@ -195,9 +197,13 @@ export class DocumentVersionService {
     input: AddNextDocumentVersionInput,
     client: PoolClient,
   ): Promise<DocumentVersionDto> {
-    const target = await this.findTargetForTenant(input.tenantId, input.documentId, client, true);
-    if (!target) throw notFoundDenied();
-    assertVersionableDocument(target);
+    if (input.clientScopeId) {
+      await this.assertClientTarget(input, client, true);
+    } else {
+      const target = await this.findTargetForTenant(input.tenantId, input.documentId, client, true);
+      if (!target) throw notFoundDenied();
+      assertVersionableDocument(target);
+    }
 
     const current = await this.findCurrentVersion(input.tenantId, input.documentId, client);
     if (!current) throw validationFailed('DOCUMENT_VERSION_BASELINE_MISSING');
@@ -216,7 +222,7 @@ export class DocumentVersionService {
       [input.tenantId, input.documentId, current.version_id],
     );
     if (superseded.rowCount !== 1) throw validationFailed('DOCUMENT_VERSION_CONFLICT');
-    await this.searchIndexSync?.enqueueVersion(
+    if (!input.clientScopeId) await this.searchIndexSync?.enqueueVersion(
       { tenantId: input.tenantId, documentId: input.documentId, versionId: current.version_id },
       client,
     );
@@ -260,7 +266,7 @@ export class DocumentVersionService {
       },
       client,
     );
-    await this.previewPrecreateQueue?.enqueueVersionCreated(
+    if (!input.clientScopeId) await this.previewPrecreateQueue?.enqueueVersionCreated(
       {
         tenantId: input.tenantId,
         documentId: input.documentId,
@@ -351,6 +357,17 @@ export class DocumentVersionService {
       fileObjectId: row.file_object_id,
       sha256: row.sha256,
     }));
+  }
+
+  private async assertClientTarget(input: CreateInitialDocumentVersionInput, client: QueryClient, lock: boolean) {
+    const result = await client.query(`SELECT d.status FROM documents d
+      JOIN client_document_scopes c ON c.tenant_id = d.tenant_id AND c.client_scope_id = d.client_scope_id
+      WHERE d.tenant_id = $1 AND d.document_id = $2 AND d.client_scope_id = $3
+        AND d.matter_id IS NULL AND c.status = 'active' ${lock ? 'FOR UPDATE OF d' : ''}`,
+    [input.tenantId, input.documentId, input.clientScopeId]);
+    const target = result.rows[0] as { status: string } | undefined;
+    if (!target) throw notFoundDenied();
+    if (['archived', 'disposal_locked', 'deleted'].includes(target.status)) throw validationFailed('DOCUMENT_IMMUTABLE_STATE');
   }
 
   private async assertCanReadDocument(

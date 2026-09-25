@@ -124,6 +124,15 @@ export class StorageService {
     };
   }
 
+  async putClientObject(input: Omit<PutTenantObjectInput, 'matterId'> & { clientScopeId: string }): Promise<PutTenantObjectResult> {
+    const key = this.pathResolver.buildClientObjectKey(input);
+    const encrypted = await this.encryptionHook.beforePut(input);
+    await this.observeStorageOperation(() => this.adapter.putIfAbsent({
+      key, body: encrypted.body, contentLength: encrypted.contentLength, contentType: encrypted.contentType,
+    }));
+    return { key, storageUri: this.pathResolver.storageUriForKey(key), encryptionKeyId: encrypted.encryptionKeyId };
+  }
+
   async putEmailRawObject(input: PutEmailRawObjectInput): Promise<PutTenantObjectResult> {
     const key = this.pathResolver.buildEmailRawObjectKey(input);
     const encrypted = await this.encryptionHook.beforePut({

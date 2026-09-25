@@ -73,6 +73,28 @@ describe('createIngestionWorkerRequest', () => {
     ).rejects.toThrow('WORKER_INGESTION_REQUEST_INVALID');
   });
 
+  it('binds a client document ingestion job to its own tenant, scope and exact file', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('INGESTION_WORKER_IDENTITY_PROFILE', 'loopback-dev');
+    const clientScopeId = '11111111-1111-4111-8111-111111111166';
+    const resolver = new StoragePathResolver('amic-vault-dev');
+    const storageUri = resolver.storageUriForKey(resolver.buildClientObjectKey({
+      tenantId: target.tenantId, clientScopeId, documentId: target.documentId, fileObjectId: target.fileObjectId,
+    }));
+    const clientTarget = { ...target, matterId: null, clientScopeId, storageUri };
+    const input = { target: clientTarget, parserProfile: 'extract' as const,
+      storageService: { latestVersionFingerprintByStorageUri: vi.fn(async () => 'b'.repeat(64)) },
+      storagePathResolver: resolver };
+    const request = await createIngestionWorkerRequest(input);
+    expect(request.job.objectKey).toContain(`/clients/${clientScopeId}/documents/${target.documentId}/`);
+    await expect(createIngestionWorkerRequest({ ...input,
+      target: { ...clientTarget, clientScopeId: target.matterId },
+    })).rejects.toThrow('WORKER_INGESTION_REQUEST_INVALID');
+    await expect(createIngestionWorkerRequest({ ...input,
+      target: { ...clientTarget, tenantId: '22222222-2222-4222-8222-222222222222' },
+    })).rejects.toThrow('WORKER_INGESTION_REQUEST_INVALID');
+  });
+
   it('uses only the private HTTPS gateway profile outside development', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('INGESTION_WORKER_IDENTITY_PROFILE', 'private-gateway-mtls');

@@ -5,6 +5,7 @@ import type {
 } from '@amic-vault/shared';
 
 export type DocumentPermissionAction =
+  | 'client_write'
   | 'read'
   | 'download'
   | 'checkout'
@@ -31,6 +32,7 @@ export function requiresDownloadReason(level: DocumentConfidentialityLevel): boo
 
 export function roleAllowsDocumentAction(role: UserRole, action: DocumentPermissionAction): boolean {
   if (role === 'external_user') return false;
+  if (action === 'client_write') return role === 'firm_admin' || role === 'matter_owner' || role === 'matter_member';
   if (action === 'read') {
     return (
       role === 'firm_admin' ||

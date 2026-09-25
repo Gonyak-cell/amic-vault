@@ -458,7 +458,7 @@ export class ExtractionDispatcher {
     return this.auditService.transaction(payload.tenantId, async (tx) => {
       const result = await tx.query(
         `
-          SELECT dv.tenant_id, dv.document_id, d.matter_id, dv.version_id,
+          SELECT dv.tenant_id, dv.document_id, d.matter_id, d.client_scope_id, dv.version_id,
             dv.file_object_id, f.storage_uri, f.normalized_filename, f.mime_type,
             f.sha256, f.size_bytes::text
           FROM document_versions dv
@@ -482,6 +482,7 @@ export class ExtractionDispatcher {
             tenant_id: string;
             document_id: string;
             matter_id: string;
+            client_scope_id: string | null;
             version_id: string;
             file_object_id: string;
             storage_uri: string;
@@ -496,6 +497,7 @@ export class ExtractionDispatcher {
             tenantId: row.tenant_id,
             documentId: row.document_id,
             matterId: row.matter_id,
+            clientScopeId: row.client_scope_id,
             versionId: row.version_id,
             fileObjectId: row.file_object_id,
             storageUri: row.storage_uri,
@@ -597,7 +599,7 @@ export class ExtractionDispatcher {
           matterId: target.matterId,
           metadata: {
             document_id: input.documentId,
-            matter_id: target.matterId,
+            ...(target.matterId ? { matter_id: target.matterId } : {}),
             version_id: input.versionId,
             extraction_status: input.status,
             extraction_method: input.method,
@@ -607,8 +609,19 @@ export class ExtractionDispatcher {
         },
         tx,
       );
-      await this.storeDocumentRevisions(input, target, tx);
-      await this.storeDocumentAnnotations(input, target, tx);
+      if (target.matterId) {
+        await this.storeDocumentRevisions(input, { matterId: target.matterId }, tx);
+        await this.storeDocumentAnnotations(input, { matterId: target.matterId }, tx);
+      }
+      if (input.status === 'ready' && target.matterId) {
+        await this.ddService?.suggestMappingsFromExtraction(tx, {
+          tenantId: input.tenantId,
+          matterId: target.matterId,
+          documentId: input.documentId,
+          versionId: input.versionId,
+          bodyText: input.bodyText,
+        });
+      }
       if (input.status === 'ready' || input.method === 'ocr') {
         await this.searchIndexSync?.enqueueVersion(
           {
@@ -619,14 +632,7 @@ export class ExtractionDispatcher {
           tx,
         );
       }
-      if (input.status === 'ready') {
-        await this.ddService?.suggestMappingsFromExtraction(tx, {
-          tenantId: input.tenantId,
-          matterId: target.matterId,
-          documentId: input.documentId,
-          versionId: input.versionId,
-          bodyText: input.bodyText,
-        });
+      if (input.status === 'ready' && target.matterId) {
         await this.graphSyncOutbox?.enqueue(
           {
             tenantId: input.tenantId,
@@ -655,7 +661,7 @@ export class ExtractionDispatcher {
   private async findTargetInTransaction(
     input: ExtractionJobPayload,
     queryClient: QueryClient,
-  ): Promise<{ matterId: string; sourceSha256: string } | null> {
+  ): Promise<{ matterId: string | null; sourceSha256: string } | null> {
     const result = await queryClient.query(
       `
         SELECT d.matter_id, dv.file_hash AS source_sha256
@@ -672,7 +678,7 @@ export class ExtractionDispatcher {
       `,
       [input.tenantId, input.documentId, input.versionId, input.fileObjectId],
     );
-    const row = result.rows[0] as { matter_id: string; source_sha256: string } | undefined;
+    const row = result.rows[0] as { matter_id: string | null; source_sha256: string } | undefined;
     return row ? { matterId: row.matter_id, sourceSha256: row.source_sha256 } : null;
   }
 

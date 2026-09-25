@@ -31,6 +31,7 @@ import {
 } from './fail-closed.wrapper';
 import { BreakGlassOverrideReader } from '../break-glass/break-glass-override.reader';
 import { tenantQuery } from '../../common/db/tenant-query';
+import { ClientDocumentAuthorityContext, type ClientDocumentAction } from './client-document-authority';
 import { DatabaseService } from '../../common/db/database.service';
 
 export interface DocumentActorSnapshot {
@@ -44,6 +45,7 @@ export interface DocumentPermissionTarget {
   documentId: string;
   tenantId: TenantId;
   matterId: string;
+  clientScopeId?: string | null;
   clientId?: string | null;
   status: DocumentStatus;
   matterStatus: string;
@@ -114,7 +116,61 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
     @Optional()
     @Inject(BreakGlassOverrideReader)
     private readonly breakGlassOverrideReader?: BreakGlassOverrideReader,
+    @Optional() @Inject(ClientDocumentAuthorityContext)
+    private readonly clientAuthority?: ClientDocumentAuthorityContext,
   ) {}
+
+  canAccessClientScope(ctx: PermissionContext, action: ClientDocumentAction, scopeId?: string): Promise<PermissionDecision> {
+    return this.wrapper.evaluate({ tenantId: ctx.tenantId as TenantId, actorId: ctx.userId,
+      targetType: 'client_document_scope', targetId: scopeId ?? null }, async () => {
+      const authority = this.clientAuthority?.current();
+      if (!authority || authority.tenantId !== ctx.tenantId || authority.actorUserId !== ctx.userId
+        || authority.action !== action) return denyPermission('PERMISSION_DENIED', ['client_scope:authority_required']);
+      const actor = await this.findActor(ctx.tenantId as TenantId, ctx.userId);
+      if (!actor || actor.status !== 'active' || !roleAllowsDocumentAction(actor.role,
+        action === 'dms:document:write' ? 'client_write' : action === 'dms:document:download' ? 'download' : 'read')) {
+        return denyPermission('PERMISSION_DENIED', ['client_scope:actor_denied']);
+      }
+      if (scopeId) {
+        const row = await tenantQuery(this.databaseService, ctx.tenantId, `
+          SELECT client_scope_id FROM client_document_scopes
+          WHERE tenant_id = $1 AND client_scope_id = $2 AND os_tenant_id = $3
+            AND party_id = $4 AND workspace_ref = $5 AND status = 'active'`,
+        [ctx.tenantId, scopeId, authority.osTenantId, authority.partyId, authority.workspaceRef]);
+        if (row.rowCount !== 1) return denyPermission('PERMISSION_DENIED', ['client_scope:binding_denied']);
+      }
+      return allowPermission(['client_scope:fresh_request_authority']);
+    });
+  }
+
+  async clientDocumentReadFilter(ctx: PermissionContext, scopeId: string) {
+    const decision = await this.canAccessClientScope(ctx, 'dms:document:read', scopeId);
+    if (decision.effect !== 'ALLOW') return { sql: 'FALSE', params: [] as unknown[] };
+    const actor = await this.findActor(ctx.tenantId as TenantId, ctx.userId);
+    if (!actor) return { sql: 'FALSE', params: [] as unknown[] };
+    // Conditional grants require a point read; listings conservatively omit them.
+    const subject = `(p.subject_type = 'user' AND p.subject_id = $3::text)
+      OR (p.subject_type = 'role' AND p.subject_id = $4)
+      OR (p.subject_type = 'group' AND p.subject_id IN
+        (SELECT gm.group_id::text FROM group_members gm WHERE gm.tenant_id = d.tenant_id AND gm.user_id = $3::uuid))`;
+    const permission = `p.tenant_id = d.tenant_id AND p.resource_type = 'document'
+      AND p.resource_id = d.document_id AND p.action = 'read'
+      AND (p.valid_from IS NULL OR p.valid_from <= now()) AND (p.valid_to IS NULL OR p.valid_to > now()) AND (${subject})`;
+    return {
+      sql: `d.tenant_id = $1 AND d.client_scope_id = $2 AND d.status <> 'deleted'
+        AND NOT EXISTS (SELECT 1 FROM permissions p WHERE ${permission}
+          AND (p.effect = 'DENY' OR (p.condition_json IS NOT NULL AND p.condition_json <> '{}'::jsonb)))
+        AND ((d.confidentiality_level = 'standard' AND d.privilege_status = 'none' AND $4 <> 'limited_reviewer')
+          OR EXISTS (SELECT 1 FROM permissions p WHERE ${permission} AND p.effect = 'ALLOW'
+            AND (p.condition_json IS NULL OR p.condition_json = '{}'::jsonb)))`,
+      params: [ctx.tenantId, scopeId, ctx.userId, actor.role] as unknown[],
+    };
+  }
+
+  canWriteClientDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
+    return this.wrapper.evaluate(documentAuditTarget(ctx, documentId), () =>
+      this.evaluateDocumentAction(ctx, documentId, 'client_write'));
+  }
 
   canReadDocument(ctx: PermissionContext, documentId: string): Promise<PermissionDecision> {
     return this.wrapper.evaluate(documentAuditTarget(ctx, documentId), () =>
@@ -193,20 +249,32 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       return denyPermission('DOCUMENT_LOCKED', ['document.status:deleted']);
     }
 
-    const wall = await this.evaluateWall(ctx.tenantId as TenantId, target.matterId, ctx.userId);
-    if (wall.blocked) {
-      return denyPermission('ETHICAL_WALL_BLOCKED', wall.appliedRules);
-    }
-
-    const member = await this.findMatterMember(
-      ctx.tenantId as TenantId,
-      target.matterId,
-      ctx.userId,
-    );
-    if (!member) return denyPermission('PERMISSION_DENIED', ['matter_members:missing']);
-    const firmAdminOwnerEdit = firmAdminOwnerCanEditDocument(actor, member, action);
-    if (!roleAllowsAction && !firmAdminOwnerEdit) {
-      return denyPermission('PERMISSION_DENIED', [`document.${action}:role_deny`]);
+    let firmAdminOwnerEdit = false;
+    if (target.clientScopeId) {
+      const authorityAction = this.clientAuthority?.current()?.action;
+      const requiredAction = action === 'download' ? 'dms:document:download'
+        : action === 'client_write' ? 'dms:document:write'
+          : authorityAction === 'dms:review:decide' || authorityAction === 'dms:review:read'
+            ? authorityAction : 'dms:document:read';
+      if (action !== 'read' && action !== 'download' && action !== 'client_write') {
+        return denyPermission('PERMISSION_DENIED', ['client_scope:action_unsupported']);
+      }
+      if (authorityAction !== requiredAction) return denyPermission('PERMISSION_DENIED', ['client_scope:action_denied']);
+      const scopeDecision = await this.canAccessClientScope(ctx, requiredAction, target.clientScopeId);
+      if (scopeDecision.effect !== 'ALLOW') return scopeDecision;
+      if (action === 'client_write' && ['archived', 'disposal_locked', 'deleted'].includes(target.status)) {
+        return denyPermission('DOCUMENT_LOCKED', ['client_scope:immutable_document']);
+      }
+    } else {
+      if (action === 'client_write') return denyPermission('PERMISSION_DENIED', ['client_scope:required']);
+      const wall = await this.evaluateWall(ctx.tenantId as TenantId, target.matterId, ctx.userId);
+      if (wall.blocked) return denyPermission('ETHICAL_WALL_BLOCKED', wall.appliedRules);
+      const member = await this.findMatterMember(ctx.tenantId as TenantId, target.matterId, ctx.userId);
+      if (!member) return denyPermission('PERMISSION_DENIED', ['matter_members:missing']);
+      firmAdminOwnerEdit = firmAdminOwnerCanEditDocument(actor, member, action);
+      if (!roleAllowsAction && !firmAdminOwnerEdit) {
+        return denyPermission('PERMISSION_DENIED', [`document.${action}:role_deny`]);
+      }
     }
 
     const explicit = await this.evaluateExplicitDocumentPermissions(
@@ -238,7 +306,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       firmAdminOwnerEdit
         ? `document.${action}:firm_admin_matter_owner_edit`
         : `document.${action}:role_allow`,
-      'matter_members:present',
+      target.clientScopeId ? 'client_scope:fresh_request_authority' : 'matter_members:present',
       `document.confidentiality:${effectiveLevel}`,
       ...explicit.appliedRules,
     ]);
@@ -283,6 +351,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       document_id: string;
       tenant_id: TenantId;
       matter_id: string;
+      client_scope_id: string | null;
       client_id: string | null;
       status: DocumentStatus;
       matter_status: string;
@@ -294,11 +363,11 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
       this.databaseService,
       tenantId,
       `
-        SELECT d.document_id, d.tenant_id, d.matter_id, m.client_id, d.status,
+        SELECT d.document_id, d.tenant_id, d.matter_id, d.client_scope_id, m.client_id, d.status,
           m.status AS matter_status, m.practice_group AS matter_practice_group,
           d.document_type, d.confidentiality_level, d.privilege_status
         FROM documents d
-        JOIN matters m
+        LEFT JOIN matters m
           ON m.tenant_id = d.tenant_id
           AND m.matter_id = d.matter_id
         WHERE d.tenant_id = $1
@@ -313,6 +382,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
           documentId: row.document_id,
           tenantId: row.tenant_id,
           matterId: row.matter_id,
+          clientScopeId: row.client_scope_id,
           clientId: row.client_id,
           status: row.status,
           matterStatus: row.matter_status,
@@ -473,7 +543,7 @@ export class DocumentPermissionService implements SharedDocumentPermissionServic
           )
         ORDER BY priority ASC, CASE WHEN effect = 'DENY' THEN 0 ELSE 1 END
       `,
-      [tenantId, documentId, actor.userId, actor.role, action],
+      [tenantId, documentId, actor.userId, actor.role, action === 'client_write' ? 'edit' : action],
     );
     return result.rows;
   }

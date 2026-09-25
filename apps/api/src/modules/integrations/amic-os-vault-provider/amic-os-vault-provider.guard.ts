@@ -73,6 +73,14 @@ export class AmicOsVaultProviderConfig {
       : 'oa12-exact-copy-v1';
   }
 
+  acceptsClientTenant(osTenantId: string, vaultTenantId: string): boolean {
+    const logical = process.env.AMIC_OS_CLIENT_DOCUMENT_LOGICAL_TENANT_ID;
+    const vault = process.env.AMIC_OS_CLIENT_DOCUMENT_VAULT_TENANT_ID;
+    return Boolean(this.isEnabled() && logical && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u.test(logical)
+      && vault && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(vault)
+      && logical === osTenantId && vault === vaultTenantId);
+  }
+
   uploadAuthorityRef(): string {
     return 'amic-vault-api:single-install';
   }

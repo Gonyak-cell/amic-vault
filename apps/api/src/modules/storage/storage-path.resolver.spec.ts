@@ -46,6 +46,17 @@ describe('StoragePathResolver', () => {
     });
   });
 
+  it('resolves a client document path without a Matter and preserves tenant isolation', () => {
+    const resolver = new StoragePathResolver('vault-dev');
+    const clientScopeId = '22222222-2222-4222-8222-222222222222';
+    const key = resolver.buildClientObjectKey({ tenantId, clientScopeId, documentId, fileObjectId });
+    expect(resolver.parseStorageUri(`s3://vault-dev/${key}`)).toMatchObject({
+      objectType: 'client_document', tenantId, clientScopeId, documentId, fileObjectId,
+    });
+    expect(() => resolver.assertTenantKey('33333333-3333-4333-8333-333333333333', key))
+      .toThrow(StorageTenantIsolationViolationError);
+  });
+
   it('builds and parses tenant-prefixed audit anchor paths', () => {
     const resolver = new StoragePathResolver('vault-dev');
     const key = resolver.buildAuditAnchorObjectKey({ tenantId, anchorDate });
