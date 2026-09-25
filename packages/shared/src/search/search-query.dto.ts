@@ -54,7 +54,7 @@ const searchMimeTypeSchema = z.string()
   .trim()
   .min(1)
   .max(255)
-  .regex(/^[A-Za-z0-9!#$&^_.+\-]+\/[A-Za-z0-9!#$&^_.+\-]+$/u);
+  .regex(/^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/u);
 const searchMimeTypeFilterSchema = z.union([
   searchMimeTypeSchema,
   z.array(searchMimeTypeSchema).min(1).max(32),

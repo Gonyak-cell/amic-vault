@@ -204,7 +204,7 @@ describe('VaultActivityClient', () => {
     expect(html).toContain('검토 의견 제출');
     expect(html).toContain('문서 정보 확인');
     expect(html).toContain('dateTime="2026-07-31T09:00:00.000+09:00"');
-    expect(html).toContain('2026. 7. 31. AM 9:00');
+    expect(html).toContain('2026. 7. 31. 오전 9:00');
     expect(html).toContain('한빛 신규 자문');
     expect(html).toContain('AMIC-2026-1001 · 한빛');
     expect(html).toContain('href="/matters/11111111-1111-4111-8111-111111111111"');
