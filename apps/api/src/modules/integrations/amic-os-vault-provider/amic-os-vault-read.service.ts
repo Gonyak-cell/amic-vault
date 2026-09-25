@@ -432,12 +432,21 @@ function emailMatchFields(
   return fields.length > 0 ? fields : inputMatchFields(item);
 }
 
+function completeEmailAddressQuery(query: string | null): boolean {
+  return /^[^\s@<>;,]+@[a-z0-9.-]+$/iu.test(query?.trim() ?? '');
+}
+
 function emailHeaderMatchesQuery(
   message: AmicOsVaultEmailMessageProjection,
   query: string | null,
 ): boolean {
   if (!query?.trim()) return true;
   const needle = query.normalize('NFC').trim().toLocaleLowerCase();
+  const addressQuery = completeEmailAddressQuery(needle);
+  if (addressQuery) {
+    return message.from?.toLocaleLowerCase() === needle
+      || message.to.some((address) => address.toLocaleLowerCase() === needle);
+  }
   return Boolean(message.subject?.normalize('NFC').toLocaleLowerCase().includes(needle)
     || message.from?.toLocaleLowerCase().includes(needle)
     || message.to.some((address) => address.toLocaleLowerCase().includes(needle)));
@@ -1179,7 +1188,8 @@ export class AmicOsVaultReadService {
       const emailSource = exact.email_id ? emailSourceForRow(exact) : null;
       if (criteria && (!emailMessage || !emailSource)) return [];
       if (criteria && emailMessage && !emailHeaderMatchesQuery(emailMessage, query)
-          && !item.snippet?.trim()) return [];
+          && (!query?.trim() || completeEmailAddressQuery(query)
+            || !item.snippet?.trim())) return [];
       emitted.add(item.documentId);
       return [{
         document_id: item.documentId,

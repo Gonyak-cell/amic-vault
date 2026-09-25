@@ -1050,6 +1050,33 @@ describe('AmicOsVaultReadService', () => {
     }))).items).toEqual([]);
   });
 
+  it('does not substitute another filed header for a complete address search hit', async () => {
+    const candidate = result({ documentId: receivedEmailDocumentId, versionId: receivedEmailVersionId,
+      documentType: 'email', snippet: 'A search-index body excerpt containing the queried address' });
+    const row = emailProjectionRow({
+      documentId: receivedEmailDocumentId,
+      versionId: receivedEmailVersionId,
+      fileObjectId: receivedEmailFileObjectId,
+      emailId: receivedEmailId,
+      subject: 'Current filed subject',
+      sentAt: '2026-08-28T00:00:00.000Z',
+      receivedAt: null,
+      filedAt: '2026-08-28T01:00:00.000Z',
+      storageUri: 's3://private/received.eml',
+      mimeType: 'text/plain',
+      rawFileObjectId: receivedEmailRawFileObjectId,
+      rawSha256: 'a'.repeat(64),
+      rawSizeBytes: '64',
+      rawMimeType: 'message/rfc822',
+      rawFilename: 'received.eml',
+    });
+    const f = createHarness({ exactRows: [row], emailSearchPages: [[candidate]],
+      storageBody: Buffer.from('Message-ID: <fixture@example.test>\r\nFrom: other@example.test\r\nTo: reader@example.test\r\n\r\n') });
+    expect((await f.service.search(principal, input({
+      query: 'sender@example.test', mimeTypes: ['message/rfc822'], emailSort: 'event_at',
+    }))).items).toEqual([]);
+  });
+
   it('reuses the permission-scoped document version service and returns exact file metadata', async () => {
     const { documentVersions, service } = createHarness();
     await expect(service.versions(principal, {
