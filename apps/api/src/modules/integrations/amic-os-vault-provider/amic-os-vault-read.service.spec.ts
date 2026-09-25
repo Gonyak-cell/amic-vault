@@ -847,6 +847,33 @@ describe('AmicOsVaultReadService', () => {
     );
   });
 
+  it('searches filed email body documents through the full current-version chunk index', async () => {
+    const { searchService, service } = createHarness();
+    await service.search(principal, input({
+      bodyQuery: 'late phrase after one megabyte',
+      mimeTypes: ['text/plain'],
+    }));
+    expect(searchService.search).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId, sessionId: null },
+      expect.objectContaining({
+        query: 'late phrase after one megabyte',
+        target: 'body',
+        filters: expect.objectContaining({ versionStatus: 'current', mimeType: ['text/plain'] }),
+      }),
+    );
+  });
+
+  it('fails closed when full-body search is requested on an unindexed raw EML', async () => {
+    const { searchService, service } = createHarness();
+    await expect(service.search(principal, input({
+      bodyQuery: 'late phrase after one megabyte',
+      mimeTypes: ['message/rfc822'],
+    }))).rejects.toMatchObject({
+      response: { code: 'VALIDATION_FAILED', reason: 'RAW_EML_BODY_SEARCH_UNAVAILABLE' },
+    });
+    expect(searchService.search).not.toHaveBeenCalled();
+  });
+
   it('projects filed EML headers from text/plain email bodies, applies Seoul date bounds, and paginates at 50/51', async () => {
     const received = result({
       documentId: receivedEmailDocumentId,

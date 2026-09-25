@@ -887,6 +887,14 @@ export class AmicOsVaultReadService {
       ...(input.tags?.length ? { tags: [...input.tags] } : {}),
     };
     const bodyQuery = input.bodyQuery?.trim() || null;
+    // Raw EML uploads have no canonical body/chunk index. The searchable
+    // text/plain document created by email filing is a separate version.
+    if (bodyQuery && input.mimeTypes?.length === 1 && input.mimeTypes[0] === 'message/rfc822') {
+      throw new BadRequestException({
+        code: 'VALIDATION_FAILED',
+        reason: 'RAW_EML_BODY_SEARCH_UNAVAILABLE',
+      });
+    }
     const searchQuery = bodyQuery ?? input.query;
     const criteria = emailCriteria(input);
     if (criteria && input.query?.includes('@')
