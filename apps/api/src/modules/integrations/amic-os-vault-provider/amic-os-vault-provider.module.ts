@@ -13,6 +13,7 @@ import { UserModule } from '../../user/user.module';
 import { DocumentModule } from '../../document/document.module';
 import { AmicOsVaultEditorController } from './amic-os-vault-editor.controller';
 import { AmicOsVaultEditorService } from './amic-os-vault-editor.service';
+import { AmicOsVaultDocumentCopyService } from './amic-os-vault-document-copy.service';
 import { AmicOsVaultProviderController } from './amic-os-vault-provider.controller';
 import {
   AmicOsVaultProviderConfig,
@@ -56,6 +57,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
     AmicOsVaultEditorService,
+    AmicOsVaultDocumentCopyService,
   ],
   exports: [
     AmicOsVaultProviderConfig,
@@ -63,6 +65,7 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
     AmicOsVaultEditorService,
+    AmicOsVaultDocumentCopyService,
   ],
 })
 export class AmicOsVaultProviderModule {}
