@@ -156,6 +156,7 @@ function emailProjectionRow(input: {
     email_raw_size_bytes: input.rawSizeBytes,
     email_raw_mime_type: input.rawMimeType,
     email_raw_filename: input.rawFilename,
+    ocr_search_current: true,
   };
 }
 
@@ -173,6 +174,7 @@ interface HarnessOptions {
   exactLabels?: ExactLabelOverrides;
   exactQueryError?: boolean;
   exactRows?: readonly Record<string, unknown>[];
+  ocrSearchCurrent?: boolean;
   emailSearchPages?: readonly (readonly SearchResultDto[])[];
   storageBody?: Buffer;
 }
@@ -184,6 +186,7 @@ function createHarness({
   exactLabels = {},
   exactQueryError = false,
   exactRows,
+  ocrSearchCurrent = true,
   emailSearchPages,
   storageBody,
 }: HarnessOptions = {}) {
@@ -237,6 +240,7 @@ function createHarness({
             canonical_matter_name: labelsReadable ? matterName : null,
             canonical_client_id: labelsReadable ? clientId : null,
             canonical_client_name: labelsReadable ? clientName : null,
+            ocr_search_current: ocrSearchCurrent,
           },
           {
             document_id: incompleteDocumentId,
@@ -256,6 +260,7 @@ function createHarness({
             canonical_matter_name: labelsReadable ? matterName : null,
             canonical_client_id: labelsReadable ? clientId : null,
             canonical_client_name: labelsReadable ? clientName : null,
+            ocr_search_current: true,
           },
           {
             document_id: mismatchedDocumentId,
@@ -275,6 +280,7 @@ function createHarness({
             canonical_matter_name: labelsReadable ? matterName : null,
             canonical_client_id: labelsReadable ? clientId : null,
             canonical_client_name: labelsReadable ? clientName : null,
+            ocr_search_current: true,
           },
         ],
       };
@@ -312,6 +318,7 @@ function createHarness({
     canReadMatter: vi.fn(async () => ({
       effect: 'ALLOW', reasonCode: 'ALLOWED', appliedRules: ['matter.read:role_allow'],
     })),
+    canReadDocument: vi.fn(async () => ({ effect: 'ALLOW', reasonCode: 'ALLOWED' })),
   };
   const previewSessions = {
     inspect: vi.fn(async () => source),
@@ -654,7 +661,7 @@ describe('AmicOsVaultReadService', () => {
     expect(f.query).toHaveBeenCalledWith(expect.stringContaining('editor_identity.user_id = editor.user_id'), expect.anything());
   });
 
-  it('keeps related labels null when document access does not grant Matter label access', async () => {
+  it('omits documents when Matter read access is denied', async () => {
     const { permissionService, searchService, service } = createHarness();
     permissionService.canReadMatter.mockResolvedValueOnce({
       effect: 'DENY', reasonCode: 'PERMISSION_DENIED', appliedRules: ['matter_members:missing'],
@@ -664,18 +671,7 @@ describe('AmicOsVaultReadService', () => {
       total: 1,
     });
 
-    await expect(service.list(principal, input())).resolves.toMatchObject({
-      items: [{
-        document_id: documentId,
-        matter_id: lawosMatterId,
-        matter_code: null,
-        matter_name: null,
-        client_id: null,
-        client_name: null,
-        client_display_name: null,
-        metadata_code: null,
-      }],
-    });
+    await expect(service.list(principal, input())).resolves.toMatchObject({ items: [] });
     expect(permissionService.canReadMatter).toHaveBeenCalledWith(
       { tenantId, userId: actorUserId },
       vaultMatterId,
@@ -707,21 +703,12 @@ describe('AmicOsVaultReadService', () => {
     }))).items).toEqual([]);
   });
 
-  it('keeps related labels null when the Matter permission evaluator fails closed', async () => {
+  it('omits the document when the Matter permission evaluator fails closed', async () => {
     const { permissionService, searchService, service } = createHarness();
     permissionService.canReadMatter.mockRejectedValueOnce(new Error('permission backend unavailable'));
     searchService.search.mockResolvedValueOnce({ results: [result()], total: 1 });
 
-    await expect(service.list(principal, input())).resolves.toMatchObject({
-      items: [{
-        document_id: documentId,
-        matter_code: null,
-        matter_name: null,
-        client_id: null,
-        client_name: null,
-        client_display_name: null,
-      }],
-    });
+    await expect(service.list(principal, input())).resolves.toMatchObject({ items: [] });
   });
 
   it('returns null instead of a Vault-internal UUID when a Client has no external mapping', async () => {
@@ -775,6 +762,62 @@ describe('AmicOsVaultReadService', () => {
       items: [],
       page_info: { returned_count: 0 },
     });
+  });
+
+  it('omits a hit when a newer current version replaces the indexed version', async () => {
+    const f = createHarness();
+    f.searchService.search.mockResolvedValueOnce({ results: [result({
+      versionId: '99999999-9999-4999-8999-999999999999', snippet: 'old version OCR',
+    })], total: 1 });
+
+    await expect(f.service.search(principal, input({ bodyQuery: 'old version OCR' })))
+      .resolves.toMatchObject({ items: [], page_info: { returned_count: 0 } });
+  });
+
+  it('omits a body hit after OCR correction while the exact index is stale', async () => {
+    const f = createHarness({ ocrSearchCurrent: false });
+    f.searchService.search.mockResolvedValueOnce({ results: [result({ snippet: 'old OCR table text' })], total: 1 });
+
+    await expect(f.service.search(principal, input({ bodyQuery: 'old OCR table text' })))
+      .resolves.toMatchObject({ items: [], page_info: { returned_count: 0 } });
+    expect(f.query.mock.calls.some(([sql]) => String(sql).includes('idx.source_text_hash = encode(digest'))).toBe(true);
+    expect(f.query.mock.calls.some(([sql]) => String(sql).includes('page.corrected_text, page.page_text'))).toBe(true);
+  });
+
+  it('allows a partial OCR document to remain listed without claiming a body hit', async () => {
+    const f = createHarness({ ocrSearchCurrent: false });
+
+    await expect(f.service.list(principal, input())).resolves.toMatchObject({
+      items: [expect.objectContaining({ document_id: documentId })],
+    });
+  });
+
+  it('keeps a current OCR body hit after its correction is indexed', async () => {
+    const f = createHarness({ ocrSearchCurrent: true });
+    f.searchService.search.mockResolvedValueOnce({ results: [result({ snippet: 'corrected table total' })], total: 1 });
+
+    await expect(f.service.search(principal, input({ bodyQuery: 'corrected table total' })))
+      .resolves.toMatchObject({ items: [expect.objectContaining({ document_id: documentId })] });
+  });
+
+  it('omits a result when document access is revoked after scoped search', async () => {
+    const f = createHarness();
+    f.permissionService.canReadDocument.mockResolvedValue({ effect: 'DENY', reasonCode: 'PERMISSION_DENIED' });
+
+    await expect(f.service.search(principal, input({ query: '공급계약' })))
+      .resolves.toMatchObject({ items: [], page_info: { returned_count: 0 } });
+    expect(f.permissionService.canReadDocument).toHaveBeenCalledWith(
+      { tenantId, userId: actorUserId }, documentId,
+    );
+  });
+
+  it('omits a result if the current Matter read is revoked after scoped search', async () => {
+    const f = createHarness();
+    f.permissionService.canReadMatter.mockResolvedValue({ effect: 'DENY', reasonCode: 'PERMISSION_DENIED', appliedRules: [] });
+
+    await expect(f.service.search(principal, input({ query: '공급계약' })))
+      .resolves.toMatchObject({ items: [], page_info: { returned_count: 0 } });
+    expect(f.permissionService.canReadDocument).not.toHaveBeenCalled();
   });
 
   it('passes bounded query and date filters to the same permission-scoped search path', async () => {

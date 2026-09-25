@@ -207,6 +207,7 @@ interface ExactProjectionRow {
   email_raw_size_bytes?: string | null;
   email_raw_mime_type?: string | null;
   email_raw_filename?: string | null;
+  ocr_search_current?: boolean | null;
 }
 
 interface VersionFileRow {
@@ -955,6 +956,7 @@ export class AmicOsVaultReadService {
         response.results.slice(offset, offset + providerEmailScanPageSize),
         criteria,
         searchQuery,
+        Boolean(bodyQuery),
       ));
     }
     const codeFiltered = input.metadataCodes?.length
@@ -988,7 +990,9 @@ export class AmicOsVaultReadService {
         omitted_result_count: null,
         has_more: needsLocalPage
           ? pageStart + pageItems.length < filtered.length
-          : response.total > input.page * input.pageSize,
+          : 'total' in response && typeof response.total === 'number'
+            ? response.total > input.page * input.pageSize
+            : response.results.length >= input.pageSize,
         ...(criteria ? {
           email_date_basis: criteria.dateBasis,
           email_sort: criteria.sort,
@@ -1059,6 +1063,7 @@ export class AmicOsVaultReadService {
     results: SearchResultDto[],
     criteria: ProviderEmailCriteria | null = null,
     query: string | null = null,
+    bodyOnly = false,
   ): Promise<AmicOsVaultExactProjection[]> {
     const documentIds = [...new Set(results
       .map((item) => item.documentId)
@@ -1124,7 +1129,65 @@ export class AmicOsVaultReadService {
             email.raw_sha256 AS email_raw_sha256,
             email.raw_size_bytes AS email_raw_size_bytes,
             email.raw_mime_type AS email_raw_mime_type,
-            email.raw_filename AS email_raw_filename
+            email.raw_filename AS email_raw_filename,
+            CASE WHEN cd.extraction_method = 'ocr' THEN
+              cd.extraction_status = 'ready'
+              AND idx.source_text_hash = encode(digest(coalesce((
+                SELECT string_agg(coalesce(page.corrected_text, page.page_text), E'\n\n'
+                  ORDER BY page.page_number)
+                FROM amic_os_vault_ocr_pages page
+                WHERE page.tenant_id = dv.tenant_id
+                  AND page.document_id = dv.document_id
+                  AND page.version_id = dv.version_id
+                  AND page.source_sha256 = dv.file_hash
+              ), ''), 'sha256'), 'hex')
+              AND EXISTS (
+                SELECT 1 FROM amic_os_vault_ocr_pages page
+                WHERE page.tenant_id = dv.tenant_id
+                  AND page.document_id = dv.document_id
+                  AND page.version_id = dv.version_id
+                  AND page.source_sha256 = dv.file_hash
+              )
+              AND (
+                SELECT count(*) = max(page.page_number)
+                  AND min(page.page_number) = 1
+                FROM amic_os_vault_ocr_pages page
+                WHERE page.tenant_id = dv.tenant_id
+                  AND page.document_id = dv.document_id
+                  AND page.version_id = dv.version_id
+                  AND page.source_sha256 = dv.file_hash
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM amic_os_vault_ocr_pages page
+                WHERE page.tenant_id = dv.tenant_id
+                  AND page.document_id = dv.document_id
+                  AND page.version_id = dv.version_id
+                  AND page.source_sha256 = dv.file_hash
+                  AND page.source_result_sha256 <> encode(digest(
+                    page.page_number::text || E'\n' || page.page_text || E'\n'
+                    || to_char(page.confidence, 'FM0.000'), 'sha256'), 'hex')
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM document_chunks chunk
+                WHERE chunk.tenant_id = idx.tenant_id
+                  AND chunk.version_id = idx.version_id
+                  AND chunk.chunk_kind = 'child'
+                  AND chunk.stale = false
+                  AND (chunk.source_text_hash <> idx.source_text_hash
+                    OR chunk.document_id <> d.document_id)
+              )
+              AND (
+                idx.source_text_hash = encode(digest('', 'sha256'), 'hex')
+                OR EXISTS (
+                  SELECT 1 FROM document_chunks chunk
+                  WHERE chunk.tenant_id = idx.tenant_id
+                    AND chunk.version_id = idx.version_id
+                    AND chunk.chunk_kind = 'child'
+                    AND chunk.stale = false
+                    AND chunk.source_text_hash = idx.source_text_hash
+                )
+              )
+            ELSE true END AS ocr_search_current
           FROM documents d
           JOIN matters m
             ON m.tenant_id = d.tenant_id
@@ -1140,6 +1203,12 @@ export class AmicOsVaultReadService {
           JOIN file_objects f
             ON f.tenant_id = dv.tenant_id
            AND f.file_object_id = dv.file_object_id
+          LEFT JOIN canonical_documents cd
+            ON cd.tenant_id = dv.tenant_id
+           AND cd.version_id = dv.version_id
+          LEFT JOIN document_search_index idx
+            ON idx.tenant_id = dv.tenant_id
+           AND idx.version_id = dv.version_id
           LEFT JOIN users creator
             ON creator.tenant_id = d.tenant_id
            AND creator.user_id = d.created_by
@@ -1222,6 +1291,24 @@ export class AmicOsVaultReadService {
     );
     const emailByDocument = new Map<string, AmicOsVaultEmailMessageProjection>();
     const exactRows = rows.rows as ExactProjectionRow[];
+    const subject = { tenantId: principal.tenantId, userId: principal.actorUserId };
+    const relevantRows = exactRows.filter((row) => results.some((item) =>
+      item.documentId === row.document_id && item.versionId === row.version_id
+      && item.matterId === row.matter_id));
+    const readableDocumentIds = new Set<string>();
+    for (let offset = 0; offset < relevantRows.length; offset += providerEmailHeaderReadConcurrency) {
+      const allowed = await Promise.all(relevantRows.slice(offset, offset + providerEmailHeaderReadConcurrency)
+        .map(async (row) => {
+          try {
+            if (!readableMatterIds.includes(row.matter_id)) return null;
+            const decision = await this.permissionService.canReadDocument(subject, row.document_id);
+            return decision.effect === 'ALLOW' ? row.document_id : null;
+          } catch {
+            return null;
+          }
+        }));
+      for (const id of allowed) if (id) readableDocumentIds.add(id);
+    }
     if (criteria || exactRows.some((row) => row.email_id)) {
       const emailRows = exactRows.filter(
         (row): row is ExactProjectionRow & { email_id: string } => typeof row.email_id === 'string',
@@ -1248,8 +1335,10 @@ export class AmicOsVaultReadService {
       const editedAt = exact ? canonicalInstant(exact.updated_at) : null;
       if (!exact
           || !mappedMatterId
+          || !readableDocumentIds.has(item.documentId)
           || exact.matter_id !== item.matterId
           || exact.version_id !== item.versionId
+          || (bodyOnly && exact.ocr_search_current !== true)
           || !Number.isSafeInteger(size)
           || size < 1
           || !createdAt

@@ -304,11 +304,26 @@ describe('AmicOsVaultReadController', () => {
     }));
   });
 
+  it('passes Korean Matter codes with commas without treating them as legacy codes', async () => {
+    const { controller, request, service } = createHarness();
+    const code = '합성 고객/LIT/CIV/계약, 손해배상';
+    await controller.search(request, {
+      principal: { tenant_id: 'caller-tenant', user_id: principal.accountLedgerId },
+      query: '', lawos_matter_id: null, current_version_only: true,
+      date_from: null, date_to: null, page: 1, page_size: 25,
+      code_basis: 'matter', metadata_codes: [code],
+    });
+    expect(service.search).toHaveBeenCalledWith(principal, expect.objectContaining({
+      codeBasis: 'matter', metadataCodes: [code],
+    }));
+  });
+
   it.each([
     { metadata_codes: ['LEGACY.CODE'] },
     { code_basis: 'unknown' },
     { code_basis: 'legacy', metadata_codes: ['LEGACY.CODE', 'LEGACY.CODE'] },
     { code_basis: 'legacy', metadata_codes: ['bad code'] },
+    { code_basis: 'matter', metadata_codes: ['bad\ncode'] },
     { mime_type: ['application/pdf', 'application/pdf'] },
     { mime_type: `application/${'x'.repeat(252)}` },
     { tags: ['closing', 'closing'] },

@@ -341,7 +341,8 @@ describe('SearchFilterBuilder', () => {
       filters: { versionStatus: 'all' },
     });
 
-    expect(built.whereSql).not.toContain('idx.version_status');
+    expect(built.whereSql).not.toContain('AND (idx.version_status =');
+    expect(built.whereSql).toContain('current_version.version_status = idx.version_status');
     expect(built.whereSql).toContain('idx.tenant_id = $1');
     expect(built.whereSql).toContain('idx.document_status <> $2');
     expect(built.params).toEqual([tenantId, 'deleted']);

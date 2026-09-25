@@ -29,6 +29,8 @@ import { AmicOsVaultReadController } from './amic-os-vault-read.controller';
 import { AmicOsVaultReadService } from './amic-os-vault-read.service';
 import { AmicOsVaultMetadataController } from './amic-os-vault-metadata.controller';
 import { AmicOsVaultMetadataService } from './amic-os-vault-metadata.service';
+import { AmicOsVaultOcrController } from './amic-os-vault-ocr.controller';
+import { AmicOsVaultOcrService } from './amic-os-vault-ocr.service';
 
 @Module({
   imports: [
@@ -52,6 +54,7 @@ import { AmicOsVaultMetadataService } from './amic-os-vault-metadata.service';
     AmicOsVaultReadController,
     AmicOsVaultMetadataController,
     AmicOsVaultEditorController,
+    AmicOsVaultOcrController,
   ],
   providers: [
     AmicOsVaultProviderConfig,
@@ -62,6 +65,7 @@ import { AmicOsVaultMetadataService } from './amic-os-vault-metadata.service';
     AmicOsVaultMetadataService,
     AmicOsVaultEditorService,
     AmicOsVaultDocumentCopyService,
+    AmicOsVaultOcrService,
   ],
   exports: [
     AmicOsVaultProviderConfig,

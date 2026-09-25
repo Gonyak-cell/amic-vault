@@ -11,7 +11,7 @@ const safeRef = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/u;
 const accountLedgerId = /^[a-z0-9][a-z0-9._-]{1,78}[a-z0-9]$/u;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const metadataCode = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u;
-const controls = /[\u0000-\u001f\u007f]/u;
+const controls = /[\p{Cc}]/u;
 
 function invalid(): BadRequestException {
   return new BadRequestException({ code: 'DMS_METADATA_INVALID' });
@@ -57,7 +57,7 @@ function parseUpdate(value: unknown): VaultMetadataUpdateInput {
   if (!Number.isSafeInteger(body.expected_revision) || Number(body.expected_revision) < 0
       || typeof body.filename !== 'string' || !body.filename
       || body.filename !== body.filename.normalize('NFC').trim()
-      || body.filename.length > 240 || /[\\/\u0000-\u001f\u007f]/u.test(body.filename)
+      || body.filename.length > 240 || /[\\/\p{Cc}]/u.test(body.filename)
       || body.metadata_code !== null && (typeof body.metadata_code !== 'string'
         || !metadataCode.test(body.metadata_code))
       || !validText(business.description, 2_000)

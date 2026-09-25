@@ -134,11 +134,13 @@ function optionalTags(value: unknown): string[] | null {
   return normalized;
 }
 
-function optionalMetadataCodes(value: unknown): string[] | null {
+function optionalMetadataCodes(value: unknown, basis: 'matter' | 'legacy' | null): string[] | null {
   if (value === undefined || value === null || value === '') return null;
   if (!Array.isArray(value) || value.length > 20) throw invalid();
   const codes = value.map((item: unknown) => {
-    if (typeof item !== 'string' || !vaultCode.test(item)) throw invalid();
+    if (typeof item !== 'string' || (basis === 'matter'
+      ? item.length < 1 || item.length > 120 || /[\p{Cc}]/u.test(item)
+      : !vaultCode.test(item))) throw invalid();
     return item;
   });
   if (new Set(codes).size !== codes.length) throw invalid();
@@ -240,9 +242,10 @@ function parseSearch(value: unknown): AmicOsVaultReadInput {
   const emailSort = optionalEmailTimeField(input.email_sort);
   const emailSortOrder = optionalEmailSortOrder(input.email_sort_order);
   const emailDirection = optionalEmailDirection(input.email_direction);
-  const metadataCodes = optionalMetadataCodes(input.metadata_codes);
   const codeBasis = input.code_basis === undefined || input.code_basis === null
     ? null : input.code_basis;
+  const metadataCodes = optionalMetadataCodes(input.metadata_codes,
+    codeBasis === 'matter' || codeBasis === 'legacy' ? codeBasis : null);
   const emailCriteriaActive = [emailDateBasis, emailSort, emailSortOrder, emailDirection]
     .some((value) => value !== null);
   if (emailCriteriaActive

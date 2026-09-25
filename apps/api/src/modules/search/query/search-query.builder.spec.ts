@@ -110,7 +110,7 @@ describe('SearchQueryBuilder', () => {
       expect(query.sql).toContain('filing_search.body_document_id = idx.document_id');
       expect(query.sql).toContain("participant_search.role IN ('from', 'to')");
       expect(query.sql).toContain('participant_search.tenant_id = message_search.tenant_id');
-      expect(query.sql).toContain('participant_search.address_hash = $3');
+      expect(query.sql).toContain(`participant_search.address_hash = $${query.params.indexOf(hashed) + 1}`);
       expect(query.sql).not.toContain(address);
       expect(query.params).toContain(hashed);
     }

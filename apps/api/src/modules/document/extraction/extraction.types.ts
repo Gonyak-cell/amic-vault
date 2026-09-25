@@ -20,6 +20,13 @@ export interface ExtractionResultInput extends ExtractionJobPayload {
   failureReasonCode: string | null;
   revisions?: readonly DocumentRevisionExtractionInput[];
   annotations?: readonly DocumentAnnotationExtractionInput[];
+  ocrPages?: readonly DocumentOcrPageInput[];
+}
+
+export interface DocumentOcrPageInput {
+  page: number;
+  text: string;
+  confidence: number;
 }
 
 export interface DocumentRevisionExtractionInput {

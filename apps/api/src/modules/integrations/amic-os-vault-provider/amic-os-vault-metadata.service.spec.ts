@@ -28,7 +28,7 @@ const input = {
 };
 
 function harness(row: Record<string, unknown> = initial, readEffect = 'ALLOW') {
-  const query = vi.fn(async (sql: string, _params?: readonly unknown[]) => {
+  const query = vi.fn(async (sql: string) => {
     if (sql.includes('app_lock_internal_latest_authority')) return {
       rowCount: 1, rows: [{ locked: true }],
     };

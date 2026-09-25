@@ -238,7 +238,7 @@ export class AmicOsVaultMetadataService {
   private project(principal: AmicOsVaultProviderPrincipal, row: MetadataRow) {
     const filename = row.filename.normalize('NFC');
     if (!filename || filename !== filename.trim() || filename.length > 240
-        || /[\\/\u0000-\u001f\u007f]/u.test(filename)) throw denied();
+        || /[\\/\p{Cc}]/u.test(filename)) throw denied();
     const creatorName = row.effective_creator_name?.normalize('NFC').trim() || null;
     return {
       authority_kind: 'amic-vault-api' as const,
