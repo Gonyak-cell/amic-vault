@@ -1164,9 +1164,10 @@ export class AmicOsVaultReadService {
           || !editedAt
           || editedAt < createdAt) return [];
       const clientDisplayName = displayText(exact.canonical_client_name, 1_000);
-      emitted.add(item.documentId);
       const emailMessage = emailByDocument.get(item.documentId);
       const emailSource = exact.email_id ? emailSourceForRow(exact) : null;
+      if (criteria && (!emailMessage || !emailSource)) return [];
+      emitted.add(item.documentId);
       return [{
         document_id: item.documentId,
         matter_id: mappedMatterId,
@@ -1207,6 +1208,7 @@ export class AmicOsVaultReadService {
     row: ExactProjectionRow & { email_id: string },
     criteria: ProviderEmailCriteria | null,
   ): Promise<AmicOsVaultEmailMessageProjection | null> {
+    if (criteria && !emailSourceForRow(row)) return null;
     const direction = emailDirectionFor(row);
     const sentAt = canonicalInstant(row.email_sent_at ?? new Date(Number.NaN));
     const receivedAt = canonicalInstant(row.email_received_at ?? new Date(Number.NaN));
@@ -1214,12 +1216,14 @@ export class AmicOsVaultReadService {
     const subject = displayText(row.email_subject, 500);
     let from: string | null = null;
     let to: string[] = [];
+    let headerRead = false;
     if (this.storageService && row.email_storage_uri && emailSourceForRow(row)) {
       try {
         const stored = await this.storageService.getByStorageUri(principal.tenantId, row.email_storage_uri);
         const prefix = await readEmailHeaderPrefix(stored.body);
         if (prefix) {
           const metadata = normalizeEmailMetadata(decodeEmlRawContent(Buffer.from(prefix, 'latin1')));
+          headerRead = true;
           // Search matches the persisted subject; keep the displayed title
           // aligned with that same authoritative indexed value.
           from = metadata.participants.find((participant) => participant.role === 'from')?.normalizedAddress ?? null;
@@ -1228,10 +1232,11 @@ export class AmicOsVaultReadService {
             .map((participant) => participant.normalizedAddress);
         }
       } catch {
-        // The persisted subject/timestamps remain safe; address projection is
-        // omitted if the immutable raw header cannot be read or parsed.
+        // A search result with email criteria requires the immutable header;
+        // other document reads can still omit its address projection.
       }
     }
+    if (criteria && !headerRead) return null;
     if (!subject && !from && to.length === 0 && !sentAt && !receivedAt && !filedAt) return null;
     const message: AmicOsVaultEmailMessageProjection = { subject, from, to };
     if (criteria) {

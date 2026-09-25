@@ -993,6 +993,11 @@ describe('AmicOsVaultReadService', () => {
           filedAt: '2026-08-31T00:00:00.000Z',
           storageUri: `s3://private/email-${index}.eml`,
           mimeType: 'text/plain',
+          rawFileObjectId: currentFileObjectId,
+          rawSha256: 'a'.repeat(64),
+          rawSizeBytes: '64',
+          rawMimeType: 'message/rfc822',
+          rawFilename: `email-${index}.eml`,
         }),
       };
     });
@@ -1003,6 +1008,7 @@ describe('AmicOsVaultReadService', () => {
         fixtures.slice(50, 100).map(({ result: item }) => item),
         fixtures.slice(100).map(({ result: item }) => item),
       ],
+      storageBody: Buffer.from('Message-ID: <fixture@example.test>\r\nFrom: sender@example.test\r\nTo: recipient@example.test\r\n\r\n'),
     });
     const response = await f.service.search(principal, input({
       mimeTypes: ['message/rfc822'],
@@ -1012,6 +1018,36 @@ describe('AmicOsVaultReadService', () => {
     expect(f.searchService.search).toHaveBeenCalledTimes(3);
     expect(response.items).toHaveLength(1);
     expect(response.items[0]?.document_id).toBe(fixtures[101]?.result.documentId);
+  });
+
+  it('omits email search hits when the filed EML source or its headers cannot be read', async () => {
+    const candidate = result({ documentId: receivedEmailDocumentId, versionId: receivedEmailVersionId,
+      documentType: 'email' });
+    const row = emailProjectionRow({
+      documentId: receivedEmailDocumentId,
+      versionId: receivedEmailVersionId,
+      fileObjectId: receivedEmailFileObjectId,
+      emailId: receivedEmailId,
+      subject: 'Filed subject',
+      sentAt: '2026-08-28T00:00:00.000Z',
+      receivedAt: null,
+      filedAt: '2026-08-28T01:00:00.000Z',
+      storageUri: 's3://private/received.eml',
+      mimeType: 'text/plain',
+    });
+    const withoutSource = createHarness({ exactRows: [row], emailSearchPages: [[candidate]] });
+    expect((await withoutSource.service.search(principal, input({
+      mimeTypes: ['message/rfc822'], emailSort: 'event_at',
+    }))).items).toEqual([]);
+
+    const sourceRow = { ...row, email_raw_file_object_id: receivedEmailRawFileObjectId,
+      email_raw_sha256: 'a'.repeat(64), email_raw_size_bytes: '64',
+      email_raw_mime_type: 'message/rfc822', email_raw_filename: 'received.eml' };
+    const withoutHeader = createHarness({ exactRows: [sourceRow], emailSearchPages: [[candidate]],
+      storageBody: Buffer.from('From: sender@example.test\r\n') });
+    expect((await withoutHeader.service.search(principal, input({
+      mimeTypes: ['message/rfc822'], emailSort: 'event_at',
+    }))).items).toEqual([]);
   });
 
   it('reuses the permission-scoped document version service and returns exact file metadata', async () => {
