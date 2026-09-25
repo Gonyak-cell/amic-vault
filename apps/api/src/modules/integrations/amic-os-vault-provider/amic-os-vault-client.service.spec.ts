@@ -58,10 +58,11 @@ function fixture(action: ClientDocumentAction = 'dms:document:download') {
       reviewId: null, scanState: 'unscannable', reasonCode: 'assessment_missing',
       requiresReview: true, policyVersion: 'sf20-dlp-v1', resultHash: digest,
       findingCount: 0, restrictedFindingCount: 0 })),
-    createClientDocumentReview: vi.fn(async () => ({ auditEventId: scopeId,
+    createClientDocumentReview: vi.fn(async (_ctx: unknown, _assessmentId: unknown,
+      input: { expiresAt: string }) => ({ auditEventId: scopeId,
       review: { assessmentId: scopeId, reviewId: fileObjectId,
         decision: 'allow', reasonCode: 'business_justified',
-        expiresAt: new Date(Date.now() + 60_000).toISOString(), reviewedAt: new Date().toISOString() } })) };
+        expiresAt: input.expiresAt, reviewedAt: new Date().toISOString() } })) };
   const service = new AmicOsVaultClientService(audit as unknown as AuditService,
     permissions as unknown as PermissionService,
     { current: () => authority } as unknown as ClientDocumentAuthorityContext,
@@ -92,7 +93,8 @@ describe('AMIC OS Client exact-version provider', () => {
       decision: 'allow', reason_code: 'business_justified', expires_at: expiresAt };
     const response = await service.execute('dlp/reviews/create', envelope);
     expect((response.body as { result: { document_id: string; version_id: string } }).result)
-      .toMatchObject({ document_id: documentId, version_id: versionId, assessment_id: scopeId });
+      .toMatchObject({ document_id: documentId, version_id: versionId, assessment_id: scopeId,
+        expires_at: expiresAt });
     expect(dlp.createClientDocumentReview).toHaveBeenCalledWith({ tenantId, userId: actorUserId }, scopeId,
       { decision: 'allow', reasonCode: 'business_justified', expiresAt }, { documentId, versionId }, expect.anything());
     expect(audit.log).not.toHaveBeenCalled();
