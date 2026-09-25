@@ -495,7 +495,7 @@ const enterpriseSearchFiles = [
     path: 'apps/api/src/modules/search/query/search-filter.builder.ts',
     patterns: [
       { name: 'title filter', pattern: /idx\.title ILIKE/ },
-      { name: 'Matter Code filter', pattern: /matter_filter\.matter_code ILIKE/ },
+      { name: 'Matter Code filter', pattern: /(?:matter_filter\.matter_code|lawosMatterCode[\s\S]*matter_filter\.matter_code)\)?? ILIKE/ },
       { name: 'client name filter', pattern: /client_filter\.name ILIKE/ },
       { name: 'LIKE wildcard escaping', pattern: /likeContains/ },
     ],
