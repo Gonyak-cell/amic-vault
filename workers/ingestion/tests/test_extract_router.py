@@ -393,7 +393,7 @@ def test_hwpx_extraction_fixtures_cover_five_deidentified_shapes() -> None:
 
 
 def test_hwpx_endpoint_rejects_hwp_binary_without_binary_parser() -> None:
-    response = _post_extract("binary.hwpx", b"\xd0\xcf\x11\xe0" + b"not-real-document")
+    response = _post_extract("binary.hwpx", _hwp_binary_fixture())
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["status"] == "failed"
