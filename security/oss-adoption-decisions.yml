@@ -10,6 +10,8 @@
     "REJECTED": "cannot be used by a downstream implementation"
   },
   "l0IneligiblePaths": [
+    "infra/ci-minio.Dockerfile",
+    "infra/docker-compose.ci-minio.yml",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-client.contract.spec.ts",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-client.contract.ts",
     "apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-client.controller.ts",
