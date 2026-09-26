@@ -457,6 +457,7 @@ function startMockOcrWorker(): Promise<{
             extraction_method: 'ocr',
             body_text: ocrReadyBodyText,
             confidence: 0.7,
+            pages: [{ page: 1, text: ocrReadyBodyText, confidence: 0.7 }],
             failure_reason_code: null,
           }),
         );

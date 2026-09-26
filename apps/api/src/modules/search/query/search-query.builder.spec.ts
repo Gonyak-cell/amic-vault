@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { SearchFilterBuilder } from './search-filter.builder';
 import { SearchQueryBuilder } from './search-query.builder';
@@ -68,6 +69,8 @@ describe('SearchQueryBuilder', () => {
     expect(bodyBuilt.sql).toContain('body_hit.chunk_id IS NOT NULL');
     expect(bodyBuilt.sql).not.toContain('idx.content_tsv @@ tsq.query');
     expect(bodyBuilt.sql).toContain('ORDER BY updated_at ASC');
+    expect(titleBuilt.sql).not.toContain('FROM email_matter_filings filing_search');
+    expect(bodyBuilt.sql).not.toContain('FROM email_matter_filings filing_search');
   });
 
   it('treats email target as title plus body search scoped to email documents', () => {
@@ -84,6 +87,41 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain("idx.document_type = 'email'");
     expect(built.sql).toContain('(idx.title_tsv @@ tsq.query OR');
     expect(built.sql).toContain('body_hit.chunk_id IS NOT NULL');
+    expect(built.sql).toContain('FROM email_matter_filings filing_search');
+    expect(built.sql).toContain('filing_search.body_document_id = idx.document_id');
+    expect(built.sql).toContain('filing_search.matter_id = idx.matter_id');
+    expect(built.sql).toContain('amic_korean_search_normalize(message_search.subject)');
+    expect(built.sql).toContain('idx.tenant_id = $1');
+    expect(built.sql).not.toContain('FROM email_participants participant_search');
+  });
+
+  it('matches a complete sender or recipient address by its stored hash within scoped email filings', () => {
+    const address = 'Sender@Example.Test';
+    const hashed = createHash('sha256')
+      .update('email-address').update('\0').update(address.toLowerCase()).digest('hex');
+    const input = { query: address, page: 1, pageSize: 10, target: 'email' as const };
+    const built = builder().build(input, scope);
+    const facets = builder().buildFacets(input, scope);
+
+    for (const query of [built, facets]) {
+      expect(query.sql).toContain("idx.document_type = 'email'");
+      expect(query.sql).toContain('filing_search.tenant_id = idx.tenant_id');
+      expect(query.sql).toContain('filing_search.matter_id = idx.matter_id');
+      expect(query.sql).toContain('filing_search.body_document_id = idx.document_id');
+      expect(query.sql).toContain("participant_search.role IN ('from', 'to')");
+      expect(query.sql).toContain('participant_search.tenant_id = message_search.tenant_id');
+      expect(query.sql).toContain(`participant_search.address_hash = $${query.params.indexOf(hashed) + 1}`);
+      expect(query.sql).not.toContain(address);
+      expect(query.params).toContain(hashed);
+    }
+  });
+
+  it('keeps email header matching out of general and body-only search', () => {
+    for (const target of ['all', 'body'] as const) {
+      const input = { query: 'Sender@Example.Test', page: 1, pageSize: 10, target };
+      expect(builder().build(input, scope).sql).not.toContain('FROM email_matter_filings filing_search');
+      expect(builder().buildFacets(input, scope).sql).not.toContain('FROM email_matter_filings filing_search');
+    }
   });
 
   it('routes clause target through clause chunks while keeping document permission scope', () => {
@@ -180,7 +218,8 @@ describe('SearchQueryBuilder', () => {
     expect(built.sql).toContain("'recordsStatuses'");
     expect(built.sql).toContain('idx.client_id = $3');
     expect(built.sql).toContain('idx.title ILIKE $4');
-    expect(built.sql).toContain('matter_filter.matter_code ILIKE $5');
+    expect(built.sql).toContain("coalesce(nullif(matter_filter.metadata_json ->> 'lawosMatterCode', ''),");
+    expect(built.sql).toContain('matter_filter.matter_code) ILIKE $5');
     expect(built.sql).toContain('client_filter.name ILIKE $6');
     expect(built.sql).toContain('idx.document_type = ANY($7::text[])');
     expect(built.sql).toContain('FROM documents confidentiality_doc');

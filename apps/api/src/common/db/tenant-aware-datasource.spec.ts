@@ -62,6 +62,19 @@ describe('TenantAwareDataSource', () => {
     ]);
   });
 
+  it('starts serializable transactions before the tenant-local GUC query', async () => {
+    const client = new FakeClient();
+    const dataSource = new TenantAwareDataSource(new TenantContextService());
+    await dataSource.transactionForTenant(client, tenantId, async () => 'ok', {
+      isolationLevel: 'serializable',
+    });
+    expect(client.queries).toEqual([
+      'BEGIN ISOLATION LEVEL SERIALIZABLE',
+      'SELECT set_config($1, $2, true)',
+      'COMMIT',
+    ]);
+  });
+
   it('fails closed for a missing explicit tenant before beginning a transaction', async () => {
     const client = new FakeClient();
     const dataSource = new TenantAwareDataSource(new TenantContextService());

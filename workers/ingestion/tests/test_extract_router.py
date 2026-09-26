@@ -32,6 +32,15 @@ client = TestClient(app)
 _stored_objects: dict[str, WorkerStoredObject] = {}
 
 
+def test_hwp_mime_aliases_keep_binary_extraction_and_generic_ole_fails_closed() -> None:
+    source = _hwp_binary_fixture()
+    for mime in ("application/haansofthwp", "application/x-ole-storage"):
+        assert extract_router._extension_from_stored_object(WorkerStoredObject(source, mime)) == "hwp"
+    assert extract_router._extension_from_stored_object(
+        WorkerStoredObject(b"\xd0\xcf\x11\xe0not-hwp", "application/x-ole-storage")
+    ) == ""
+
+
 def _fake_read_ingestion_object(job):
     return _stored_objects[job.objectKey]
 
@@ -384,7 +393,7 @@ def test_hwpx_extraction_fixtures_cover_five_deidentified_shapes() -> None:
 
 
 def test_hwpx_endpoint_rejects_hwp_binary_without_binary_parser() -> None:
-    response = _post_extract("binary.hwpx", b"\xd0\xcf\x11\xe0" + b"not-real-document")
+    response = _post_extract("binary.hwpx", _hwp_binary_fixture())
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["status"] == "failed"

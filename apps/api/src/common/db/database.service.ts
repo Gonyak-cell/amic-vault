@@ -126,6 +126,15 @@ interface TenantTransactionScope {
   isolationLevel: TenantTransactionOptions['isolationLevel'];
 }
 
+function isolationLevelSatisfies(
+  active: TenantTransactionOptions['isolationLevel'],
+  requested: TenantTransactionOptions['isolationLevel'],
+): boolean {
+  if (!requested) return true;
+  if (active === 'serializable') return true;
+  return active === requested;
+}
+
 function denied(): ForbiddenException {
   return new ForbiddenException({ code: 'PERMISSION_DENIED' });
 }
@@ -157,10 +166,7 @@ export class DatabaseService implements OnModuleDestroy {
     const activeScope = this.transactionScope.getStore();
     if (activeScope) {
       if (activeScope.tenantId !== tenantId) throw denied();
-      if (
-        options.isolationLevel === 'repeatable read' &&
-        activeScope.isolationLevel !== 'repeatable read'
-      ) {
+      if (!isolationLevelSatisfies(activeScope.isolationLevel, options.isolationLevel)) {
         throw denied();
       }
       return work(activeScope.client);

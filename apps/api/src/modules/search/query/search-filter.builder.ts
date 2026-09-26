@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   searchFiltersSchema,
   type SearchConfidentialityLevel,
+  type SearchDateBasis,
   type SearchFiltersDto,
   type SearchLegalHold,
   type SearchOcrConfidence,
@@ -115,6 +116,20 @@ export class SearchFilterBuilder {
       input.scope ?? denyAllSearchScope,
       { sql: 'idx.document_status <> ?', params: ['deleted'] },
       { sql: promotedDocumentExistsSql('idx', 'idx'), params: [] },
+      { sql: `EXISTS (
+        SELECT 1
+        FROM documents current_document
+        JOIN document_versions current_version
+          ON current_version.tenant_id = current_document.tenant_id
+          AND current_version.document_id = current_document.document_id
+          AND current_version.version_id = idx.version_id
+        WHERE current_document.tenant_id = idx.tenant_id
+          AND current_document.document_id = idx.document_id
+          AND current_document.matter_id = idx.matter_id
+          AND current_document.status = idx.document_status
+          AND current_document.status <> 'deleted'
+          AND current_version.version_status = idx.version_status
+      )`, params: [] },
     ];
 
     const versionStatus: SearchVersionStatus = filters.versionStatus ?? 'current';
@@ -150,7 +165,10 @@ export class SearchFilterBuilder {
             FROM matters matter_filter
             WHERE matter_filter.tenant_id = idx.tenant_id
               AND matter_filter.matter_id = idx.matter_id
-              AND matter_filter.matter_code ILIKE ? ESCAPE '\\'
+              AND (
+                coalesce(nullif(matter_filter.metadata_json ->> 'lawosMatterCode', ''),
+                  matter_filter.matter_code) ILIKE ? ESCAPE '\\'
+              )
           )
         `,
         params: [likeContains(filters.matterCode)],
@@ -184,11 +202,70 @@ export class SearchFilterBuilder {
         params: [likeContains(filters.clientName)],
       });
     }
+    if (filters.clientCode) {
+      fragments.push({
+        sql: `
+          EXISTS (
+            SELECT 1
+            FROM clients client_code_filter
+            WHERE client_code_filter.tenant_id = idx.tenant_id
+              AND client_code_filter.client_id = idx.client_id
+              AND (
+                client_code_filter.client_id::text ILIKE ? ESCAPE '\\'
+                OR client_code_filter.metadata_json ->> 'lawosClientId' ILIKE ? ESCAPE '\\'
+                OR client_code_filter.metadata_json ->> 'matterAppClientId' ILIKE ? ESCAPE '\\'
+                OR client_code_filter.metadata_json ->> 'clientCode' ILIKE ? ESCAPE '\\'
+              )
+          )
+        `,
+        params: [
+          likeContains(filters.clientCode),
+          likeContains(filters.clientCode),
+          likeContains(filters.clientCode),
+          likeContains(filters.clientCode),
+        ],
+      });
+    }
     if (filters.documentType) {
       const types = Array.isArray(filters.documentType)
         ? filters.documentType
         : [filters.documentType];
       fragments.push({ sql: 'idx.document_type = ANY(?::text[])', params: [types] });
+    }
+    if (filters.mimeType) {
+      const mimeTypes = Array.isArray(filters.mimeType) ? filters.mimeType : [filters.mimeType];
+      fragments.push({
+        sql: `EXISTS (
+          SELECT 1
+          FROM document_versions mime_version_filter
+          JOIN file_objects mime_file_filter
+            ON mime_file_filter.tenant_id = mime_version_filter.tenant_id
+           AND mime_file_filter.file_object_id = mime_version_filter.file_object_id
+          WHERE mime_version_filter.tenant_id = idx.tenant_id
+            AND mime_version_filter.document_id = idx.document_id
+            AND mime_version_filter.version_id = idx.version_id
+            AND mime_file_filter.mime_type = ANY(?::text[])
+        )`,
+        params: [mimeTypes],
+      });
+    }
+    if (filters.tags?.length) {
+      fragments.push({
+        sql: `(EXISTS (
+          SELECT 1
+          FROM document_tags tag_filter
+          WHERE tag_filter.tenant_id = idx.tenant_id
+            AND tag_filter.document_id = idx.document_id
+            AND tag_filter.tag = ANY(?::text[])
+        ) OR EXISTS (
+          SELECT 1
+          FROM documents metadata_tag_filter
+          WHERE metadata_tag_filter.tenant_id = idx.tenant_id
+            AND metadata_tag_filter.document_id = idx.document_id
+            AND jsonb_exists_any(metadata_tag_filter.amic_os_business_info -> 'tags', ?::text[])
+        ))`,
+        params: [filters.tags, filters.tags],
+      });
     }
     if (filters.confidentialityLevel) {
       fragments.push(this.confidentialityFilter(filters.confidentialityLevel));
@@ -211,12 +288,15 @@ export class SearchFilterBuilder {
     if (filters.privilegeStatus) {
       fragments.push(this.privilegeFilter(filters.privilegeStatus));
     }
-    if (filters.dateFrom) {
-      // document_search_index.updated_at is populated from documents.updated_at by the indexer.
-      fragments.push({ sql: 'idx.updated_at >= ?', params: [new Date(filters.dateFrom)] });
-    }
-    if (filters.dateTo) {
-      fragments.push({ sql: 'idx.updated_at <= ?', params: [new Date(filters.dateTo)] });
+    if (filters.dateBasis === 'created_or_modified' && filters.dateFrom && filters.dateTo) {
+      fragments.push(dateRangeFilter(filters.dateFrom, filters.dateTo));
+    } else {
+      if (filters.dateFrom) {
+        fragments.push(dateBoundaryFilter(filters.dateBasis, 'from', filters.dateFrom));
+      }
+      if (filters.dateTo) {
+        fragments.push(dateBoundaryFilter(filters.dateBasis, 'to', filters.dateTo));
+      }
     }
 
     const state: BindingState = { params: [] };
@@ -271,4 +351,45 @@ export class SearchFilterBuilder {
     }
     return `(${sql})`;
   }
+}
+
+function dateBoundaryFilter(
+  basis: SearchDateBasis | undefined,
+  direction: 'from' | 'to',
+  value: string,
+): SearchSqlFragment {
+  const operator = direction === 'from' ? '>=' : '<=';
+  const date = new Date(value);
+  const created = `EXISTS (
+    SELECT 1
+    FROM documents date_filter
+    WHERE date_filter.tenant_id = idx.tenant_id
+      AND date_filter.document_id = idx.document_id
+      AND date_filter.created_at ${operator} ?
+  )`;
+  if (basis === 'created') return { sql: created, params: [date] };
+  if (basis === 'created_or_modified') {
+    return {
+      sql: `(idx.updated_at ${operator} ? OR ${created})`,
+      params: [date, date],
+    };
+  }
+  // document_search_index.updated_at is populated from documents.updated_at by the indexer.
+  return { sql: `idx.updated_at ${operator} ?`, params: [date] };
+}
+
+function dateRangeFilter(dateFrom: string, dateTo: string): SearchSqlFragment {
+  const from = new Date(dateFrom);
+  const to = new Date(dateTo);
+  return {
+    sql: `(idx.updated_at >= ? AND idx.updated_at <= ? OR EXISTS (
+      SELECT 1
+      FROM documents date_filter
+      WHERE date_filter.tenant_id = idx.tenant_id
+        AND date_filter.document_id = idx.document_id
+        AND date_filter.created_at >= ?
+        AND date_filter.created_at <= ?
+    ))`,
+    params: [from, to, from, to],
+  };
 }

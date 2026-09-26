@@ -6,11 +6,14 @@ import { NestFactory } from '@nestjs/core';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../../apps/api/src/app.module';
 import { configureApp } from '../../apps/api/src/main';
+import { DocumentPermissionService } from '../../apps/api/src/modules/permission/document-permission.service';
 import { StorageService } from '../../apps/api/src/modules/storage/storage.service';
 import { PreviewConvertJob, previewConvertQueueName } from '../../apps/api/src/modules/preview/preview-convert.job';
 import { PreviewPrecreateQueueService, type PreviewPrecreateJobPayload } from '../../apps/api/src/modules/preview/preview-precreate-queue.service';
 import { PREVIEW_CHUNK_BYTES } from '../../apps/api/src/modules/preview/preview.service';
 import {
+  addBetaMember,
+  betaMemberUserId,
   betaOwnerUserId,
   auditCount,
   createClient,
@@ -19,6 +22,7 @@ import {
   markCanonicalReadyFixture,
   uploadPdf,
   uploadDocx,
+  uploadDocxVersion,
 } from './document-access/document-api-helpers';
 import { createOwnerClient, tenantBetaId, withClient } from './helpers/db';
 
@@ -97,7 +101,9 @@ describe('AMIC OS exact-copy provider integration', () => {
   let baseUrl: string;
   let betaOwnerCookie: string;
   let accountLedgerId: string;
+  let memberAccountLedgerId: string;
   let previousIdentity: PreviousIdentity | null = null;
+  let previousMemberIdentity: PreviousIdentity | null = null;
   const storedObjects = new Map<string, StoredObject>();
   const previousEnv = {
     enabled: process.env.AMIC_OS_VAULT_PROVIDER_ENABLED,
@@ -110,6 +116,7 @@ describe('AMIC OS exact-copy provider integration', () => {
     process.env.AMIC_OS_VAULT_PROVIDER_TOKEN = providerToken;
     process.env.AMIC_OS_VAULT_PROVIDER_REVISION = 'oa12-integration-v1';
     accountLedgerId = `user_amic_oa12_${randomUUID().replaceAll('-', '')}`;
+    memberAccountLedgerId = `user_amic_latest_${randomUUID().replaceAll('-', '')}`;
     previousIdentity = await withClient(createOwnerClient(), async (client) => {
       const previous = await client.query<PreviousIdentity>(
         `SELECT identity_value_normalized, status
@@ -131,6 +138,30 @@ describe('AMIC OS exact-copy provider integration', () => {
            status = 'active',
            updated_at = now()`,
         [tenantBetaId, betaOwnerUserId, accountLedgerId],
+      );
+      return previous.rows[0] ?? null;
+    });
+    previousMemberIdentity = await withClient(createOwnerClient(), async (client) => {
+      const previous = await client.query<PreviousIdentity>(
+        `SELECT identity_value_normalized, status
+         FROM user_login_identities
+         WHERE tenant_id = $1
+           AND user_id = $2
+           AND identity_type = 'account_ledger_id'
+         LIMIT 1`,
+        [tenantBetaId, betaMemberUserId],
+      );
+      await client.query(
+        `INSERT INTO user_login_identities (
+           tenant_id, user_id, identity_type, identity_value_normalized, status
+         )
+         VALUES ($1, $2, 'account_ledger_id', $3, 'active')
+         ON CONFLICT (tenant_id, user_id, identity_type)
+         DO UPDATE SET
+           identity_value_normalized = EXCLUDED.identity_value_normalized,
+           status = 'active',
+           updated_at = now()`,
+        [tenantBetaId, betaMemberUserId, memberAccountLedgerId],
       );
       return previous.rows[0] ?? null;
     });
@@ -218,6 +249,30 @@ describe('AMIC OS exact-copy provider integration', () => {
           [tenantBetaId, betaOwnerUserId, accountLedgerId],
         );
       }
+      if (previousMemberIdentity) {
+        await client.query(
+          `UPDATE user_login_identities
+           SET identity_value_normalized = $3, status = $4, updated_at = now()
+           WHERE tenant_id = $1
+             AND user_id = $2
+             AND identity_type = 'account_ledger_id'`,
+          [
+            tenantBetaId,
+            betaMemberUserId,
+            previousMemberIdentity.identity_value_normalized,
+            previousMemberIdentity.status,
+          ],
+        );
+      } else {
+        await client.query(
+          `DELETE FROM user_login_identities
+           WHERE tenant_id = $1
+             AND user_id = $2
+             AND identity_type = 'account_ledger_id'
+             AND identity_value_normalized = $3`,
+          [tenantBetaId, betaMemberUserId, memberAccountLedgerId],
+        );
+      }
     });
     if (previousEnv.enabled === undefined) delete process.env.AMIC_OS_VAULT_PROVIDER_ENABLED;
     else process.env.AMIC_OS_VAULT_PROVIDER_ENABLED = previousEnv.enabled;
@@ -225,6 +280,214 @@ describe('AMIC OS exact-copy provider integration', () => {
     else process.env.AMIC_OS_VAULT_PROVIDER_TOKEN = previousEnv.token;
     if (previousEnv.revision === undefined) delete process.env.AMIC_OS_VAULT_PROVIDER_REVISION;
     else process.env.AMIC_OS_VAULT_PROVIDER_REVISION = previousEnv.revision;
+  });
+
+  it('linearizes latest metadata against an actual concurrent member revoke and fails closed after revoke', async () => {
+    const marker = `LATEST-RACE-${randomUUID()}`;
+    const clientId = await createClient(baseUrl, betaOwnerCookie, marker);
+    const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, marker);
+    const lawosMatterId = `matter-lawos-${randomUUID()}`;
+    await withClient(createOwnerClient(), (client) => client.query(
+      `UPDATE matters
+       SET metadata_json = COALESCE(metadata_json, '{}'::jsonb)
+         || jsonb_build_object('lawosMatterId', $2::text),
+         updated_at = now()
+       WHERE tenant_id = $1 AND matter_id = $3`,
+      [tenantBetaId, lawosMatterId, matterId],
+    ));
+    await addBetaMember(baseUrl, betaOwnerCookie, matterId, 'read');
+    const uploaded = await uploadPdf(baseUrl, betaOwnerCookie, matterId, marker);
+    await markCanonicalReadyFixture({
+      documentId: uploaded.documentId,
+      bodyText: 'Clean latest authority race fixture.',
+    });
+
+    const requestLatest = async () => {
+      const response = await fetch(`${baseUrl}/v1/integrations/amic-os/vault/read/latest`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [providerHeader]: providerToken },
+        body: JSON.stringify({
+          principal: { tenant_id: 'lawos-tenant-correlation', user_id: memberAccountLedgerId },
+          lawos_matter_id: lawosMatterId,
+          document_id: uploaded.documentId,
+        }),
+      });
+      return { response, text: await response.text() };
+    };
+    const removeMember = () => fetch(
+      `${baseUrl}/v1/matters/${matterId}/members/${betaMemberUserId}`,
+      { method: 'DELETE', headers: { cookie: betaOwnerCookie } },
+    );
+
+    let permissionObservedResolve!: () => void;
+    const permissionObserved = new Promise<void>((resolve) => {
+      permissionObservedResolve = resolve;
+    });
+    let releasePermissionResolve!: () => void;
+    const releasePermission = new Promise<void>((resolve) => {
+      releasePermissionResolve = resolve;
+    });
+    const permissionService = app.get(DocumentPermissionService);
+    const originalCanRead = permissionService.canReadDocument.bind(permissionService);
+    let heldFirstDecision = false;
+    const permissionSpy = vi.spyOn(permissionService, 'canReadDocument').mockImplementation(
+      async (context, documentId) => {
+        const decision = await originalCanRead(context, documentId);
+        if (!heldFirstDecision
+            && context.userId === betaMemberUserId
+            && documentId === uploaded.documentId
+            && decision.effect === 'ALLOW') {
+          heldFirstDecision = true;
+          permissionObservedResolve();
+          await releasePermission;
+        }
+        return decision;
+      },
+    );
+
+    let removePromise: Promise<Response> | undefined;
+    try {
+      const latestPromise = requestLatest();
+      await expect(Promise.race([
+        permissionObserved.then(() => true),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5_000)),
+      ])).resolves.toBe(true);
+
+      removePromise = removeMember();
+      const blockedWriter = await withClient(createOwnerClient(), async (client) => {
+        for (let attempt = 0; attempt < 200; attempt += 1) {
+          const result = await client.query<{
+            pid: number;
+            wait_event_type: string | null;
+            wait_event: string | null;
+            blockers: number[];
+          }>(
+            `SELECT pid, wait_event_type, wait_event, pg_blocking_pids(pid) AS blockers
+             FROM pg_stat_activity
+             WHERE datname = current_database()
+               AND state = 'active'
+               AND query LIKE '%DELETE FROM matter_members%'
+               AND cardinality(pg_blocking_pids(pid)) > 0
+             ORDER BY pid
+             LIMIT 1`,
+          );
+          const row = result.rows[0];
+          if (row?.wait_event_type === 'Lock' && row.blockers.length > 0) return row;
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        return null;
+      });
+      expect(blockedWriter).toMatchObject({ wait_event_type: 'Lock' });
+
+      releasePermissionResolve();
+      const [latest, removed] = await Promise.all([latestPromise, removePromise]);
+      expect(latest.response.status, latest.text).toBe(200);
+      expect(JSON.parse(latest.text)).toMatchObject({
+        authority_kind: 'amic-vault-api',
+        matter_id: lawosMatterId,
+        exact_version: { document_id: uploaded.documentId, mime_type: 'application/pdf' },
+        raw_bytes_included: false,
+        storage_locator_returned: false,
+        history_included: false,
+      });
+      expect(removed.status, await removed.text()).toBe(204);
+
+      const afterRevoke = await requestLatest();
+      expect(afterRevoke.response.status, afterRevoke.text).toBe(403);
+
+      await addBetaMember(baseUrl, betaOwnerCookie, matterId, 'read');
+      const revokeFirst = await removeMember();
+      expect(revokeFirst.status, await revokeFirst.text()).toBe(204);
+      const afterCompletedRevoke = await requestLatest();
+      expect(afterCompletedRevoke.response.status, afterCompletedRevoke.text).toBe(403);
+    } finally {
+      releasePermissionResolve();
+      permissionSpy.mockRestore();
+      await removePromise?.catch(() => undefined);
+    }
+  });
+
+  it('returns a clean promoted latest version and rejects unpromoted or DLP-positive current content', async () => {
+    const marker = `LATEST-GATES-${randomUUID()}`;
+    const clientId = await createClient(baseUrl, betaOwnerCookie, marker);
+    const matterId = await createMatter(baseUrl, betaOwnerCookie, clientId, marker);
+    const lawosMatterId = `matter-lawos-${randomUUID()}`;
+    await withClient(createOwnerClient(), (client) => client.query(
+      `UPDATE matters
+       SET metadata_json = COALESCE(metadata_json, '{}'::jsonb)
+         || jsonb_build_object('lawosMatterId', $2::text),
+         updated_at = now()
+       WHERE tenant_id = $1 AND matter_id = $3`,
+      [tenantBetaId, lawosMatterId, matterId],
+    ));
+    const uploaded = await uploadPdf(baseUrl, betaOwnerCookie, matterId, marker);
+    const versionId = await markCanonicalReadyFixture({
+      documentId: uploaded.documentId,
+      bodyText: 'Clean promoted latest authority fixture.',
+    });
+    const requestLatest = async () => {
+      const response = await fetch(`${baseUrl}/v1/integrations/amic-os/vault/read/latest`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', [providerHeader]: providerToken },
+        body: JSON.stringify({
+          principal: { tenant_id: 'lawos-tenant-correlation', user_id: accountLedgerId },
+          lawos_matter_id: lawosMatterId,
+          document_id: uploaded.documentId,
+        }),
+      });
+      return { response, text: await response.text() };
+    };
+
+    const clean = await requestLatest();
+    expect(clean.response.status, clean.text).toBe(200);
+    expect(JSON.parse(clean.text)).toMatchObject({
+      exact_version: { document_id: uploaded.documentId, version_id: versionId },
+    });
+
+    const unpromoted = await uploadDocxVersion(
+      baseUrl,
+      betaOwnerCookie,
+      uploaded.documentId,
+      `${marker}-unpromoted`,
+      'Clean but unpromoted latest content.',
+      { markPromoted: false },
+    );
+    await markCanonicalReadyFixture({
+      documentId: uploaded.documentId,
+      versionId: unpromoted.versionId,
+      bodyText: 'Clean but unpromoted latest content.',
+      extractionMethod: 'docx',
+    });
+    const deniedUnpromoted = await requestLatest();
+    expect(deniedUnpromoted.response.status, deniedUnpromoted.text).toBe(403);
+
+    const dlpVersion = await uploadDocxVersion(
+      baseUrl,
+      betaOwnerCookie,
+      uploaded.documentId,
+      `${marker}-dlp`,
+      'Synthetic reserved passport fixture M12345678.',
+    );
+    await markCanonicalReadyFixture({
+      documentId: uploaded.documentId,
+      versionId: dlpVersion.versionId,
+      bodyText: 'Synthetic reserved passport fixture M12345678.',
+      extractionMethod: 'docx',
+    });
+    const deniedDlp = await requestLatest();
+    expect(deniedDlp.response.status, deniedDlp.text).toBe(403);
+    const dlp = await withClient(createOwnerClient(), (client) => client.query<{
+      scan_state: string;
+      restricted_finding_count: number;
+    }>(
+      `SELECT scan_state, restricted_finding_count
+       FROM dlp_scan_assessments
+       WHERE tenant_id = $1 AND document_id = $2 AND version_id = $3
+       ORDER BY created_at DESC, assessment_id DESC
+       LIMIT 1`,
+      [tenantBetaId, uploaded.documentId, dlpVersion.versionId],
+    ));
+    expect(dlp.rows[0]).toMatchObject({ scan_state: 'findings', restricted_finding_count: 1 });
   });
 
   it('queues exact Office preview, preserves its source, streams bounded PDF chunks and denies revoked sessions', async () => {

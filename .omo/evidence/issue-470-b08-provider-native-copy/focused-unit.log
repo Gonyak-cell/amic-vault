@@ -1,0 +1,28 @@
+COMMAND: PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm --filter @amic-vault/api exec vitest run src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.contract.spec.ts src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts --reporter=verbose
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+ RUN  v2.1.9 /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925/apps/api
+
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.contract.spec.ts > AMIC OS Vault native document-copy contract > accepts exact immutable application/pdf clone/upload bindings
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.contract.spec.ts > AMIC OS Vault native document-copy contract > accepts exact immutable message/rfc822 clone/upload bindings
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.contract.spec.ts > AMIC OS Vault native document-copy contract > rejects edited immutable content, unsupported MIME, extra fields, and malformed identities
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.contract.spec.ts > AMIC OS Vault native document-copy contract > accepts only aligned chunk offsets and bounded opaque list cursors
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > retains, reads, publishes, and replays an exact immutable application/pdf copy
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > retains, reads, publishes, and replays an exact immutable message/rfc822 copy
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > rejects changed immutable bytes before creating a retained snapshot
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > fails closed after ACL revocation and never publishes or returns retained bytes
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > keeps the retained exact snapshot readable but blocks publication after the source changes
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > does not list a historic copy after its source document is reassigned
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > rolls back a newly written snapshot when the retained checkpoint fails
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > serializes concurrent prepares for the same attempt and retains one snapshot
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > does not classify a retained-state database failure as a missing snapshot
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > blocks a prepared copy only when its retained snapshot cannot be verified
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > leaves a prepared copy retryable when snapshot storage is temporarily unavailable
+ ✓ src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts > AmicOsVaultDocumentCopyService > rejects a replay whose title changes without replacing the original binding
+
+ Test Files  2 passed (2)
+      Tests  16 passed (16)
+   Start at  18:41:37
+   Duration  1.10s (transform 402ms, setup 0ms, collect 998ms, tests 86ms, environment 0ms, prepare 99ms)
+
+EXIT_CODE: 0

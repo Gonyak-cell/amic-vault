@@ -88,6 +88,20 @@ describe('DatabaseService', () => {
     ]);
   });
 
+  it('keeps nested authority reads inside an outer serializable tenant transaction', async () => {
+    const { pool, service } = createService();
+    await service.tenantTransaction(tenantId, async (outerClient) => {
+      await service.tenantTransaction(tenantId, async (innerClient) => {
+        expect(innerClient).toBe(outerClient);
+      }, { isolationLevel: 'repeatable read' });
+    }, { isolationLevel: 'serializable' });
+    expect(pool.client.queries).toEqual([
+      'BEGIN ISOLATION LEVEL SERIALIZABLE',
+      'SELECT set_config($1, $2, true)',
+      'COMMIT',
+    ]);
+  });
+
   it('reuses the active client only for same-tenant nested work and rejects cross-tenant nesting', async () => {
     const { pool, service } = createService();
     await expect(service.tenantTransaction(' ', async () => undefined)).rejects.toBeInstanceOf(

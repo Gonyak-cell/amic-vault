@@ -35,6 +35,8 @@ const oleBytes = Buffer.concat([
 ]);
 const jpgBytes = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
 const pngBytes = Buffer.from('\x89PNG\r\n\x1A\npng payload', 'latin1');
+const gifBytes = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+const webpBytes = Buffer.from('UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA', 'base64');
 
 describe('MimeTypeValidator', () => {
   it('sniffs PDF, DOCX, and HWPX supported files', async () => {
@@ -103,6 +105,15 @@ describe('MimeTypeValidator', () => {
         declaredMimeType: 'image/png',
       }),
     ).resolves.toEqual({ mimeType: 'image/png' });
+    for (const [extension, bytes, mimeType] of [
+      ['gif', gifBytes, 'image/gif'],
+      ['webp', webpBytes, 'image/webp'],
+    ] as const) {
+      await expect(validator.validate({
+        path: await fixtureFile(`a.${extension}`, bytes), sizeBytes: bytes.length,
+        extension, declaredMimeType: mimeType,
+      })).resolves.toEqual({ mimeType });
+    }
     await expect(
       validator.validate({
         path: await fixtureFile('a.xlsx', xlsxBytes),
@@ -168,7 +179,7 @@ describe('MimeTypeValidator', () => {
       ['doc', 'application/msword', 'application/msword'],
       ['xls', 'application/vnd.ms-excel', 'application/vnd.ms-excel'],
       ['ppt', 'application/vnd.ms-powerpoint', 'application/vnd.ms-powerpoint'],
-      ['hwp', 'application/x-hwp', 'application/x-hwp'],
+      ['hwp', 'application/vnd.hancom.hwp', 'application/vnd.hancom.hwp'],
       ['msg', 'application/vnd.ms-outlook', 'application/vnd.ms-outlook'],
     ] as const) {
       await expect(
@@ -273,6 +284,20 @@ describe('MimeTypeValidator', () => {
     const validator = new MimeTypeValidator();
     const zipAsPdf = await fixtureFile('zip.pdf', docxBytes);
     const pdfAsDocx = await fixtureFile('pdf.docx', '%PDF-1.7 test');
+    for (const [extension, bytes, declaredMimeType] of [
+      ['gif', pngBytes, 'image/gif'],
+      ['webp', gifBytes, 'image/webp'],
+      ['png', webpBytes, 'image/png'],
+    ] as const) {
+      await expect(validator.validate({
+        path: await fixtureFile(`bad.${extension}`, bytes), sizeBytes: bytes.length,
+        extension, declaredMimeType,
+      })).rejects.toThrow(UnsupportedMediaTypeException);
+    }
+    await expect(validator.validate({
+      path: await fixtureFile('truncated.webp', webpBytes.subarray(0, -1)),
+      sizeBytes: webpBytes.length - 1, extension: 'webp', declaredMimeType: 'image/webp',
+    })).rejects.toThrow(UnsupportedMediaTypeException);
 
     await expect(
       validator.validate({

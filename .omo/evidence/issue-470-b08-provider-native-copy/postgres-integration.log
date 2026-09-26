@@ -1,0 +1,48 @@
+COMMAND: PATH=/opt/homebrew/opt/node@22/bin:$PATH DATABASE_MIGRATION_URL=postgres://amic_vault:***@localhost:5432/amic_vault_b08_20260925 DATABASE_RUNTIME_URL=postgres://vault_app:***@localhost:5432/amic_vault_b08_20260925 pnpm test:integration -- amic-os-vault-document-copy
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> amic-vault@0.0.0 test:integration /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925
+> node tools/integration/run.mjs -- amic-os-vault-document-copy
+
+
+> @amic-vault/domain@0.0.0 build /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925/packages/domain
+> tsc -p tsconfig.build.json
+
+
+> @amic-vault/shared@0.0.0 build /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925/packages/shared
+> tsc -p tsconfig.build.json
+
+
+> @amic-vault/ai@0.0.0 build /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925/packages/ai
+> tsc -p tsconfig.build.json
+
+
+> @amic-vault/api@0.0.0 build /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925/apps/api
+> tsc -p tsconfig.build.json
+
+{
+  "code": "AI_PREP_QUEUE_PREPARED",
+  "schema": "pgboss",
+  "queues": [
+    "ai.prep.dead",
+    "ai.prep"
+  ],
+  "runtimeRoleGrant": "applied"
+}
+
+> amic-vault@0.0.0 db:seed /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925
+> node tools/db/seed.mjs
+
+seed completed: tenants=2 users=11
+
+ RUN  v2.1.9 /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925
+
+{"level":"error","time":"2026-09-25T09:41:59.224Z","context":"ErrorTracker","requestRef":"ref:3b977a068316cc6b","trace":"[REDACTED]","msg":"unhandled_exception","requestId":"ref:3b977a068316cc6b","method":"POST","path":"[REDACTED]","msg":"unhandled_exception"}
+ ✓ tests/integration/amic-os-vault-document-copy.spec.ts (4 tests) 608ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  18:41:56
+   Duration  2.54s (transform 968ms, setup 0ms, collect 1.76s, tests 608ms, environment 0ms, prepare 36ms)
+
+EXIT_CODE: 0

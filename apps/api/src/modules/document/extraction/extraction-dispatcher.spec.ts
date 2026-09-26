@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { Logger } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -519,8 +520,8 @@ describe('ExtractionDispatcher', () => {
     const secondTx = {
       query: vi
         .fn()
-        .mockResolvedValueOnce({ rowCount: 1, rows: [{ matter_id: matterId }] })
-        .mockResolvedValueOnce({ rowCount: 1, rows: [] }),
+        .mockResolvedValueOnce({ rowCount: 1, rows: [{ matter_id: matterId, source_sha256: 'a'.repeat(64) }] })
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] }),
     };
     const transaction = vi
       .fn()
@@ -554,6 +555,7 @@ describe('ExtractionDispatcher', () => {
           extraction_method: 'ocr',
           body_text: '스캔 계약서 OCR text',
           confidence: 0.7,
+          pages: [{ page: 1, text: '스캔 계약서 OCR text', confidence: 0.70049 }],
           failure_reason_code: null,
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
@@ -562,7 +564,7 @@ describe('ExtractionDispatcher', () => {
 
     await dispatcher.handle(payload);
 
-    expect(secondTx.query.mock.calls[1]?.[1]).toEqual([
+    expect(secondTx.query.mock.calls[2]?.[1]).toEqual([
       tenantId,
       versionId,
       '스캔 계약서 OCR text',
@@ -573,6 +575,26 @@ describe('ExtractionDispatcher', () => {
     ]);
     expect(enqueueVersion).toHaveBeenCalledWith({ tenantId, documentId, versionId }, secondTx);
     expect(enqueueOcrRequired).not.toHaveBeenCalled();
+    const insert = secondTx.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO amic_os_vault_ocr_pages'));
+    expect(insert?.[1]?.[6]).toBe(0.7);
+    expect(insert?.[1]?.[7]).toBe(createHash('sha256').update('1\n스캔 계약서 OCR text\n0.700').digest('hex'));
+  });
+
+  it('preserves corrected OCR pages when a worker retries the same source version', async () => {
+    const tx = { query: vi.fn(async (sql: string) => {
+      if (sql.includes('SELECT d.matter_id')) return { rowCount: 1, rows: [{ matter_id: matterId, source_sha256: 'a'.repeat(64) }] };
+      if (sql.includes('correction_revision > 0')) return { rowCount: 1, rows: [{ '?column?': 1 }] };
+      return { rowCount: 1, rows: [] };
+    }) };
+    const dispatcher = new ExtractionDispatcher(
+      { transaction: vi.fn(async (_tenant: string, run: (client: typeof tx) => Promise<unknown>) => run(tx)) } as never,
+      {} as never,
+      new MetricsRegistry(),
+    );
+
+    await expect(dispatcher.markOcrDeadLetter(payload)).rejects.toThrow('OCR_CORRECTIONS_MUST_BE_PRESERVED');
+    expect(tx.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO canonical_documents'))).toBe(false);
+    expect(tx.query.mock.calls.some(([sql]) => String(sql).includes('DELETE FROM amic_os_vault_ocr_pages'))).toBe(false);
   });
 
   it('stores HWP5 worker results with extraction_method hwp5', async () => {
@@ -703,7 +725,7 @@ describe('ExtractionDispatcher', () => {
       query: vi
         .fn()
         .mockResolvedValueOnce({ rowCount: 1, rows: [{ matter_id: matterId }] })
-        .mockResolvedValueOnce({ rowCount: 1, rows: [] }),
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] }),
     };
     const auditLog = vi.fn(async () => undefined);
     const transaction = vi.fn(
@@ -717,7 +739,7 @@ describe('ExtractionDispatcher', () => {
 
     await dispatcher.markOcrDeadLetter(payload);
 
-    expect(tx.query.mock.calls[1]?.[1]).toEqual([
+    expect(tx.query.mock.calls[2]?.[1]).toEqual([
       tenantId,
       versionId,
       '',

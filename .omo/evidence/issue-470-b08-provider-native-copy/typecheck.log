@@ -1,0 +1,7 @@
+COMMAND: PATH=/opt/homebrew/opt/node@22/bin:$PATH pnpm --filter @amic-vault/api typecheck
+[WARN] The "pnpm" field in package.json is no longer read by pnpm. The following keys were ignored: "pnpm.overrides". See https://pnpm.io/settings for the new home of each setting.
+
+> @amic-vault/api@0.0.0 typecheck /Users/jws/.codex/worktrees/amic-vault-issue-470-provider-20260925/apps/api
+> tsc --noEmit -p tsconfig.json
+
+EXIT_CODE: 0

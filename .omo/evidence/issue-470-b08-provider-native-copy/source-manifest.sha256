@@ -1,0 +1,8 @@
+0f5ba776214315b9a274c4f10d5437c405782ec019b2543d7f924a6a7e3ff6b3  apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.contract.ts
+27a25a8527ebac2a3815637e6ea350947c7716fb8a065014afb204a2b1f8a718  apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.contract.spec.ts
+5f7ca432c5bb06d3cf9731491a4e7c3ecff143c3099a4213c38db980ccd6ed32  apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.ts
+b81cad002d98b36ea2e0304f834dfc830edbe60b32d0867c8aca717700a3794a  apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-document-copy.service.spec.ts
+96d2ce3a23b65215ecd592913a6691bcac055c3e7dbfb35e6e4e93f0a2c91c9b  apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-editor.controller.ts
+f2366818d492da46f30a3d2c0ce0bfca47c9dc89cf417d44e2998076566dc78f  apps/api/src/modules/integrations/amic-os-vault-provider/amic-os-vault-provider.module.ts
+522f414e11d30ff6fdae389d62e688250925448c86efb4951baf5321ad2633e1  db/migrations/0216_create_amic_os_native_document_copies.sql
+471ed09da55500b4480f78048e8c6e7ae79149f1ba690a5d637c9567ccfe9864  tests/integration/amic-os-vault-document-copy.spec.ts

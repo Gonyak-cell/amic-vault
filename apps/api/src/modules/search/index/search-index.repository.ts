@@ -58,6 +58,7 @@ interface SearchIndexSourceRow {
   next_version_id: string | null;
   title: string;
   body_text: string | null;
+  extraction_status: string | null;
   extraction_method: string | null;
   extraction_confidence: number | string | null;
   document_updated_at: Date;
@@ -157,9 +158,9 @@ export class SearchIndexRepository {
   ): Promise<SearchIndexRow | null> {
     const source = await this.findSource(client, input);
     if (!source) return null;
-    const contentText = source.body_text ?? '';
-    const extractionConfidence =
-      source.extraction_confidence === null ? null : Number(source.extraction_confidence);
+    const contentText = source.extraction_status === 'ready' ? source.body_text ?? '' : '';
+    const extractionConfidence = source.extraction_status === 'ready' && source.extraction_confidence !== null
+      ? Number(source.extraction_confidence) : null;
     const ocrLowConfidence =
       source.extraction_method === 'ocr' &&
       extractionConfidence !== null &&
@@ -278,8 +279,58 @@ export class SearchIndexRepository {
             ORDER BY next_dv.version_no ASC, next_dv.created_at ASC, next_dv.version_id ASC
             LIMIT 1
           ) AS next_version_id,
-          d.document_type, d.status AS document_status, dv.version_status, d.title,
-          cd.body_text, cd.extraction_method, cd.confidence AS extraction_confidence,
+          d.document_type, d.status AS document_status, dv.version_status,
+          coalesce(d.amic_os_filename, d.title) AS title,
+          CASE WHEN cd.extraction_method = 'ocr' AND cd.extraction_status = 'ready'
+              AND (
+                SELECT count(*) = count(DISTINCT page.page_number)
+                  AND min(page.page_number) = 1
+                  AND max(page.page_number) = count(*)
+                  AND bool_and(page.source_result_sha256 = encode(digest(
+                    page.page_number::text || E'\n' || page.page_text || E'\n'
+                    || to_char(page.confidence, 'FM0.000'), 'sha256'), 'hex'))
+                FROM amic_os_vault_ocr_pages page
+                WHERE page.tenant_id = dv.tenant_id AND page.version_id = dv.version_id
+                  AND page.source_sha256 = dv.file_hash
+              )
+            THEN (
+              SELECT CASE WHEN count(*) > 0 AND bool_and(
+                page.source_result_sha256 = encode(digest(
+                  page.page_number::text || E'\n' || page.page_text || E'\n'
+                  || to_char(page.confidence, 'FM0.000'), 'sha256'), 'hex'))
+                THEN string_agg(coalesce(page.corrected_text, page.page_text), E'\n\n'
+                  ORDER BY page.page_number)
+                ELSE NULL END
+              FROM amic_os_vault_ocr_pages page
+              WHERE page.tenant_id = dv.tenant_id
+                AND page.document_id = dv.document_id
+                AND page.version_id = dv.version_id
+                AND page.source_sha256 = dv.file_hash
+            )
+            ELSE cd.body_text END AS body_text,
+          CASE WHEN cd.extraction_method = 'ocr' AND cd.extraction_status = 'ready'
+              AND EXISTS (
+                SELECT 1 FROM amic_os_vault_ocr_pages page
+                WHERE page.tenant_id = dv.tenant_id AND page.version_id = dv.version_id
+                  AND page.source_sha256 = dv.file_hash
+              ) AND (
+                SELECT count(*) = max(page.page_number)
+                  AND min(page.page_number) = 1
+                FROM amic_os_vault_ocr_pages page
+                WHERE page.tenant_id = dv.tenant_id AND page.version_id = dv.version_id
+                  AND page.source_sha256 = dv.file_hash
+              ) AND NOT EXISTS (
+                SELECT 1 FROM amic_os_vault_ocr_pages page
+                WHERE page.tenant_id = dv.tenant_id AND page.version_id = dv.version_id
+                  AND page.source_sha256 = dv.file_hash
+                  AND page.source_result_sha256 <> encode(digest(
+                    page.page_number::text || E'\n' || page.page_text || E'\n'
+                    || to_char(page.confidence, 'FM0.000'), 'sha256'), 'hex')
+              ) THEN 'ready'
+            WHEN cd.extraction_method = 'ocr' THEN 'ocr_pending'
+            ELSE cd.extraction_status END AS extraction_status,
+          cd.extraction_method,
+          cd.confidence AS extraction_confidence,
           d.updated_at AS document_updated_at
         FROM document_versions dv
         JOIN documents d

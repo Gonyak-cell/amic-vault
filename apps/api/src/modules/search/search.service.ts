@@ -192,6 +192,10 @@ function filterRefs(input: SearchQueryDto, scopeRules: readonly string[] = []): 
   refs.push(`group:${input.groupBy ?? 'none'}`);
   const filters = input.filters;
   if (filters) {
+    if (filters.clientCode) refs.push('client_code_filter:present');
+    if (filters.mimeType) refs.push('mime_type_filter:present');
+    if (filters.tags?.length) refs.push('tags_filter:present');
+    if (filters.dateBasis) refs.push(`date_basis:${filters.dateBasis}`);
     if (filters.matterId) refs.push(`matter_id:${filters.matterId}`);
     if (filters.clientId) refs.push(`client_id:${filters.clientId}`);
     if (filters.matterCode) refs.push('matter_code_filter:present');

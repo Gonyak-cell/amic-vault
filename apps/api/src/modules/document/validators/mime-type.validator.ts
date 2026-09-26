@@ -21,6 +21,7 @@ const supportedMimeExtensions = [
   'doc',
   'docx',
   'eml',
+  'gif',
   'hwp',
   'hwpx',
   'html',
@@ -36,6 +37,7 @@ const supportedMimeExtensions = [
   'ppt',
   'pptx',
   'txt',
+  'webp',
   'xls',
   'xlsx',
   'zip',
@@ -58,7 +60,7 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
   doc: {
     extension: 'doc',
     mimeType: 'application/msword',
-    declaredAliases: ['application/msword', 'application/vnd.ms-word', 'application/octet-stream'],
+    declaredAliases: ['application/msword', 'application/vnd.ms-word', 'application/x-ole-storage', 'application/octet-stream'],
   },
   docx: {
     extension: 'docx',
@@ -73,10 +75,15 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
     mimeType: 'message/rfc822',
     declaredAliases: ['message/rfc822', 'text/plain', 'application/octet-stream'],
   },
+  gif: {
+    extension: 'gif',
+    mimeType: 'image/gif',
+    declaredAliases: ['image/gif'],
+  },
   hwp: {
     extension: 'hwp',
-    mimeType: 'application/x-hwp',
-    declaredAliases: ['application/x-hwp', 'application/haansofthwp', 'application/octet-stream'],
+    mimeType: 'application/vnd.hancom.hwp',
+    declaredAliases: ['application/vnd.hancom.hwp', 'application/x-hwp', 'application/haansofthwp', 'application/x-ole-storage', 'application/octet-stream'],
   },
   hwpx: {
     extension: 'hwpx',
@@ -86,6 +93,7 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
       'application/hwp+zip',
       'application/x-hwp+zip',
       'application/zip',
+      'application/x-zip-compressed',
     ],
   },
   html: {
@@ -141,7 +149,7 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
   ppt: {
     extension: 'ppt',
     mimeType: 'application/vnd.ms-powerpoint',
-    declaredAliases: ['application/vnd.ms-powerpoint', 'application/octet-stream'],
+    declaredAliases: ['application/vnd.ms-powerpoint', 'application/x-ole-storage', 'application/octet-stream'],
   },
   pptx: {
     extension: 'pptx',
@@ -156,10 +164,15 @@ const supportedMimes: Record<SupportedMimeExtension, SupportedMime> = {
     mimeType: 'text/plain',
     declaredAliases: ['text/plain'],
   },
+  webp: {
+    extension: 'webp',
+    mimeType: 'image/webp',
+    declaredAliases: ['image/webp'],
+  },
   xls: {
     extension: 'xls',
     mimeType: 'application/vnd.ms-excel',
-    declaredAliases: ['application/vnd.ms-excel', 'application/msexcel', 'application/octet-stream'],
+    declaredAliases: ['application/vnd.ms-excel', 'application/msexcel', 'application/x-ole-storage', 'application/octet-stream'],
   },
   xlsx: {
     extension: 'xlsx',
@@ -211,6 +224,13 @@ function sniffSupportedBinaryMime(
 ): SupportedMime {
   if (startsWith(buffer, '%PDF')) return supportedMimes.pdf;
   if (startsWith(buffer, '\x89PNG\r\n\x1A\n')) return supportedMimes.png;
+  if (startsWith(buffer, 'GIF87a') || startsWith(buffer, 'GIF89a')) return supportedMimes.gif;
+  if (startsWith(buffer, 'RIFF') && buffer.length >= 21
+      && startsWith(buffer.subarray(8), 'WEBP')
+      && ['VP8 ', 'VP8L', 'VP8X'].includes(buffer.subarray(12, 16).toString('latin1'))
+      && buffer.readUInt32LE(4) + 8 === buffer.length
+      && buffer.readUInt32LE(16) > 0
+      && 20 + buffer.readUInt32LE(16) + (buffer.readUInt32LE(16) % 2) <= buffer.length) return supportedMimes.webp;
   if (startsWith(buffer, '\xFF\xD8\xFF')) {
     if (extension === 'jpg' || extension === 'jpeg') return supportedMimes[extension];
     return supportedMimes.jpg;

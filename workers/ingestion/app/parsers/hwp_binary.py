@@ -21,7 +21,7 @@ hwp5_signature = b"\xd0\xcf\x11\xe0"
 
 
 def is_hwp_binary(payload: bytes) -> bool:
-    return payload.startswith(hwp5_signature)
+    return len(payload) >= 68 and payload.startswith(hwp5_signature)
 
 
 def _hwp5txt_command() -> str:

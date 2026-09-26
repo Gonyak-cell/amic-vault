@@ -11,6 +11,7 @@ import { StorageService } from '../../storage/storage.service';
 import { StoragePathResolver } from '../../storage/storage-path.resolver';
 import type {
   DocumentAnnotationExtractionInput,
+  DocumentOcrPageInput,
   DocumentRevisionExtractionInput,
   ExtractionJobPayload,
   ExtractionResultInput,
@@ -31,6 +32,7 @@ interface WorkerResponse {
   body_text?: unknown;
   confidence?: unknown;
   failure_reason_code?: unknown;
+  pages?: unknown;
 }
 
 const b10ParserVersion = 'b10-worker-v1';
@@ -166,12 +168,13 @@ function parseAnnotationResponse(
 function parseWorkerResponse(payload: WorkerResponse, fallback: ExtractionJobPayload) {
   const status = payload.status;
   const method = payload.extraction_method;
-  const confidence = typeof payload.confidence === 'number' ? payload.confidence : 0;
+  const confidence = typeof payload.confidence === 'number' ? payload.confidence : Number.NaN;
   if (
     typeof status !== 'string' ||
     typeof method !== 'string' ||
     !isExtractionStatus(status) ||
     !isExtractionMethod(method) ||
+    !Number.isFinite(confidence) ||
     confidence < 0 ||
     confidence > 1
   ) {
@@ -192,6 +195,32 @@ function parseWorkerResponse(payload: WorkerResponse, fallback: ExtractionJobPay
     status === 'ready' && typeof payload.body_text === 'string'
       ? sanitizeBodyText(payload.body_text)
       : '';
+  let ocrPages: DocumentOcrPageInput[] | undefined;
+  if (status === 'ready' && method === 'ocr') {
+    const pages = payload.pages;
+    if (!Array.isArray(pages) || pages.length < 1 || pages.length > 200
+        || pages.some((item, index) => !isRecord(item)
+          || item.page !== index + 1
+          || typeof item.text !== 'string' || item.text.length > 1_000_000
+          || typeof item.confidence !== 'number' || !Number.isFinite(item.confidence)
+          || item.confidence < 0 || item.confidence > 1)) {
+      return {
+        ...fallback, status: 'failed' as const, method: 'ocr' as const,
+        bodyText: '', confidence: 0, failureReasonCode: 'OCR_PAGES_INVALID',
+      };
+    }
+    ocrPages = pages.map((item) => ({
+      page: item.page as number,
+      text: sanitizeBodyText(item.text as string),
+      confidence: Number((item.confidence as number).toFixed(3)),
+    }));
+    if (ocrPages.filter((item) => item.text.trim()).map((item) => item.text.trim()).join('\n\n').trim() !== bodyText.trim()) {
+      return {
+        ...fallback, status: 'failed' as const, method: 'ocr' as const,
+        bodyText: '', confidence: 0, failureReasonCode: 'OCR_PAGES_INVALID',
+      };
+    }
+  }
   return {
     tenantId: fallback.tenantId,
     documentId: fallback.documentId,
@@ -201,6 +230,7 @@ function parseWorkerResponse(payload: WorkerResponse, fallback: ExtractionJobPay
     method,
     bodyText,
     confidence,
+    ...(ocrPages ? { ocrPages } : {}),
     failureReasonCode:
       status === 'failed'
         ? normalizeFailureReasonCode(payload.failure_reason_code, 'WORKER_FAILED')
@@ -501,6 +531,18 @@ export class ExtractionDispatcher {
         });
         return;
       }
+      if (input.method === 'ocr') {
+        const corrected = await tx.query(
+          `SELECT 1 FROM amic_os_vault_ocr_pages
+           WHERE tenant_id = $1::uuid AND version_id = $2::uuid
+             AND correction_revision > 0
+           LIMIT 1 FOR SHARE`,
+          [input.tenantId, input.versionId],
+        );
+        if (corrected.rowCount) {
+          throw new Error('OCR_CORRECTIONS_MUST_BE_PRESERVED');
+        }
+      }
       await tx.query(
         `
           INSERT INTO canonical_documents (
@@ -528,6 +570,24 @@ export class ExtractionDispatcher {
           input.failureReasonCode,
         ],
       );
+      if (input.method === 'ocr') {
+        await tx.query(
+          `DELETE FROM amic_os_vault_ocr_pages
+           WHERE tenant_id = $1::uuid AND version_id = $2::uuid`,
+          [input.tenantId, input.versionId],
+        );
+        for (const page of input.status === 'ready' ? input.ocrPages ?? [] : []) {
+          await tx.query(
+            `INSERT INTO amic_os_vault_ocr_pages (
+              tenant_id, version_id, document_id, source_sha256, page_number,
+              page_text, confidence, source_result_sha256
+            ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8)`,
+            [input.tenantId, input.versionId, input.documentId, target.sourceSha256,
+              page.page, page.text, page.confidence,
+              sha256Hex(`${page.page}\n${page.text}\n${page.confidence.toFixed(3)}`)],
+          );
+        }
+      }
       await this.auditService.log(
         {
           tenantId: input.tenantId,
@@ -561,6 +621,8 @@ export class ExtractionDispatcher {
           versionId: input.versionId,
           bodyText: input.bodyText,
         });
+      }
+      if (input.status === 'ready' || input.method === 'ocr') {
         await this.searchIndexSync?.enqueueVersion(
           {
             tenantId: input.tenantId,
@@ -569,6 +631,8 @@ export class ExtractionDispatcher {
           },
           tx,
         );
+      }
+      if (input.status === 'ready' && target.matterId) {
         await this.graphSyncOutbox?.enqueue(
           {
             tenantId: input.tenantId,
@@ -597,10 +661,10 @@ export class ExtractionDispatcher {
   private async findTargetInTransaction(
     input: ExtractionJobPayload,
     queryClient: QueryClient,
-  ): Promise<{ matterId: string | null } | null> {
+  ): Promise<{ matterId: string | null; sourceSha256: string } | null> {
     const result = await queryClient.query(
       `
-        SELECT d.matter_id
+        SELECT d.matter_id, dv.file_hash AS source_sha256
         FROM document_versions dv
         JOIN documents d
           ON d.tenant_id = dv.tenant_id
@@ -614,8 +678,8 @@ export class ExtractionDispatcher {
       `,
       [input.tenantId, input.documentId, input.versionId, input.fileObjectId],
     );
-    const row = result.rows[0] as { matter_id: string | null } | undefined;
-    return row ? { matterId: row.matter_id } : null;
+    const row = result.rows[0] as { matter_id: string | null; source_sha256: string } | undefined;
+    return row ? { matterId: row.matter_id, sourceSha256: row.source_sha256 } : null;
   }
 
   private async storeDocumentRevisions(

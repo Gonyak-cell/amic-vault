@@ -13,6 +13,7 @@ import { UserModule } from '../../user/user.module';
 import { DocumentModule } from '../../document/document.module';
 import { AmicOsVaultEditorController } from './amic-os-vault-editor.controller';
 import { AmicOsVaultEditorService } from './amic-os-vault-editor.service';
+import { AmicOsVaultDocumentCopyService } from './amic-os-vault-document-copy.service';
 import { AmicOsVaultProviderController } from './amic-os-vault-provider.controller';
 import {
   AmicOsVaultProviderConfig,
@@ -28,6 +29,10 @@ import { AmicOsVaultReadController } from './amic-os-vault-read.controller';
 import { AmicOsVaultClientController } from './amic-os-vault-client.controller';
 import { AmicOsVaultClientService } from './amic-os-vault-client.service';
 import { AmicOsVaultReadService } from './amic-os-vault-read.service';
+import { AmicOsVaultMetadataController } from './amic-os-vault-metadata.controller';
+import { AmicOsVaultMetadataService } from './amic-os-vault-metadata.service';
+import { AmicOsVaultOcrController } from './amic-os-vault-ocr.controller';
+import { AmicOsVaultOcrService } from './amic-os-vault-ocr.service';
 
 @Module({
   imports: [
@@ -50,7 +55,9 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultUploadController,
     AmicOsVaultCapabilityController,
     AmicOsVaultReadController,
+    AmicOsVaultMetadataController,
     AmicOsVaultEditorController,
+    AmicOsVaultOcrController,
   ],
   providers: [
     AmicOsVaultClientService,
@@ -59,7 +66,10 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultProviderService,
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
+    AmicOsVaultMetadataService,
     AmicOsVaultEditorService,
+    AmicOsVaultDocumentCopyService,
+    AmicOsVaultOcrService,
   ],
   exports: [
     AmicOsVaultClientService,
@@ -67,7 +77,9 @@ import { AmicOsVaultReadService } from './amic-os-vault-read.service';
     AmicOsVaultProviderService,
     AmicOsVaultUploadService,
     AmicOsVaultReadService,
+    AmicOsVaultMetadataService,
     AmicOsVaultEditorService,
+    AmicOsVaultDocumentCopyService,
   ],
 })
 export class AmicOsVaultProviderModule {}

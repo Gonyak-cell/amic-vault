@@ -24,7 +24,7 @@ function generatedChunkId(index: number): string {
   return `11111111-1111-4111-8111-${(200 + index).toString().padStart(12, '0')}`;
 }
 
-function createClientMock(bodyText = sourceBodyText) {
+function createClientMock(bodyText = sourceBodyText, extractionStatus = 'ready') {
   const truncatedContent = truncateUtf8(bodyText);
   const sourceTextHash = sha256Hex(bodyText);
   let callIndex = 0;
@@ -51,6 +51,7 @@ function createClientMock(bodyText = sourceBodyText) {
               next_version_id: null,
               title: 'Searchable title',
               body_text: bodyText,
+              extraction_status: extractionStatus,
               extraction_method: 'ocr',
               extraction_confidence: '0.700',
               document_updated_at: new Date('2026-06-11T00:00:00.000Z'),
@@ -105,6 +106,29 @@ describe('SearchIndexRepository', () => {
     expect(truncateUtf8('가나다', 4)).toBe('가');
   });
 
+  it('does not publish unready OCR or failed extraction text into body chunks', async () => {
+    for (const status of ['pending', 'ocr_pending', 'failed']) {
+      const client = createClientMock('unverified OCR table cell', status);
+      const embeddingGateway = {
+        embedText: vi.fn(async () => ({
+          status: 'completed' as const,
+          route: 'bge_m3' as const,
+          embedding: embedding1024,
+        })),
+      } satisfies SearchEmbeddingGateway;
+      await new SearchIndexRepository(embeddingGateway).upsertVersion(client, {
+        tenantId, documentId, versionId,
+      });
+      const indexParams = client.query.mock.calls[1]?.[1] as unknown[];
+      expect(indexParams[13]).toBe('');
+      expect(indexParams[14]).toBeNull();
+      expect(indexParams[15]).toBe(false);
+      expect(indexParams[17]).toBe(sha256Hex(''));
+      expect(embeddingGateway.embedText).not.toHaveBeenCalled();
+      expect(String(client.query.mock.calls[0]?.[0])).toContain('cd.extraction_status');
+    }
+  });
+
   it('upserts reference metadata and hashes full source text', async () => {
     const client = createClientMock();
     const embeddingGateway = {
@@ -138,6 +162,7 @@ describe('SearchIndexRepository', () => {
     });
     expect(String(client.query.mock.calls[0]?.[0])).toContain('FROM file_security_promotions promotion');
     expect(String(client.query.mock.calls[0]?.[0])).toContain("scan.state = 'promoted'");
+    expect(String(client.query.mock.calls[0]?.[0])).toContain('coalesce(d.amic_os_filename, d.title) AS title');
     expect(client.query.mock.calls[1]?.[1]).not.toContain('body');
     expect(client.query.mock.calls[6]?.[1]).toContain(childChunkId);
     expect(embeddingGateway.embedText).toHaveBeenCalledWith({ text: 'Confidential source body' });

@@ -111,6 +111,7 @@ def _extension_from_stored_object(stored: WorkerStoredObject) -> str:
         "application/vnd.ms-powerpoint": "ppt",
         "application/x-hwp": "hwp",
         "application/vnd.hancom.hwp": "hwp",
+        "application/haansofthwp": "hwp",
         "application/haansofthwpx": "hwpx",
         "application/vnd.hancom.hwpx": "hwpx",
         "application/hwp+zip": "hwpx",
@@ -123,6 +124,8 @@ def _extension_from_stored_object(stored: WorkerStoredObject) -> str:
     }
     if content_type in known:
         return known[content_type]
+    if content_type == "application/x-ole-storage":
+        return "hwp" if is_hwp_binary(stored.body) else ""
     if stored.body.startswith(b"%PDF"):
         return "pdf"
     if stored.body.startswith(b"\xd0\xcf\x11\xe0"):

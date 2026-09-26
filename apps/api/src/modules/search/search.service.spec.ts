@@ -592,7 +592,16 @@ describe('SearchService search privacy', () => {
 
     await expect(
       service.search(ctx, {
-        filters: { matterCode: 'AMIC-2026-0001', title: 'Secret acquisition plan' },
+        filters: {
+          matterCode: 'AMIC-2026-0001',
+          title: 'Secret acquisition plan',
+          clientCode: 'lawos-client-1',
+          mimeType: ['application/pdf'],
+          tags: ['closing'],
+          dateFrom: '2026-06-12T09:00:00+09:00',
+          dateTo: '2026-06-12T10:00:00+09:00',
+          dateBasis: 'created_or_modified',
+        },
         page: 1,
         pageSize: 10,
         query: privateQuery,
@@ -629,6 +638,10 @@ describe('SearchService search privacy', () => {
         targetType: 'search',
       }),
     );
+    expect(auditEvent.metadata.filter_refs).toEqual(expect.stringContaining('client_code_filter:present'));
+    expect(auditEvent.metadata.filter_refs).toEqual(expect.stringContaining('mime_type_filter:present'));
+    expect(auditEvent.metadata.filter_refs).toEqual(expect.stringContaining('tags_filter:present'));
+    expect(auditEvent.metadata.filter_refs).toEqual(expect.stringContaining('date_basis:created_or_modified'));
     expect(Object.keys(auditEvent.metadata).sort()).toEqual([
       'duration_ms',
       'filter_refs',

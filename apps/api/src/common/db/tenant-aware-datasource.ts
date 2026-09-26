@@ -6,7 +6,7 @@ export interface QueryClient {
 }
 
 export interface TenantTransactionOptions {
-  isolationLevel?: 'repeatable read';
+  isolationLevel?: 'repeatable read' | 'serializable';
 }
 
 @Injectable()
@@ -36,7 +36,11 @@ export class TenantAwareDataSource {
     }
 
     await client.query(
-      options.isolationLevel === 'repeatable read' ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN',
+      options.isolationLevel === 'serializable'
+        ? 'BEGIN ISOLATION LEVEL SERIALIZABLE'
+        : options.isolationLevel === 'repeatable read'
+          ? 'BEGIN ISOLATION LEVEL REPEATABLE READ'
+          : 'BEGIN',
     );
     try {
       await client.query('SELECT set_config($1, $2, true)', [
