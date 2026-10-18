@@ -25,7 +25,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
-      - run: node --test tools/release/build-vault-search-sort-repair.spec.mjs
+      - run: node --test tools/release/build-vault-search-sort-repair.spec.mjs tools/release/build-vault-email-repair.spec.mjs
       - run: pnpm exec vitest run tools/evalset/local-ai-eval.spec.ts
       - run: node --test tools/quality/check-telemetry-policy.spec.mjs
       - run: node tools/quality/check-telemetry-policy.mjs
